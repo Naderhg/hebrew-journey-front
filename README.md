@@ -1,14 +1,45 @@
-# Welcome to your Lovable project
+# Hebrew Journey Front
+
+# منصة تعلم العبرية — خطة الفرونت إند 
+
+## الهدف
+بناء واجهة كاملة قابلة للعرض على العميل: كل الشاشات والتدفقات تعمل ببيانات تجريبية، بدون قاعدة بيانات أو ذكاء اصطناعي حقيقي في هذه المرحلة.
+
+
+## الأدوار
+- **طالب** — اختبار المستوى، خطته، المحادثات، الواجبات، تقدمه.
+- **مدرس** — طلابه، مستوياتهم، أخطاؤهم، ملاحظات وواجبات.
+- **أدمن** — المستخدمون، السيناريوهات، اللغات، تقارير عامة.
+- **سيلز** — العملاء المحتملون، مراحل البيع، الاشتراكات.
+- **خدمة عملاء** — التذاكر والمحادثات والمتابعة.
+- **تعدد المدرسين** مبني من الأول: كل طالب يمكن ربطه بأكثر من مدرس/مجموعة.
+
+## الشاشات
+1. صفحة تعريفية للمنصة + تسجيل/دخول + اختيار الدور (تجريبي).
+2. اختبار تحديد المستوى: قراءة، استماع، كتابة، محادثة + صفحة نتيجة بالمستوى ونقاط القوة والضعف.
+3. خطة تعلم شخصية: وحدات ومهام يومية مبنية على نقاط الضعف.
+4. المحادثة مع الـAI: شاشة محادثة بالعبرية + زر تسجيل صوتي + لوحة تحليل (قواعد، مفردات، انسيابية).
+5. مكتبة السيناريوهات الواقعية: مطعم، مستشفى، بنك، مقابلة عمل، كول سنتر، بيع، سفر، شقة… مع مستوى صعوبة لكل واحد.
+6. سجل الأخطاء: كل خطأ متكرر بعدد مرات تكراره + تدريب مخصص عليه.
+7. لوحة الطالب: المستوى، نسبة التقدم، الواجبات، المهام اليومية.
+8. لوحة المدرس: قائمة الطلاب، تفاصيل طالب، إضافة ملاحظة وواجب.
+9. لوحات الأدمن والسيلز وخدمة العملاء.
+10. نظام التقدم: رسوم بيانية لستة مهارات + تاريخ التطور.
+11. تبديل اللغة: العبرية أولًا، مع جاهزية إضافة الإنجليزية والصينية (وكل النصوص من ملف ترجمة واحد، ودعم الكتابة من اليمين لليسار).
+
+
+
+نبني الشكل البصري أولًا (٣ اتجاهات تصميم تختار منها)، ثم الشاشات بالترتيب أعلاه.
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/d6a20283-11e9-42b8-b477-fdd3110c1b07).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +51,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS

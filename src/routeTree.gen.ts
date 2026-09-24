@@ -10,33 +10,180 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ConversationRouteImport } from './routes/conversation'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as MistakesRouteImport } from './routes/mistakes'
+import { Route as PlacementRouteImport } from './routes/placement'
+import { Route as PlanRouteImport } from './routes/plan'
+import { Route as ProgressRouteImport } from './routes/progress'
+import { Route as SalesRouteImport } from './routes/sales'
+import { Route as ScenariosRouteImport } from './routes/scenarios'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as TeacherRouteImport } from './routes/teacher'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConversationRoute = ConversationRouteImport.update({
+  id: '/conversation',
+  path: '/conversation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MistakesRoute = MistakesRouteImport.update({
+  id: '/mistakes',
+  path: '/mistakes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlacementRoute = PlacementRouteImport.update({
+  id: '/placement',
+  path: '/placement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanRoute = PlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProgressRoute = ProgressRouteImport.update({
+  id: '/progress',
+  path: '/progress',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SalesRoute = SalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScenariosRoute = ScenariosRouteImport.update({
+  id: '/scenarios',
+  path: '/scenarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherRoute = TeacherRouteImport.update({
+  id: '/teacher',
+  path: '/teacher',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/conversation': typeof ConversationRoute
+  '/dashboard': typeof DashboardRoute
+  '/mistakes': typeof MistakesRoute
+  '/placement': typeof PlacementRoute
+  '/plan': typeof PlanRoute
+  '/progress': typeof ProgressRoute
+  '/sales': typeof SalesRoute
+  '/scenarios': typeof ScenariosRoute
+  '/support': typeof SupportRoute
+  '/teacher': typeof TeacherRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/conversation': typeof ConversationRoute
+  '/dashboard': typeof DashboardRoute
+  '/mistakes': typeof MistakesRoute
+  '/placement': typeof PlacementRoute
+  '/plan': typeof PlanRoute
+  '/progress': typeof ProgressRoute
+  '/sales': typeof SalesRoute
+  '/scenarios': typeof ScenariosRoute
+  '/support': typeof SupportRoute
+  '/teacher': typeof TeacherRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/conversation': typeof ConversationRoute
+  '/dashboard': typeof DashboardRoute
+  '/mistakes': typeof MistakesRoute
+  '/placement': typeof PlacementRoute
+  '/plan': typeof PlanRoute
+  '/progress': typeof ProgressRoute
+  '/sales': typeof SalesRoute
+  '/scenarios': typeof ScenariosRoute
+  '/support': typeof SupportRoute
+  '/teacher': typeof TeacherRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/conversation'
+    | '/dashboard'
+    | '/mistakes'
+    | '/placement'
+    | '/plan'
+    | '/progress'
+    | '/sales'
+    | '/scenarios'
+    | '/support'
+    | '/teacher'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/conversation'
+    | '/dashboard'
+    | '/mistakes'
+    | '/placement'
+    | '/plan'
+    | '/progress'
+    | '/sales'
+    | '/scenarios'
+    | '/support'
+    | '/teacher'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/conversation'
+    | '/dashboard'
+    | '/mistakes'
+    | '/placement'
+    | '/plan'
+    | '/progress'
+    | '/sales'
+    | '/scenarios'
+    | '/support'
+    | '/teacher'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  ConversationRoute: typeof ConversationRoute
+  DashboardRoute: typeof DashboardRoute
+  MistakesRoute: typeof MistakesRoute
+  PlacementRoute: typeof PlacementRoute
+  PlanRoute: typeof PlanRoute
+  ProgressRoute: typeof ProgressRoute
+  SalesRoute: typeof SalesRoute
+  ScenariosRoute: typeof ScenariosRoute
+  SupportRoute: typeof SupportRoute
+  TeacherRoute: typeof TeacherRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +195,99 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conversation': {
+      id: '/conversation'
+      path: '/conversation'
+      fullPath: '/conversation'
+      preLoaderRoute: typeof ConversationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mistakes': {
+      id: '/mistakes'
+      path: '/mistakes'
+      fullPath: '/mistakes'
+      preLoaderRoute: typeof MistakesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/placement': {
+      id: '/placement'
+      path: '/placement'
+      fullPath: '/placement'
+      preLoaderRoute: typeof PlacementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plan': {
+      id: '/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/progress': {
+      id: '/progress'
+      path: '/progress'
+      fullPath: '/progress'
+      preLoaderRoute: typeof ProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sales': {
+      id: '/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scenarios': {
+      id: '/scenarios'
+      path: '/scenarios'
+      fullPath: '/scenarios'
+      preLoaderRoute: typeof ScenariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher': {
+      id: '/teacher'
+      path: '/teacher'
+      fullPath: '/teacher'
+      preLoaderRoute: typeof TeacherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  ConversationRoute: ConversationRoute,
+  DashboardRoute: DashboardRoute,
+  MistakesRoute: MistakesRoute,
+  PlacementRoute: PlacementRoute,
+  PlanRoute: PlanRoute,
+  ProgressRoute: ProgressRoute,
+  SalesRoute: SalesRoute,
+  ScenariosRoute: ScenariosRoute,
+  SupportRoute: SupportRoute,
+  TeacherRoute: TeacherRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

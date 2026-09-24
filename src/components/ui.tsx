@@ -1,0 +1,13 @@
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { cn } from "../lib/utils";
+
+export function Button({ className, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "dark" | "ghost" }) {
+  const variants = { primary: "bg-brand text-primary-foreground hover:bg-brand/90", secondary: "bg-brand/10 text-brand hover:bg-brand/15", dark: "bg-ink text-primary-foreground hover:bg-ink/90", ghost: "border border-border bg-background/50 text-foreground hover:bg-accent" };
+  return <button className={cn("inline-flex min-h-9 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50", variants[variant], className)} {...props} />;
+}
+export function Card({ children, className }: { children: ReactNode; className?: string }) { return <section className={cn("glass rounded-lg p-5", className)}>{children}</section>; }
+export function Badge({ children, tone = "brand" }: { children: ReactNode; tone?: "brand" | "sage" | "gold" | "muted" | "danger" }) {
+  const tones = { brand: "bg-brand/10 text-brand", sage: "bg-sage/12 text-sage", gold: "bg-gold/12 text-gold", muted: "bg-muted text-muted-foreground", danger: "bg-danger/10 text-danger" };
+  return <span className={cn("inline-flex rounded-md px-2 py-1 text-xs font-semibold", tones[tone])}>{children}</span>;
+}
+export function ProgressBar({ value, tone = "brand" }: { value: number; tone?: string }) { return <div className="h-1.5 overflow-hidden rounded-full bg-ink/10"><div className={cn("h-full rounded-full", tone === "sage" ? "bg-sage" : tone === "gold" ? "bg-gold" : tone === "brand2" ? "bg-brand2" : tone === "mut" ? "bg-muted-foreground" : "bg-brand")} style={{ width: `${value}%` }} /></div>; }

@@ -13,10 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ConversationRouteImport } from './routes/conversation'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MistakesRouteImport } from './routes/mistakes'
 import { Route as PlacementRouteImport } from './routes/placement'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as ProgressRouteImport } from './routes/progress'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
 import { Route as SupportRouteImport } from './routes/support'
@@ -42,6 +44,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MistakesRoute = MistakesRouteImport.update({
   id: '/mistakes',
   path: '/mistakes',
@@ -60,6 +67,11 @@ const PlanRoute = PlanRouteImport.update({
 const ProgressRoute = ProgressRouteImport.update({
   id: '/progress',
   path: '/progress',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SalesRoute = SalesRouteImport.update({
@@ -88,10 +100,12 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/conversation': typeof ConversationRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
   '/plan': typeof PlanRoute
   '/progress': typeof ProgressRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
   '/support': typeof SupportRoute
@@ -102,10 +116,12 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/conversation': typeof ConversationRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
   '/plan': typeof PlanRoute
   '/progress': typeof ProgressRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
   '/support': typeof SupportRoute
@@ -117,10 +133,12 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/conversation': typeof ConversationRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
   '/plan': typeof PlanRoute
   '/progress': typeof ProgressRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
   '/support': typeof SupportRoute
@@ -133,10 +151,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/conversation'
     | '/dashboard'
+    | '/login'
     | '/mistakes'
     | '/placement'
     | '/plan'
     | '/progress'
+    | '/register'
     | '/sales'
     | '/scenarios'
     | '/support'
@@ -147,10 +167,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/conversation'
     | '/dashboard'
+    | '/login'
     | '/mistakes'
     | '/placement'
     | '/plan'
     | '/progress'
+    | '/register'
     | '/sales'
     | '/scenarios'
     | '/support'
@@ -161,10 +183,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/conversation'
     | '/dashboard'
+    | '/login'
     | '/mistakes'
     | '/placement'
     | '/plan'
     | '/progress'
+    | '/register'
     | '/sales'
     | '/scenarios'
     | '/support'
@@ -176,10 +200,12 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ConversationRoute: typeof ConversationRoute
   DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
   MistakesRoute: typeof MistakesRoute
   PlacementRoute: typeof PlacementRoute
   PlanRoute: typeof PlanRoute
   ProgressRoute: typeof ProgressRoute
+  RegisterRoute: typeof RegisterRoute
   SalesRoute: typeof SalesRoute
   ScenariosRoute: typeof ScenariosRoute
   SupportRoute: typeof SupportRoute
@@ -216,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mistakes': {
       id: '/mistakes'
       path: '/mistakes'
@@ -242,6 +275,13 @@ declare module '@tanstack/react-router' {
       path: '/progress'
       fullPath: '/progress'
       preLoaderRoute: typeof ProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sales': {
@@ -280,10 +320,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ConversationRoute: ConversationRoute,
   DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
   MistakesRoute: MistakesRoute,
   PlacementRoute: PlacementRoute,
   PlanRoute: PlanRoute,
   ProgressRoute: ProgressRoute,
+  RegisterRoute: RegisterRoute,
   SalesRoute: SalesRoute,
   ScenariosRoute: ScenariosRoute,
   SupportRoute: SupportRoute,

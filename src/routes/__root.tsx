@@ -11,6 +11,7 @@ import { type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "../hooks/use-auth";
+import { PlatformStoreProvider } from "../hooks/use-platform-store";
 
 function NotFoundComponent() {
   return (
@@ -119,7 +120,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
+        <PlatformStoreProvider>
+          <Outlet />
+        </PlatformStoreProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

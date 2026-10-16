@@ -5,15 +5,14 @@ import { getAccessToken } from "../lib/api";
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   register: (input: {
     email: string;
     password: string;
     fullName: string;
     phone?: string;
-    role?: string;
     locale?: string;
-  }) => Promise<void>;
+  }) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -40,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     const { user } = await loginFn({ email, password });
     setUser(user);
+    return user;
   }
 
   async function register(input: {
@@ -47,10 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string;
     fullName: string;
     phone?: string;
-    role?: string;
     locale?: string;
   }) {
-    await registerFn(input);
+    const { user } = await registerFn(input);
+    return user;
   }
 
   async function logout() {

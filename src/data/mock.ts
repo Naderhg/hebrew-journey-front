@@ -1,17 +1,9 @@
-export const skills = [
-  { name: "قراءة", value: 82, tone: "sage" }, { name: "قواعد", value: 57, tone: "gold" },
-  { name: "مفردات", value: 64, tone: "brand" }, { name: "استماع", value: 40, tone: "brand2" },
-  { name: "كتابة", value: 33, tone: "mut" }, { name: "محادثة", value: 48, tone: "sage" },
-];
-export const scenarios = [
-  ["مطعم", "הזמנה במסעדה", "A2", "طلب الطعام وتعديل الطلب"], ["مستشفى", "אצל הרופא", "B1", "شرح الأعراض وفهم التعليمات"],
-  ["بنك", "פתיחת חשבון", "B1", "فتح حساب والاستفسار عن الرسوم"], ["مقابلة عمل", "ראיון עבודה", "B2", "التعريف بالخبرة والإجابة بثقة"],
-  ["كول سنتر", "שירות לקוחות", "B2", "حل مشكلة عميل عبر الهاتف"], ["سفر", "בשדה התעופה", "A2", "السؤال عن البوابة والأمتعة"],
-  ["شقة", "שכירת דירה", "B1", "معاينة شقة ومناقشة العقد"], ["بيع", "סגירת עסקה", "B2", "عرض القيمة والتعامل مع الاعتراض"],
-];
-export const students = [
-  { name: "لينا حداد", level: "B1", focus: "القواعد", progress: 68, teachers: "داني، ميرا" },
-  { name: "آدم منصور", level: "A2", focus: "الاستماع", progress: 44, teachers: "ريتا" },
-  { name: "سارة ناصر", level: "B2", focus: "الكتابة", progress: 81, teachers: "ميرا، داني" },
-  { name: "يوسف كريم", level: "A1", focus: "المفردات", progress: 26, teachers: "ريتا، داني" },
-];
+export const skills: { name: string; value: number; tone: string }[] = [];
+export const scenarios: [string, string, string, string][] = [];
+export const students: {
+  name: string;
+  level: string;
+  focus: string;
+  progress: number;
+  teachers: string;
+}[] = [];

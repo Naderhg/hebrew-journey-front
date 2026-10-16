@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "../hooks/use-auth";
+import { getHomeRouteForRole } from "../lib/auth";
 import { Button, Card, Input, Label } from "../components/ui";
 
 export const Route = createFileRoute("/login")({
@@ -21,10 +22,11 @@ function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      navigate({ to: "/dashboard" });
+      const loggedInUser = await login(email, password);
+      const targetRoute = getHomeRouteForRole(loggedInUser.role);
+      navigate({ to: targetRoute });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "فشل تسجيل الدخول — تأكد من البريد الإلكتروني وكلمة المرور");
     } finally {
       setLoading(false);
     }
@@ -37,13 +39,17 @@ function LoginPage() {
       <div className="flex min-h-screen items-center justify-center px-5 py-10">
         <Card className="w-full max-w-md p-8">
           <div className="mb-8 text-center">
-            <span className="inline-grid size-12 place-items-center rounded-md bg-brand font-lat text-xl font-bold text-primary-foreground">O</span>
+            <Link to="/" className="inline-grid size-12 place-items-center rounded-md bg-brand font-lat text-xl font-bold text-primary-foreground">
+              O
+            </Link>
             <h1 className="mt-4 text-2xl font-bold">تسجيل الدخول</h1>
-            <p className="mt-2 text-sm text-muted-foreground">أهلاً بعودتك إلى Ohran</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              أهلاً بعودتك إلى Ohran — سيتم توجيهك تلقائياً للوحة التحكم الخاصة بدورك
+            </p>
           </div>
 
           {error && (
-            <div className="mb-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="mb-4 rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">
               {error}
             </div>
           )}
@@ -77,9 +83,9 @@ function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            ليس لديك حساب؟{" "}
-            <Link to="/register" className="text-brand hover:underline">
-              أنشئ حساباً
+            طالب جديد وليس لديك حساب؟{" "}
+            <Link to="/register" className="font-semibold text-brand hover:underline">
+              أنشئ حساب طالب
             </Link>
           </p>
         </Card>

@@ -1,11 +1,13 @@
 import { apiFetch, setAccessToken, getAccessToken } from "./api";
 
+export type UserRole = "STUDENT" | "TEACHER" | "ADMIN" | "SALES" | "SUPPORT";
+
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string;
   phone?: string;
-  role: string;
+  role: UserRole;
   locale: string;
   avatarUrl?: string;
   isActive?: boolean;
@@ -13,17 +15,40 @@ export interface AuthUser {
   createdAt?: string;
 }
 
+export const ROLE_LABELS: Record<UserRole, string> = {
+  STUDENT: "طالب",
+  TEACHER: "مدرس",
+  ADMIN: "أدمن",
+  SALES: "سيلز",
+  SUPPORT: "خدمة عملاء",
+};
+
+export function getHomeRouteForRole(role?: string): string {
+  switch (role?.toUpperCase()) {
+    case "ADMIN":
+      return "/admin";
+    case "TEACHER":
+      return "/teacher";
+    case "SALES":
+      return "/sales";
+    case "SUPPORT":
+      return "/support";
+    case "STUDENT":
+    default:
+      return "/dashboard";
+  }
+}
+
 export async function register(input: {
   email: string;
   password: string;
   fullName: string;
   phone?: string;
-  role?: string;
   locale?: string;
 }): Promise<{ user: AuthUser }> {
   const result = await apiFetch<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",
-    body: input,
+    body: { ...input, role: "STUDENT" },
     skipAuth: true,
   });
   return result;

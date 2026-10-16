@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ConversationRouteImport } from './routes/conversation'
+import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ExamsRouteImport } from './routes/exams'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MistakesRouteImport } from './routes/mistakes'
 import { Route as PlacementRouteImport } from './routes/placement'
@@ -39,9 +41,19 @@ const ConversationRoute = ConversationRouteImport.update({
   path: '/conversation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoursesRoute = CoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExamsRoute = ExamsRouteImport.update({
+  id: '/exams',
+  path: '/exams',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -99,7 +111,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/conversation': typeof ConversationRoute
+  '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
+  '/exams': typeof ExamsRoute
   '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
@@ -115,7 +129,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/conversation': typeof ConversationRoute
+  '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
+  '/exams': typeof ExamsRoute
   '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
@@ -132,7 +148,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/conversation': typeof ConversationRoute
+  '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
+  '/exams': typeof ExamsRoute
   '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
@@ -150,7 +168,9 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/conversation'
+    | '/courses'
     | '/dashboard'
+    | '/exams'
     | '/login'
     | '/mistakes'
     | '/placement'
@@ -166,7 +186,9 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/conversation'
+    | '/courses'
     | '/dashboard'
+    | '/exams'
     | '/login'
     | '/mistakes'
     | '/placement'
@@ -182,7 +204,9 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/conversation'
+    | '/courses'
     | '/dashboard'
+    | '/exams'
     | '/login'
     | '/mistakes'
     | '/placement'
@@ -199,7 +223,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ConversationRoute: typeof ConversationRoute
+  CoursesRoute: typeof CoursesRoute
   DashboardRoute: typeof DashboardRoute
+  ExamsRoute: typeof ExamsRoute
   LoginRoute: typeof LoginRoute
   MistakesRoute: typeof MistakesRoute
   PlacementRoute: typeof PlacementRoute
@@ -235,11 +261,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConversationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/courses': {
+      id: '/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof CoursesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exams': {
+      id: '/exams'
+      path: '/exams'
+      fullPath: '/exams'
+      preLoaderRoute: typeof ExamsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -319,7 +359,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ConversationRoute: ConversationRoute,
+  CoursesRoute: CoursesRoute,
   DashboardRoute: DashboardRoute,
+  ExamsRoute: ExamsRoute,
   LoginRoute: LoginRoute,
   MistakesRoute: MistakesRoute,
   PlacementRoute: PlacementRoute,

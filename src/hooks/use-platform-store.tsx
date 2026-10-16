@@ -270,6 +270,281 @@ export interface SalesStats {
   totalRevenue: number;
 }
 
+// ─── Support types ──────────────────────────────────────────────────────────
+
+export interface SupportStudent {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  level?: string | null;
+  studentStatus: string;
+  teachers: { id: string; name: string; groupName?: string | null }[];
+  examsCount: number;
+  createdAt: string;
+}
+
+export interface SupportTicketItem {
+  id: string;
+  subject: string;
+  description?: string | null;
+  category: string;
+  priority: string;
+  status: string;
+  student?: { id: string; fullName: string; email: string } | null;
+  support?: { id: string; fullName: string } | null;
+  forwardedTo?: { id: string; fullName: string; role: string } | null;
+  _count?: { messages: number };
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface ScheduleItem {
+  id: string;
+  teacherId: string;
+  teacher: { id: string; fullName: string };
+  groupName?: string | null;
+  title: string;
+  description?: string | null;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  location: string;
+  meetingUrl?: string | null;
+  isActive: boolean;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  scheduleId: string;
+  schedule: { id: string; title: string; dayOfWeek: number; startTime: string; teacher: { fullName: string } };
+  studentId: string;
+  student: { id: string; fullName: string; email: string };
+  date: string;
+  status: string;
+  notes?: string | null;
+}
+
+export interface IrregularStudent {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  studentStatus: string;
+  teacher: string;
+  lastSubmission?: string | null;
+  avgScore?: number | null;
+  examsTaken: number;
+  reason: string;
+}
+
+// ─── Teacher extras ─────────────────────────────────────────────────────────
+
+export interface Homework {
+  id: string;
+  teacherId: string;
+  studentId?: string | null;
+  student?: { id: string; fullName: string; email: string } | null;
+  groupName?: string | null;
+  title: string;
+  description?: string | null;
+  hebrewText?: string | null;
+  dueDate?: string | null;
+  status: string;
+  submissionText?: string | null;
+  submissionAudioUrl?: string | null;
+  grade?: number | null;
+  feedback?: string | null;
+  submittedAt?: string | null;
+  createdAt: string;
+}
+
+export interface StudentSkillItem {
+  id: string;
+  studentId: string;
+  skill: string;
+  score: number;
+  notes?: string | null;
+  updatedBy?: { fullName: string } | null;
+}
+
+export interface TeacherSchedule {
+  id: string;
+  teacherId: string;
+  groupName?: string | null;
+  title: string;
+  description?: string | null;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  location: string;
+  meetingUrl?: string | null;
+  isActive: boolean;
+}
+
+export interface TeacherAttendance {
+  id: string;
+  scheduleId: string;
+  schedule: { title: string; dayOfWeek: number; startTime: string };
+  studentId: string;
+  student: { id: string; fullName: string; email: string };
+  date: string;
+  status: string;
+  notes?: string | null;
+}
+
+export interface StudentReport {
+  student: { id: string; fullName: string; email: string; level?: string | null; studentStatus: string };
+  avgScore: number | null;
+  examsTaken: number;
+  skills: Record<string, { score: number; notes: string | null }>;
+  attendanceRate: number | null;
+  totalSessions: number;
+  presentCount: number;
+  recentResults: { score: number | null; submittedAt: string; exam: { title: string; type: string } }[];
+  homework: { title: string; status: string; grade: number | null; feedback: string | null }[];
+  weakAreas: { skill: string; score: number }[];
+}
+
+// ─── Student extras ─────────────────────────────────────────────────────────
+
+export interface StudentHomework {
+  id: string;
+  teacherId: string;
+  teacher: { fullName: string };
+  studentId?: string | null;
+  groupName?: string | null;
+  title: string;
+  description?: string | null;
+  hebrewText?: string | null;
+  dueDate?: string | null;
+  status: string;
+  submissionText?: string | null;
+  submissionAudioUrl?: string | null;
+  grade?: number | null;
+  feedback?: string | null;
+  submittedAt?: string | null;
+  createdAt: string;
+}
+
+export interface StudentAttendanceItem {
+  id: string;
+  scheduleId: string;
+  schedule: { title: string; dayOfWeek: number; startTime: string; teacher: { fullName: string } };
+  date: string;
+  status: string;
+  notes?: string | null;
+}
+
+export interface StudentCertificate {
+  id: string;
+  title: string;
+  level?: string | null;
+  description?: string | null;
+  issuedAt: string;
+  issuedBy?: { fullName: string } | null;
+}
+
+export interface StudentTicket {
+  id: string;
+  subject: string;
+  description?: string | null;
+  category: string;
+  status: string;
+  createdAt: string;
+  resolvedAt?: string | null;
+  support?: { fullName: string } | null;
+}
+
+// ─── Admin extras ───────────────────────────────────────────────────────────
+
+export interface AdminPackage extends Package {
+  _count?: { subscriptions: number };
+  teacher?: { id: string; fullName: string; specialty?: string | null } | null;
+}
+
+export interface AdminLead extends SalesLead {
+  _count?: { callLogs: number };
+}
+
+export interface SalesReportRow {
+  salesId: string;
+  name: string;
+  email: string;
+  leads: number;
+  newLeads: number;
+  converted: number;
+  lost: number;
+  calls: number;
+  subscriptions: number;
+  paidSubscriptions: number;
+  revenue: number;
+  conversionRate: number;
+}
+
+export interface AdminSalesReport {
+  perSales: SalesReportRow[];
+  totals: {
+    leads: number;
+    unassigned: number;
+    calls: number;
+    subscriptions: number;
+    paidSubscriptions: number;
+    revenue: number;
+  };
+}
+
+export interface AdminCertificate {
+  id: string;
+  studentId: string;
+  student: { id: string; fullName: string; email: string; level?: string | null };
+  title: string;
+  level?: string | null;
+  description?: string | null;
+  issuedAt: string;
+  issuedBy?: { fullName: string } | null;
+}
+
+// ─── Chat & public ──────────────────────────────────────────────────────────
+
+export interface ChatMsg {
+  id: string;
+  studentId: string;
+  staffId?: string | null;
+  channel: string;
+  fromRole: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface MyTeacher {
+  id: string;
+  fullName: string;
+  specialty?: string | null;
+  groupName?: string | null;
+}
+
+export interface TeacherChatThread {
+  student: { id: string; fullName: string; email: string };
+  groupName?: string | null;
+  lastMessage: { content: string; createdAt: string; fromRole: string } | null;
+}
+
+export interface SupportChatThread {
+  student: { id: string; fullName: string; email: string };
+  lastMessage: { content: string; createdAt: string; fromRole: string };
+}
+
+export interface PublicPackage {
+  id: string;
+  nameAr: string;
+  description: string;
+  price: number;
+  durationMonths: number;
+  features?: string[] | null;
+  teacher?: { fullName: string; specialty?: string | null } | null;
+}
+
 interface PlatformStoreValue {
   users: PlatformUser[];
   materials: CourseMaterial[];
@@ -286,6 +561,32 @@ interface PlatformStoreValue {
   packages: Package[];
   subscriptions: Subscription[];
   salesStats: SalesStats | null;
+  supportStudents: SupportStudent[];
+  tickets: SupportTicketItem[];
+  schedules: ScheduleItem[];
+  attendance: AttendanceRecord[];
+  irregularStudents: IrregularStudent[];
+  teacherSchedules: TeacherSchedule[];
+  teacherHomework: Homework[];
+  teacherAttendance: TeacherAttendance[];
+  studentSchedules: ScheduleItem[];
+  studentHomework: StudentHomework[];
+  studentAttendance: StudentAttendanceItem[];
+  studentAttendanceRate: number | null;
+  studentSkills: StudentSkillItem[];
+  studentCertificates: StudentCertificate[];
+  studentTickets: StudentTicket[];
+  adminPackages: AdminPackage[];
+  adminLeads: AdminLead[];
+  salesReport: AdminSalesReport | null;
+  adminSubscriptions: Subscription[];
+  adminCertificates: AdminCertificate[];
+  publicPackages: PublicPackage[];
+  myChatTeachers: MyTeacher[];
+  teacherChatMsgs: ChatMsg[];
+  supportChatMsgs: ChatMsg[];
+  teacherChatThreads: TeacherChatThread[];
+  supportChatThreads: SupportChatThread[];
   loadingData: boolean;
   refreshAll: () => Promise<void>;
   addStaffUser: (input: CreateStaffUserInput) => Promise<PlatformUser>;
@@ -315,6 +616,50 @@ interface PlatformStoreValue {
   addCallLog: (input: { leadId: string; notes: string; outcome: string; nextFollowUp?: string }) => Promise<void>;
   addSubscription: (input: { studentId: string; packageId: string; paidAmount?: number; paymentStatus: string; notes?: string }) => Promise<void>;
   updateSubscription: (id: string, input: { paidAmount?: number; paymentStatus?: string; status?: string }) => Promise<void>;
+  // Support
+  fetchSupportData: () => Promise<void>;
+  updateStudentStatus: (studentId: string, status: string) => Promise<void>;
+  createTicket: (input: { subject: string; description?: string; studentId?: string; category: string; priority: string }) => Promise<void>;
+  updateTicket: (id: string, input: { status?: string; priority?: string; forwardedToId?: string }) => Promise<void>;
+  createSchedule: (input: { teacherId: string; groupName?: string; title: string; description?: string; dayOfWeek: number; startTime: string; endTime: string; location: string }) => Promise<void>;
+  recordAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
+  // Teacher extras
+  fetchTeacherSchedules: () => Promise<void>;
+  fetchTeacherAttendance: () => Promise<void>;
+  recordTeacherAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
+  createHomework: (input: { title: string; description?: string; hebrewText?: string; studentId?: string; groupName?: string; dueDate?: string }) => Promise<void>;
+  gradeHomework: (id: string, input: { status?: string; grade?: number; feedback?: string }) => Promise<void>;
+  updateStudentSkill: (studentId: string, input: { skill: string; score: number; notes?: string }) => Promise<void>;
+  fetchStudentReport: (studentId: string) => Promise<StudentReport | null>;
+  // Student extras
+  submitHomework: (id: string, input: { submissionText?: string; submissionAudioUrl?: string }) => Promise<void>;
+  createStudentTicket: (input: { subject: string; description?: string; category: string }) => Promise<void>;
+  // Admin extras
+  fetchAdminOps: () => Promise<void>;
+  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string }) => Promise<void>;
+  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean }) => Promise<void>;
+  deletePackage: (id: string) => Promise<void>;
+  assignLead: (leadId: string, salesId: string | null) => Promise<void>;
+  issueCertificate: (input: { studentId: string; title: string; level?: string; description?: string }) => Promise<void>;
+  deleteCertificate: (id: string) => Promise<void>;
+  // Teacher schedule CRUD
+  createTeacherSchedule: (input: { title: string; groupName?: string; description?: string; dayOfWeek: number; startTime: string; endTime: string; location: string; meetingUrl?: string }) => Promise<void>;
+  deleteTeacherSchedule: (id: string) => Promise<void>;
+  // Chat
+  fetchPublicPackages: () => Promise<void>;
+  submitPublicLead: (input: { name: string; phone: string; email?: string; packageName?: string }) => Promise<void>;
+  fetchMyChatTeachers: () => Promise<void>;
+  fetchTeacherChat: (teacherId?: string) => Promise<void>;
+  sendTeacherChatMsg: (content: string, teacherId?: string) => Promise<void>;
+  fetchSupportChat: () => Promise<void>;
+  sendSupportChatMsg: (content: string) => Promise<void>;
+  sendAiMessage: (message: string, history: { role: "user" | "assistant"; content: string }[]) => Promise<string>;
+  fetchTeacherChatThreads: () => Promise<void>;
+  fetchTeacherChatThread: (studentId: string) => Promise<ChatMsg[]>;
+  sendTeacherChatReply: (studentId: string, content: string) => Promise<void>;
+  fetchSupportChatThreads: () => Promise<void>;
+  fetchSupportChatThread: (studentId: string) => Promise<ChatMsg[]>;
+  sendSupportChatReply: (studentId: string, content: string) => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -336,6 +681,32 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [packages, setPackages] = useState<Package[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
+  const [supportStudents, setSupportStudents] = useState<SupportStudent[]>([]);
+  const [tickets, setTickets] = useState<SupportTicketItem[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [irregularStudents, setIrregularStudents] = useState<IrregularStudent[]>([]);
+  const [teacherSchedules, setTeacherSchedules] = useState<TeacherSchedule[]>([]);
+  const [teacherHomework, setTeacherHomework] = useState<Homework[]>([]);
+  const [teacherAttendance, setTeacherAttendance] = useState<TeacherAttendance[]>([]);
+  const [studentSchedules, setStudentSchedules] = useState<ScheduleItem[]>([]);
+  const [studentHomework, setStudentHomework] = useState<StudentHomework[]>([]);
+  const [studentAttendance, setStudentAttendance] = useState<StudentAttendanceItem[]>([]);
+  const [studentAttendanceRate, setStudentAttendanceRate] = useState<number | null>(null);
+  const [studentSkills, setStudentSkills] = useState<StudentSkillItem[]>([]);
+  const [studentCertificates, setStudentCertificates] = useState<StudentCertificate[]>([]);
+  const [studentTickets, setStudentTickets] = useState<StudentTicket[]>([]);
+  const [adminPackages, setAdminPackages] = useState<AdminPackage[]>([]);
+  const [adminLeads, setAdminLeads] = useState<AdminLead[]>([]);
+  const [salesReport, setSalesReport] = useState<AdminSalesReport | null>(null);
+  const [adminSubscriptions, setAdminSubscriptions] = useState<Subscription[]>([]);
+  const [adminCertificates, setAdminCertificates] = useState<AdminCertificate[]>([]);
+  const [publicPackages, setPublicPackages] = useState<PublicPackage[]>([]);
+  const [myChatTeachers, setMyChatTeachers] = useState<MyTeacher[]>([]);
+  const [teacherChatMsgs, setTeacherChatMsgs] = useState<ChatMsg[]>([]);
+  const [supportChatMsgs, setSupportChatMsgs] = useState<ChatMsg[]>([]);
+  const [teacherChatThreads, setTeacherChatThreads] = useState<TeacherChatThread[]>([]);
+  const [supportChatThreads, setSupportChatThreads] = useState<SupportChatThread[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -355,13 +726,18 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         .catch(() => {});
 
       if (user?.role === "ADMIN") {
-        const [usersRes, matRes, qRes, examsRes, linksRes, resultsRes] = await Promise.allSettled([
+        const [usersRes, matRes, qRes, examsRes, linksRes, resultsRes, packsRes, leadsRes, repRes, subsRes, certRes] = await Promise.allSettled([
           apiFetch<{ users: PlatformUser[] }>("/api/admin/users"),
           apiFetch<{ materials: CourseMaterial[] }>("/api/admin/materials"),
           apiFetch<{ questions: PlacementQuestion[] }>("/api/admin/placement-questions"),
           apiFetch<{ exams: Exam[] }>("/api/admin/exams"),
           apiFetch<{ links: StudentTeacherLink[] }>("/api/admin/student-teachers"),
           apiFetch<{ results: ExamResult[] }>("/api/admin/exam-results"),
+          apiFetch<{ packages: AdminPackage[] }>("/api/admin/packages"),
+          apiFetch<{ leads: AdminLead[] }>("/api/admin/leads"),
+          apiFetch<AdminSalesReport>("/api/admin/sales-report"),
+          apiFetch<{ subscriptions: Subscription[] }>("/api/admin/subscriptions"),
+          apiFetch<{ certificates: AdminCertificate[] }>("/api/admin/certificates"),
         ]);
 
         if (usersRes.status === "fulfilled" && usersRes.value?.users) {
@@ -382,11 +758,18 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (resultsRes.status === "fulfilled" && resultsRes.value?.results) {
           setAllExamResults(resultsRes.value.results);
         }
+        if (packsRes.status === "fulfilled" && packsRes.value?.packages) setAdminPackages(packsRes.value.packages);
+        if (leadsRes.status === "fulfilled" && leadsRes.value?.leads) setAdminLeads(leadsRes.value.leads);
+        if (repRes.status === "fulfilled" && repRes.value) setSalesReport(repRes.value);
+        if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setAdminSubscriptions(subsRes.value.subscriptions);
+        if (certRes.status === "fulfilled" && certRes.value?.certificates) setAdminCertificates(certRes.value.certificates);
       } else if (user?.role === "TEACHER") {
-        const [matRes, examsRes, studentsRes] = await Promise.allSettled([
+        const [matRes, examsRes, studentsRes, schedRes, hwRes] = await Promise.allSettled([
           apiFetch<{ materials: CourseMaterial[] }>("/api/teacher/materials"),
           apiFetch<{ exams: Exam[] }>("/api/teacher/exams"),
           apiFetch<{ students: TeacherStudent[] }>("/api/teacher/students"),
+          apiFetch<{ schedules: TeacherSchedule[] }>("/api/teacher/schedules"),
+          apiFetch<{ homework: Homework[] }>("/api/teacher/homework"),
         ]);
         if (matRes.status === "fulfilled" && matRes.value?.materials) {
           setMaterials(matRes.value.materials);
@@ -397,8 +780,14 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (studentsRes.status === "fulfilled" && studentsRes.value?.students) {
           setTeacherStudents(studentsRes.value.students);
         }
+        if (schedRes.status === "fulfilled" && schedRes.value?.schedules) {
+          setTeacherSchedules(schedRes.value.schedules);
+        }
+        if (hwRes.status === "fulfilled" && hwRes.value?.homework) {
+          setTeacherHomework(hwRes.value.homework);
+        }
       } else if (user?.role === "STUDENT") {
-        const [matRes, examsRes, dashRes] = await Promise.allSettled([
+        const [matRes, examsRes, dashRes, schedRes, hwRes, attRes, skillsRes, certRes, tkRes] = await Promise.allSettled([
           apiFetch<{ materials: CourseMaterial[] }>("/api/student/courses"),
           apiFetch<{ exams: Exam[] }>("/api/student/exams"),
           apiFetch<{
@@ -407,6 +796,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
             myRank: number | null;
             totalStudents: number;
           }>("/api/student/dashboard"),
+          apiFetch<{ schedules: ScheduleItem[] }>("/api/student/schedule"),
+          apiFetch<{ homework: StudentHomework[] }>("/api/student/homework"),
+          apiFetch<{ attendance: StudentAttendanceItem[]; attendanceRate: number | null }>("/api/student/attendance"),
+          apiFetch<{ skills: StudentSkillItem[] }>("/api/student/skills"),
+          apiFetch<{ certificates: StudentCertificate[] }>("/api/student/certificates"),
+          apiFetch<{ tickets: StudentTicket[] }>("/api/student/tickets"),
         ]);
         if (matRes.status === "fulfilled" && matRes.value?.materials) {
           setMaterials(matRes.value.materials);
@@ -417,6 +812,15 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (dashRes.status === "fulfilled" && dashRes.value) {
           setStudentDashboard(dashRes.value);
         }
+        if (schedRes.status === "fulfilled" && schedRes.value?.schedules) setStudentSchedules(schedRes.value.schedules);
+        if (hwRes.status === "fulfilled" && hwRes.value?.homework) setStudentHomework(hwRes.value.homework);
+        if (attRes.status === "fulfilled" && attRes.value) {
+          setStudentAttendance(attRes.value.attendance);
+          setStudentAttendanceRate(attRes.value.attendanceRate);
+        }
+        if (skillsRes.status === "fulfilled" && skillsRes.value?.skills) setStudentSkills(skillsRes.value.skills);
+        if (certRes.status === "fulfilled" && certRes.value?.certificates) setStudentCertificates(certRes.value.certificates);
+        if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setStudentTickets(tkRes.value.tickets);
       } else if (user?.role === "SALES") {
         const [leadsRes, callsRes, packsRes, subsRes, statsRes] = await Promise.allSettled([
           apiFetch<{ leads: SalesLead[] }>("/api/sales/leads"),
@@ -430,6 +834,19 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (packsRes.status === "fulfilled" && packsRes.value?.packages) setPackages(packsRes.value.packages);
         if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setSubscriptions(subsRes.value.subscriptions);
         if (statsRes.status === "fulfilled" && statsRes.value?.stats) setSalesStats(statsRes.value.stats);
+      } else if (user?.role === "SUPPORT") {
+        const [stRes, tkRes, scRes, atRes, irRes] = await Promise.allSettled([
+          apiFetch<{ students: SupportStudent[] }>("/api/support/students"),
+          apiFetch<{ tickets: SupportTicketItem[] }>("/api/support/tickets"),
+          apiFetch<{ schedules: ScheduleItem[] }>("/api/support/schedules"),
+          apiFetch<{ attendance: AttendanceRecord[] }>("/api/support/attendance"),
+          apiFetch<{ irregular: IrregularStudent[] }>("/api/support/irregular"),
+        ]);
+        if (stRes.status === "fulfilled" && stRes.value?.students) setSupportStudents(stRes.value.students);
+        if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setTickets(tkRes.value.tickets);
+        if (scRes.status === "fulfilled" && scRes.value?.schedules) setSchedules(scRes.value.schedules);
+        if (atRes.status === "fulfilled" && atRes.value?.attendance) setAttendance(atRes.value.attendance);
+        if (irRes.status === "fulfilled" && irRes.value?.irregular) setIrregularStudents(irRes.value.irregular);
       }
     } finally {
       setLoadingData(false);
@@ -663,6 +1080,261 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await fetchSalesData();
   }
 
+  // ─── Support functions ────────────────────────────────────────────────────
+
+  async function fetchSupportData() {
+    const [stRes, tkRes, scRes, atRes, irRes] = await Promise.allSettled([
+      apiFetch<{ students: SupportStudent[] }>("/api/support/students"),
+      apiFetch<{ tickets: SupportTicketItem[] }>("/api/support/tickets"),
+      apiFetch<{ schedules: ScheduleItem[] }>("/api/support/schedules"),
+      apiFetch<{ attendance: AttendanceRecord[] }>("/api/support/attendance"),
+      apiFetch<{ irregular: IrregularStudent[] }>("/api/support/irregular"),
+    ]);
+    if (stRes.status === "fulfilled" && stRes.value?.students) setSupportStudents(stRes.value.students);
+    if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setTickets(tkRes.value.tickets);
+    if (scRes.status === "fulfilled" && scRes.value?.schedules) setSchedules(scRes.value.schedules);
+    if (atRes.status === "fulfilled" && atRes.value?.attendance) setAttendance(atRes.value.attendance);
+    if (irRes.status === "fulfilled" && irRes.value?.irregular) setIrregularStudents(irRes.value.irregular);
+  }
+
+  async function updateStudentStatus(studentId: string, status: string) {
+    await apiFetch(`/api/support/students/${studentId}/status`, { method: "PATCH", body: { status } });
+    setSupportStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, studentStatus: status } : s)),
+    );
+  }
+
+  async function createTicket(input: { subject: string; description?: string; studentId?: string; category: string; priority: string }) {
+    await apiFetch("/api/support/tickets", { method: "POST", body: input });
+    await fetchSupportData();
+  }
+
+  async function updateTicket(id: string, input: { status?: string; priority?: string; forwardedToId?: string }) {
+    await apiFetch(`/api/support/tickets/${id}`, { method: "PATCH", body: input });
+    await fetchSupportData();
+  }
+
+  async function createSchedule(input: { teacherId: string; groupName?: string; title: string; description?: string; dayOfWeek: number; startTime: string; endTime: string; location: string }) {
+    await apiFetch("/api/support/schedules", { method: "POST", body: input });
+    await fetchSupportData();
+  }
+
+  async function recordAttendance(input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) {
+    await apiFetch("/api/support/attendance", { method: "POST", body: input });
+    await fetchSupportData();
+  }
+
+  // ─── Teacher extras ──────────────────────────────────────────────────────
+
+  async function fetchTeacherSchedules() {
+    try {
+      const res = await apiFetch<{ schedules: TeacherSchedule[] }>("/api/teacher/schedules");
+      if (res?.schedules) setTeacherSchedules(res.schedules);
+    } catch { /* ignore */ }
+  }
+
+  async function fetchTeacherAttendance() {
+    try {
+      const res = await apiFetch<{ attendance: TeacherAttendance[] }>("/api/teacher/attendance");
+      if (res?.attendance) setTeacherAttendance(res.attendance);
+    } catch { /* ignore */ }
+  }
+
+  async function recordTeacherAttendance(input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) {
+    await apiFetch("/api/teacher/attendance", { method: "POST", body: input });
+    await fetchTeacherAttendance();
+  }
+
+  async function createHomework(input: { title: string; description?: string; hebrewText?: string; studentId?: string; groupName?: string; dueDate?: string }) {
+    await apiFetch("/api/teacher/homework", { method: "POST", body: input });
+    const res = await apiFetch<{ homework: Homework[] }>("/api/teacher/homework");
+    if (res?.homework) setTeacherHomework(res.homework);
+  }
+
+  async function gradeHomework(id: string, input: { status?: string; grade?: number; feedback?: string }) {
+    await apiFetch(`/api/teacher/homework/${id}`, { method: "PATCH", body: input });
+    const res = await apiFetch<{ homework: Homework[] }>("/api/teacher/homework");
+    if (res?.homework) setTeacherHomework(res.homework);
+  }
+
+  async function updateStudentSkill(studentId: string, input: { skill: string; score: number; notes?: string }) {
+    await apiFetch(`/api/teacher/students/${studentId}/skills`, { method: "PATCH", body: input });
+  }
+
+  async function fetchStudentReport(studentId: string): Promise<StudentReport | null> {
+    try {
+      return await apiFetch<StudentReport>(`/api/teacher/students/${studentId}/report`);
+    } catch {
+      return null;
+    }
+  }
+
+  // ─── Student extras ──────────────────────────────────────────────────────
+
+  async function fetchStudentHomework() {
+    try {
+      const res = await apiFetch<{ homework: StudentHomework[] }>("/api/student/homework");
+      if (res?.homework) setStudentHomework(res.homework);
+    } catch { /* ignore */ }
+  }
+
+  async function submitHomework(id: string, input: { submissionText?: string; submissionAudioUrl?: string }) {
+    await apiFetch(`/api/student/homework/${id}/submit`, { method: "POST", body: input });
+    await fetchStudentHomework();
+  }
+
+  async function createStudentTicket(input: { subject: string; description?: string; category: string }) {
+    await apiFetch("/api/student/tickets", { method: "POST", body: input });
+    try {
+      const res = await apiFetch<{ tickets: StudentTicket[] }>("/api/student/tickets");
+      if (res?.tickets) setStudentTickets(res.tickets);
+    } catch { /* ignore */ }
+  }
+
+  // ─── Admin extras ────────────────────────────────────────────────────────
+
+  async function fetchAdminOps() {
+    const [packsRes, leadsRes, repRes, subsRes, certRes] = await Promise.allSettled([
+      apiFetch<{ packages: AdminPackage[] }>("/api/admin/packages"),
+      apiFetch<{ leads: AdminLead[] }>("/api/admin/leads"),
+      apiFetch<AdminSalesReport>("/api/admin/sales-report"),
+      apiFetch<{ subscriptions: Subscription[] }>("/api/admin/subscriptions"),
+      apiFetch<{ certificates: AdminCertificate[] }>("/api/admin/certificates"),
+    ]);
+    if (packsRes.status === "fulfilled" && packsRes.value?.packages) setAdminPackages(packsRes.value.packages);
+    if (leadsRes.status === "fulfilled" && leadsRes.value?.leads) setAdminLeads(leadsRes.value.leads);
+    if (repRes.status === "fulfilled" && repRes.value) setSalesReport(repRes.value);
+    if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setAdminSubscriptions(subsRes.value.subscriptions);
+    if (certRes.status === "fulfilled" && certRes.value?.certificates) setAdminCertificates(certRes.value.certificates);
+  }
+
+  async function createPackage(input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string }) {
+    await apiFetch("/api/admin/packages", { method: "POST", body: input });
+    await fetchAdminOps();
+  }
+
+  async function updatePackage(id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean }) {
+    await apiFetch(`/api/admin/packages/${id}`, { method: "PATCH", body: input });
+    await fetchAdminOps();
+  }
+
+  async function deletePackage(id: string) {
+    await apiFetch(`/api/admin/packages/${id}`, { method: "DELETE" });
+    await fetchAdminOps();
+  }
+
+  async function assignLead(leadId: string, salesId: string | null) {
+    await apiFetch(`/api/admin/leads/${leadId}/assign`, { method: "PATCH", body: { salesId } });
+    await fetchAdminOps();
+  }
+
+  async function issueCertificate(input: { studentId: string; title: string; level?: string; description?: string }) {
+    await apiFetch("/api/admin/certificates", { method: "POST", body: input });
+    await fetchAdminOps();
+  }
+
+  async function deleteCertificate(id: string) {
+    await apiFetch(`/api/admin/certificates/${id}`, { method: "DELETE" });
+    await fetchAdminOps();
+  }
+
+  // ─── Teacher schedule CRUD ───────────────────────────────────────────────
+
+  async function createTeacherSchedule(input: { title: string; groupName?: string; description?: string; dayOfWeek: number; startTime: string; endTime: string; location: string; meetingUrl?: string }) {
+    await apiFetch("/api/teacher/schedules", { method: "POST", body: input });
+    await fetchTeacherSchedules();
+  }
+
+  async function deleteTeacherSchedule(id: string) {
+    await apiFetch(`/api/teacher/schedules/${id}`, { method: "DELETE" });
+    await fetchTeacherSchedules();
+  }
+
+  // ─── Chat & public packages ──────────────────────────────────────────────
+
+  async function fetchPublicPackages() {
+    try {
+      const res = await apiFetch<{ packages: PublicPackage[] }>("/api/public/packages", { skipAuth: true });
+      if (res?.packages) setPublicPackages(res.packages);
+    } catch { /* ignore */ }
+  }
+
+  async function submitPublicLead(input: { name: string; phone: string; email?: string; packageName?: string }) {
+    await apiFetch("/api/public/leads", { method: "POST", body: input, skipAuth: true });
+  }
+
+  async function fetchMyChatTeachers() {
+    try {
+      const res = await apiFetch<{ teachers: MyTeacher[] }>("/api/student/chat/teachers");
+      if (res?.teachers) setMyChatTeachers(res.teachers);
+    } catch { /* ignore */ }
+  }
+
+  async function fetchTeacherChat(teacherId?: string) {
+    try {
+      const q = teacherId ? `?teacherId=${teacherId}` : "";
+      const res = await apiFetch<{ messages: ChatMsg[] }>(`/api/student/chat/teacher${q}`);
+      if (res?.messages) setTeacherChatMsgs(res.messages);
+    } catch { /* ignore */ }
+  }
+
+  async function sendTeacherChatMsg(content: string, teacherId?: string) {
+    await apiFetch("/api/student/chat/teacher", { method: "POST", body: { content, ...(teacherId ? { teacherId } : {}) } });
+    await fetchTeacherChat(teacherId);
+  }
+
+  async function fetchSupportChat() {
+    try {
+      const res = await apiFetch<{ messages: ChatMsg[] }>("/api/student/chat/support");
+      if (res?.messages) setSupportChatMsgs(res.messages);
+    } catch { /* ignore */ }
+  }
+
+  async function sendSupportChatMsg(content: string) {
+    await apiFetch("/api/student/chat/support", { method: "POST", body: { content } });
+    await fetchSupportChat();
+  }
+
+  async function sendAiMessage(message: string, history: { role: "user" | "assistant"; content: string }[]): Promise<string> {
+    const res = await apiFetch<{ reply: string }>("/api/student/ai-chat", {
+      method: "POST",
+      body: { message, history },
+    });
+    return res.reply;
+  }
+
+  async function fetchTeacherChatThreads() {
+    try {
+      const res = await apiFetch<{ threads: TeacherChatThread[] }>("/api/teacher/chat/threads");
+      if (res?.threads) setTeacherChatThreads(res.threads);
+    } catch { /* ignore */ }
+  }
+
+  async function fetchTeacherChatThread(studentId: string): Promise<ChatMsg[]> {
+    const res = await apiFetch<{ messages: ChatMsg[] }>(`/api/teacher/chat/${studentId}`);
+    return res?.messages ?? [];
+  }
+
+  async function sendTeacherChatReply(studentId: string, content: string) {
+    await apiFetch(`/api/teacher/chat/${studentId}`, { method: "POST", body: { content } });
+  }
+
+  async function fetchSupportChatThreads() {
+    try {
+      const res = await apiFetch<{ threads: SupportChatThread[] }>("/api/support/chats");
+      if (res?.threads) setSupportChatThreads(res.threads);
+    } catch { /* ignore */ }
+  }
+
+  async function fetchSupportChatThread(studentId: string): Promise<ChatMsg[]> {
+    const res = await apiFetch<{ messages: ChatMsg[] }>(`/api/support/chat/${studentId}`);
+    return res?.messages ?? [];
+  }
+
+  async function sendSupportChatReply(studentId: string, content: string) {
+    await apiFetch(`/api/support/chat/${studentId}`, { method: "POST", body: { content } });
+  }
+
   return (
     <PlatformStoreContext.Provider
       value={{
@@ -681,6 +1353,32 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         packages,
         subscriptions,
         salesStats,
+        supportStudents,
+        tickets,
+        schedules,
+        attendance,
+        irregularStudents,
+        teacherSchedules,
+        teacherHomework,
+        teacherAttendance,
+        studentSchedules,
+        studentHomework,
+        studentAttendance,
+        studentAttendanceRate,
+        studentSkills,
+        studentCertificates,
+        studentTickets,
+        adminPackages,
+        adminLeads,
+        salesReport,
+        adminSubscriptions,
+        adminCertificates,
+        publicPackages,
+        myChatTeachers,
+        teacherChatMsgs,
+        supportChatMsgs,
+        teacherChatThreads,
+        supportChatThreads,
         loadingData,
         refreshAll,
         addStaffUser,
@@ -710,6 +1408,44 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         addCallLog,
         addSubscription,
         updateSubscription,
+        fetchSupportData,
+        updateStudentStatus,
+        createTicket,
+        updateTicket,
+        createSchedule,
+        recordAttendance,
+        fetchTeacherSchedules,
+        fetchTeacherAttendance,
+        recordTeacherAttendance,
+        createHomework,
+        gradeHomework,
+        updateStudentSkill,
+        fetchStudentReport,
+        submitHomework,
+        createStudentTicket,
+        fetchAdminOps,
+        createPackage,
+        updatePackage,
+        deletePackage,
+        assignLead,
+        issueCertificate,
+        deleteCertificate,
+        createTeacherSchedule,
+        deleteTeacherSchedule,
+        fetchPublicPackages,
+        submitPublicLead,
+        fetchMyChatTeachers,
+        fetchTeacherChat,
+        sendTeacherChatMsg,
+        fetchSupportChat,
+        sendSupportChatMsg,
+        sendAiMessage,
+        fetchTeacherChatThreads,
+        fetchTeacherChatThread,
+        sendTeacherChatReply,
+        fetchSupportChatThreads,
+        fetchSupportChatThread,
+        sendSupportChatReply,
       }}
     >
       {children}

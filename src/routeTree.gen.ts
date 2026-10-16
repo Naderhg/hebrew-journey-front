@@ -11,10 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CertificatesRouteImport } from './routes/certificates'
+import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as ConversationRouteImport } from './routes/conversation'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ExamsRouteImport } from './routes/exams'
+import { Route as HomeworkRouteImport } from './routes/homework'
+import { Route as LecturesRouteImport } from './routes/lectures'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MistakesRouteImport } from './routes/mistakes'
 import { Route as PlacementRouteImport } from './routes/placement'
@@ -36,6 +40,16 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CertificatesRoute = CertificatesRouteImport.update({
+  id: '/certificates',
+  path: '/certificates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatsRoute = ChatsRouteImport.update({
+  id: '/chats',
+  path: '/chats',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConversationRoute = ConversationRouteImport.update({
   id: '/conversation',
   path: '/conversation',
@@ -54,6 +68,16 @@ const DashboardRoute = DashboardRouteImport.update({
 const ExamsRoute = ExamsRouteImport.update({
   id: '/exams',
   path: '/exams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeworkRoute = HomeworkRouteImport.update({
+  id: '/homework',
+  path: '/homework',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LecturesRoute = LecturesRouteImport.update({
+  id: '/lectures',
+  path: '/lectures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -110,10 +134,14 @@ const TeacherRoute = TeacherRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/certificates': typeof CertificatesRoute
+  '/chats': typeof ChatsRoute
   '/conversation': typeof ConversationRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
+  '/homework': typeof HomeworkRoute
+  '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
@@ -128,10 +156,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/certificates': typeof CertificatesRoute
+  '/chats': typeof ChatsRoute
   '/conversation': typeof ConversationRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
+  '/homework': typeof HomeworkRoute
+  '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
@@ -147,10 +179,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/certificates': typeof CertificatesRoute
+  '/chats': typeof ChatsRoute
   '/conversation': typeof ConversationRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
+  '/homework': typeof HomeworkRoute
+  '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
   '/mistakes': typeof MistakesRoute
   '/placement': typeof PlacementRoute
@@ -167,10 +203,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/certificates'
+    | '/chats'
     | '/conversation'
     | '/courses'
     | '/dashboard'
     | '/exams'
+    | '/homework'
+    | '/lectures'
     | '/login'
     | '/mistakes'
     | '/placement'
@@ -185,10 +225,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/certificates'
+    | '/chats'
     | '/conversation'
     | '/courses'
     | '/dashboard'
     | '/exams'
+    | '/homework'
+    | '/lectures'
     | '/login'
     | '/mistakes'
     | '/placement'
@@ -203,10 +247,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/certificates'
+    | '/chats'
     | '/conversation'
     | '/courses'
     | '/dashboard'
     | '/exams'
+    | '/homework'
+    | '/lectures'
     | '/login'
     | '/mistakes'
     | '/placement'
@@ -222,10 +270,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  CertificatesRoute: typeof CertificatesRoute
+  ChatsRoute: typeof ChatsRoute
   ConversationRoute: typeof ConversationRoute
   CoursesRoute: typeof CoursesRoute
   DashboardRoute: typeof DashboardRoute
   ExamsRoute: typeof ExamsRoute
+  HomeworkRoute: typeof HomeworkRoute
+  LecturesRoute: typeof LecturesRoute
   LoginRoute: typeof LoginRoute
   MistakesRoute: typeof MistakesRoute
   PlacementRoute: typeof PlacementRoute
@@ -254,6 +306,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/certificates': {
+      id: '/certificates'
+      path: '/certificates'
+      fullPath: '/certificates'
+      preLoaderRoute: typeof CertificatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chats': {
+      id: '/chats'
+      path: '/chats'
+      fullPath: '/chats'
+      preLoaderRoute: typeof ChatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/conversation': {
       id: '/conversation'
       path: '/conversation'
@@ -280,6 +346,20 @@ declare module '@tanstack/react-router' {
       path: '/exams'
       fullPath: '/exams'
       preLoaderRoute: typeof ExamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homework': {
+      id: '/homework'
+      path: '/homework'
+      fullPath: '/homework'
+      preLoaderRoute: typeof HomeworkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lectures': {
+      id: '/lectures'
+      path: '/lectures'
+      fullPath: '/lectures'
+      preLoaderRoute: typeof LecturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -358,10 +438,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  CertificatesRoute: CertificatesRoute,
+  ChatsRoute: ChatsRoute,
   ConversationRoute: ConversationRoute,
   CoursesRoute: CoursesRoute,
   DashboardRoute: DashboardRoute,
   ExamsRoute: ExamsRoute,
+  HomeworkRoute: HomeworkRoute,
+  LecturesRoute: LecturesRoute,
   LoginRoute: LoginRoute,
   MistakesRoute: MistakesRoute,
   PlacementRoute: PlacementRoute,

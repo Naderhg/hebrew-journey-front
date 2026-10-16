@@ -1,10 +1,13 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
+  Award,
   BarChart3,
   BookOpen,
   Bot,
   BriefcaseBusiness,
+  CalendarDays,
   ClipboardCheck,
+  ClipboardList,
   FileCheck,
   Film,
   GraduationCap,
@@ -21,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { useAuth } from "../hooks/use-auth";
 import { getHomeRouteForRole, ROLE_LABELS, type UserRole } from "../lib/auth";
 import { Badge, Button, Card } from "./ui";
@@ -35,10 +39,14 @@ export interface SidebarItem {
 const studentNav: readonly SidebarItem[] = [
   { to: "/dashboard", label: "لوحة الطالب", icon: LayoutDashboard },
   { to: "/courses", label: "كورساتي", icon: Film },
+  { to: "/lectures", label: "المحاضرات والمواعيد", icon: CalendarDays },
+  { to: "/homework", label: "الواجبات", icon: ClipboardList },
   { to: "/exams", label: "الامتحانات", icon: FileCheck },
   { to: "/placement", label: "اختبار المستوى", icon: ClipboardCheck },
+  { to: "/certificates", label: "شهاداتي", icon: GraduationCap },
   { to: "/plan", label: "خطة التعلم", icon: BookOpen },
   { to: "/conversation", label: "المحادثة الذكية", icon: MessageCircle },
+  { to: "/chats", label: "المحادثات", icon: Headphones },
   { to: "/scenarios", label: "مكتبة السيناريوهات", icon: Library },
   { to: "/mistakes", label: "سجل الأخطاء", icon: Bot },
   { to: "/progress", label: "التقدم والمهارات", icon: BarChart3 },
@@ -48,6 +56,11 @@ const teacherNav: readonly SidebarItem[] = [
   { to: "/teacher", section: "students", label: "طلابي وتقدمهم", icon: UsersRound },
   { to: "/teacher", section: "materials", label: "الكورسات والماتيريال", icon: Film },
   { to: "/teacher", section: "exams", label: "الامتحانات والنتائج", icon: FileCheck },
+  { to: "/teacher", section: "schedule", label: "جدولي", icon: CalendarDays },
+  { to: "/teacher", section: "homework", label: "الواجبات", icon: ClipboardList },
+  { to: "/teacher", section: "attendance", label: "الحضور والغياب", icon: TicketCheck },
+  { to: "/teacher", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
+  { to: "/teacher", section: "reports", label: "تقارير الطلاب", icon: BarChart3 },
 ];
 
 const adminNav: readonly SidebarItem[] = [
@@ -61,6 +74,10 @@ const adminNav: readonly SidebarItem[] = [
   { to: "/admin", section: "exams", label: "الامتحانات", icon: FileCheck },
   { to: "/admin", section: "results", label: "تسليمات الطلاب", icon: ClipboardCheck },
   { to: "/admin", section: "placement", label: "أسئلة تحديد المستوى", icon: ClipboardCheck },
+  { to: "/admin", section: "packages", label: "الباقات والأسعار", icon: TicketCheck },
+  { to: "/admin", section: "sales-report", label: "تقارير المبيعات", icon: BarChart3 },
+  { to: "/admin", section: "leads", label: "توزيع العملاء", icon: BriefcaseBusiness },
+  { to: "/admin", section: "certificates", label: "الشهادات", icon: Award },
 ];
 
 const roleNavigationMap: Record<UserRole, readonly SidebarItem[]> = {
@@ -73,7 +90,14 @@ const roleNavigationMap: Record<UserRole, readonly SidebarItem[]> = {
     { to: "/sales", section: "subscriptions", label: "الاشتراكات", icon: TicketCheck },
     { to: "/sales", section: "stats", label: "التقارير والإحصائيات", icon: BarChart3 },
   ],
-  SUPPORT: [{ to: "/support", label: "لوحة خدمة العملاء", icon: Headphones }],
+  SUPPORT: [
+    { to: "/support", section: "students", label: "الطلاب", icon: GraduationCap },
+    { to: "/support", section: "tickets", label: "الشكاوى والتذاكر", icon: TicketCheck },
+    { to: "/support", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
+    { to: "/support", section: "schedules", label: "جداول المدرسين", icon: ClipboardCheck },
+    { to: "/support", section: "attendance", label: "الحضور والغياب", icon: UsersRound },
+    { to: "/support", section: "irregular", label: "متابعة الطلاب", icon: BarChart3 },
+  ],
 };
 
 export function AppShell({
@@ -89,10 +113,21 @@ export function AppShell({
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
 
   const currentUserRole = (user?.role?.toUpperCase() as UserRole | undefined) ?? role;
   const isRoleMismatch = Boolean(user && currentUserRole !== role);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      navigate({ to: "/login" });
+      return;
+    }
+    if (isRoleMismatch) {
+      navigate({ to: getHomeRouteForRole(currentUserRole) });
+    }
+  }, [loading, user, isRoleMismatch, currentUserRole, navigate]);
 
   const navItems = roleNavigationMap[role] ?? studentNav;
   const displayName = user ? user.fullName : "غير مسجل الدخول";
@@ -212,21 +247,16 @@ export function AppShell({
         </aside>
 
         <main className="min-w-0 flex-1 animate-enter">
-          {isRoleMismatch ? (
+          {loading || !user || isRoleMismatch ? (
             <Card className="mx-auto my-12 max-w-lg p-8 text-center">
-              <Badge tone="danger">غير مصرح بالوصول</Badge>
-              <h2 className="mt-4 text-xl font-bold">
-                هذه اللوحة مخصصة لدور ({ROLE_LABELS[role]}) فقط
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                أنت مسجل الدخول حالياً بحساب ({ROLE_LABELS[currentUserRole]}) ولا يمكنك الوصول إلى
-                لوحة تحكم دور آخر.
+              <div className="mx-auto size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+              <p className="mt-4 text-sm text-muted-foreground">
+                {loading
+                  ? "جاري التحقق من الحساب…"
+                  : !user
+                    ? "جاري تحويلك إلى تسجيل الدخول…"
+                    : "جاري تحويلك إلى لوحة التحكم الخاصة بك…"}
               </p>
-              <div className="mt-6 flex justify-center gap-2">
-                <Link to={getHomeRouteForRole(currentUserRole)}>
-                  <Button>الذهاب إلى لوحتك الخاصة</Button>
-                </Link>
-              </div>
             </Card>
           ) : (
             children

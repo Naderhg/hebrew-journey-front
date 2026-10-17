@@ -55,6 +55,8 @@ import {
   type Subscription,
   type PaymentRequestItem,
   type PlacementResultRow,
+  type AdminLectureItem,
+  type CreateLectureInput,
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, type UserRole } from "../lib/auth";
@@ -777,6 +779,7 @@ export function TeacherScreen() {
     teacherStudents,
     leaderboard,
     teacherSchedules,
+    teacherLectures,
     teacherHomework,
     teacherAttendance,
     fetchExamResults,
@@ -788,8 +791,6 @@ export function TeacherScreen() {
     gradeHomeworkSubmission,
     updateStudentSkill,
     fetchStudentReport,
-    createTeacherSchedule,
-    deleteTeacherSchedule,
     teacherChatThreads,
     fetchTeacherChatThreads,
     fetchTeacherChatThread,
@@ -1174,93 +1175,69 @@ export function TeacherScreen() {
       {activeSection === "schedule" && (
         <div className="space-y-4">
           <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold">جدول محاضراتي</h2>
-                <p className="text-xs text-muted-foreground">
-                  حدّد مواعيدك الأونلاين والأوفلاين بنفسك — للأونلاين أضف رابط Zoom
-                </p>
-              </div>
-              <Button variant="secondary" className="text-xs" onClick={() => setShowScForm(!showScForm)}>
-                {showScForm ? "إلغاء" : "+ موعد جديد"}
-              </Button>
+            <div>
+              <h2 className="text-lg font-bold">المحاضرات المباشرة ({teacherLectures.length})</h2>
+              <p className="text-xs text-muted-foreground">
+                المحاضرات التي يحددها لك الأدمن — يمكنك المشاركة عبر رابط الاجتماع
+              </p>
             </div>
-
-            {showScForm && (
-              <form onSubmit={handleCreateSchedule} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label>عنوان المحاضرة</Label>
-                    <Input value={scTitle} onChange={(e) => setScTitle(e.target.value)} required placeholder="مثال: محادثة مستوى ٢" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>المجموعة (اختياري)</Label>
-                    <select value={scGroup} onChange={(e) => setScGroup(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="">— كل الطلاب / مجموعة —</option>
-                      {groups.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>اليوم</Label>
-                    <select value={scDay} onChange={(e) => setScDay(Number(e.target.value))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>النوع</Label>
-                    <select value={scLocation} onChange={(e) => setScLocation(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="online">أونلاين</option>
-                      <option value="offline">أوفلاين (حضوري)</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>من</Label>
-                    <Input type="time" value={scStart} onChange={(e) => setScStart(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>إلى</Label>
-                    <Input type="time" value={scEnd} onChange={(e) => setScEnd(e.target.value)} />
-                  </div>
-                  {scLocation === "online" && (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label>رابط Zoom / الاجتماع</Label>
-                      <Input value={scUrl} onChange={(e) => setScUrl(e.target.value)} type="url" dir="ltr" placeholder="https://zoom.us/j/..." />
-                    </div>
-                  )}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>وصف (اختياري)</Label>
-                    <Input value={scDesc} onChange={(e) => setScDesc(e.target.value)} placeholder="تفاصيل إضافية للطلاب" />
-                  </div>
+            <div className="mt-4 space-y-2">
+              {teacherLectures.length === 0 ? (
+                <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
+                  لا توجد محاضرات مجدولة لك حالياً.
                 </div>
-                <Button type="submit" disabled={scSaving}>{scSaving ? "جاري الحفظ..." : "إضافة الموعد"}</Button>
-              </form>
-            )}
+              ) : (
+                teacherLectures.map((l) => (
+                  <div key={l.id} className="rounded-md border border-border bg-background/60 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <b className="text-sm">{l.title}</b>
+                          <Badge tone={l.status === "live" ? "sage" : "brand"}>
+                            {l.status === "live" ? "مباشر الآن" : "مجدولة"}
+                          </Badge>
+                          {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
+                          {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+                        </div>
+                        <small className="mt-1 block text-muted-foreground">
+                          {new Date(l.startsAt).toLocaleString("ar-EG")}
+                          {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
+                        </small>
+                        {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
+                      </div>
+                      {l.meetingUrl && (
+                        <a
+                          href={l.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
+                        >
+                          دخول الاجتماع ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </Card>
 
           <Card>
-            <h2 className="text-lg font-bold">المواعيد ({teacherSchedules.length})</h2>
+            <h2 className="text-lg font-bold">المواعيد الأسبوعية ({teacherSchedules.length})</h2>
+            <p className="text-xs text-muted-foreground">المواعيد الثابتة الأسبوعية — يديرها الأدمن</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {teacherSchedules.length === 0 ? (
                 <div className="col-span-2 rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
-                  لا توجد مواعيد بعد — أضف أول موعد من الزر بالأعلى.
+                  لا توجد مواعيد أسبوعية.
                 </div>
               ) : (
                 teacherSchedules.map((s) => (
                   <div key={s.id} className="rounded-md border border-border bg-background/60 p-4">
                     <div className="flex items-center justify-between">
                       <b className="text-sm">{s.title}</b>
-                      <div className="flex items-center gap-1.5">
-                        <Badge tone={s.location === "online" ? "brand" : "gold"}>
-                          {s.location === "online" ? "أونلاين" : "أوفلاين"}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          className="h-7 px-2 text-xs text-danger"
-                          onClick={() => deleteTeacherSchedule(s.id)}
-                        >
-                          حذف
-                        </Button>
-                      </div>
+                      <Badge tone={s.location === "online" ? "brand" : "gold"}>
+                        {s.location === "online" ? "أونلاين" : "أوفلاين"}
+                      </Badge>
                     </div>
                     <small className="mt-1 block text-muted-foreground">
                       {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
@@ -1841,7 +1818,8 @@ export type AdminSection =
   | "placement-results"
   | "sales-report"
   | "leads"
-  | "certificates";
+  | "certificates"
+  | "lectures";
 
 export function AdminScreen() {
   const {
@@ -1885,16 +1863,23 @@ export function AdminScreen() {
     reviewPaymentRequest,
     placementResults,
     fetchPlacementResults,
+    adminLectures,
+    fetchAdminLectures,
+    createAdminLecture,
+    updateAdminLecture,
+    deleteAdminLecture,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
   const [bookingFilter, setBookingFilter] = useState<string>("");
+  const [lectureFilter, setLectureFilter] = useState<string>("");
 
   useEffect(() => {
     if (activeSection === "bookings") fetchAdminPaymentRequests(bookingFilter).catch(() => {});
     if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
+    if (activeSection === "lectures") fetchAdminLectures({ status: lectureFilter }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, bookingFilter]);
+  }, [activeSection, bookingFilter, lectureFilter]);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -3579,6 +3564,18 @@ export function AdminScreen() {
       {activeSection === "placement-results" && (
         <AdminPlacementResultsSection results={placementResults} />
       )}
+
+      {activeSection === "lectures" && (
+        <AdminLecturesSection
+          lectures={adminLectures}
+          teachers={users.filter((u) => u.role === "TEACHER")}
+          filter={lectureFilter}
+          onFilterChange={setLectureFilter}
+          onCreate={createAdminLecture}
+          onUpdate={updateAdminLecture}
+          onDelete={deleteAdminLecture}
+        />
+      )}
     </AppShell>
   );
 }
@@ -3764,6 +3761,205 @@ function AdminPlacementResultsSection({ results }: { results: PlacementResultRow
         )}
       </div>
     </Card>
+  );
+}
+
+const LECTURE_STATUS_LABELS: Record<string, string> = {
+  scheduled: "مجدولة",
+  live: "مباشر الآن",
+  completed: "منتهية",
+  cancelled: "ملغاة",
+};
+
+function AdminLecturesSection({
+  lectures,
+  teachers,
+  filter,
+  onFilterChange,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: {
+  lectures: AdminLectureItem[];
+  teachers: PlatformUser[];
+  filter: string;
+  onFilterChange: (f: string) => void;
+  onCreate: (input: CreateLectureInput) => Promise<void>;
+  onUpdate: (id: string, input: Partial<CreateLectureInput>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [teacherId, setTeacherId] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [level, setLevel] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!title || !teacherId || !startsAt) {
+      setErr("العنوان والمدرس وتاريخ البداية مطلوبة");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onCreate({
+        title,
+        ...(description ? { description } : {}),
+        teacherId,
+        ...(groupName ? { groupName } : {}),
+        ...(level ? { level: level as "A1" | "A2" | "B1" | "B2" | "C1" | "C2" } : {}),
+        startsAt: new Date(startsAt).toISOString(),
+        ...(endsAt ? { endsAt: new Date(endsAt).toISOString() } : {}),
+        ...(meetingUrl ? { meetingUrl } : {}),
+      });
+      setTitle(""); setDescription(""); setTeacherId(""); setGroupName("");
+      setLevel(""); setStartsAt(""); setEndsAt(""); setMeetingUrl("");
+      setShowForm(false);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "فشل إنشاء المحاضرة");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const filtered = filter ? lectures.filter((l) => l.status === filter) : lectures;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold">المحاضرات المباشرة ({lectures.length})</h2>
+            <p className="text-xs text-muted-foreground">
+              أنشئ مواعيد المحاضرات وحررها — خدمة العملاء يقدر يطّلع عليها فقط
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {["", "scheduled", "live", "completed", "cancelled"].map((f) => (
+              <button
+                key={f}
+                onClick={() => onFilterChange(f)}
+                className={`rounded-md px-3 py-1 text-xs ${filter === f ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}
+              >
+                {f === "" ? "الكل" : LECTURE_STATUS_LABELS[f]}
+              </button>
+            ))}
+            <Button variant="secondary" className="text-xs" onClick={() => setShowForm(!showForm)}>
+              {showForm ? "إلغاء" : "+ محاضرة جديدة"}
+            </Button>
+          </div>
+        </div>
+
+        {showForm && (
+          <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>عنوان المحاضرة</Label>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="مثال: محاضرة A1 — القواعد الأساسية" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>المدرس</Label>
+                <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— اختر المدرس —</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.fullName}{t.specialty ? ` — ${t.specialty}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المجموعة (اختياري)</Label>
+                <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="مثال: مجموعة المساء" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>المستوى (اختياري)</Label>
+                <select value={level} onChange={(e) => setLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون مستوى —</option>
+                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>تاريخ ووقت البداية</Label>
+                <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>تاريخ ووقت النهاية (اختياري)</Label>
+                <Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>رابط الاجتماع (Zoom/Meet — اختياري)</Label>
+                <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>الوصف (اختياري)</Label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+              </div>
+            </div>
+            {err && <p className="text-sm font-semibold text-danger">{err}</p>}
+            <Button type="submit" disabled={saving}>{saving ? "جاري الحفظ..." : "إنشاء المحاضرة"}</Button>
+          </form>
+        )}
+      </Card>
+
+      <div className="space-y-2">
+        {filtered.length === 0 ? (
+          <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد محاضرات بهذا الفلتر.</Card>
+        ) : (
+          filtered.map((l) => (
+            <Card key={l.id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <b className="text-sm">{l.title}</b>
+                    <Badge tone={l.status === "live" ? "sage" : l.status === "cancelled" ? "danger" : l.status === "completed" ? "muted" : "brand"}>
+                      {LECTURE_STATUS_LABELS[l.status] ?? l.status}
+                    </Badge>
+                    {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
+                    {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+                  </div>
+                  <small className="mt-1 block text-muted-foreground">
+                    المدرس: {l.teacher?.fullName ?? "—"}
+                    {l.teacher?.specialty ? ` — ${l.teacher.specialty}` : ""}
+                  </small>
+                  {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
+                  <small className="mt-1 block text-muted-foreground">
+                    {new Date(l.startsAt).toLocaleString("ar-EG")}
+                    {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
+                  </small>
+                  {l.meetingUrl && (
+                    <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
+                      رابط الاجتماع ↗
+                    </a>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <select
+                    value={l.status}
+                    onChange={(e) => onUpdate(l.id, { status: e.target.value as CreateLectureInput["status"] }).catch(() => {})}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    title="تغيير الحالة"
+                  >
+                    <option value="scheduled">مجدولة</option>
+                    <option value="live">مباشر الآن</option>
+                    <option value="completed">منتهية</option>
+                    <option value="cancelled">ملغاة</option>
+                  </select>
+                  <button onClick={() => onDelete(l.id).catch(() => {})} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -4208,7 +4404,7 @@ function AdminCertificatesSection({
 }
 
 export function LecturesScreen() {
-  const { studentSchedules, studentAttendance, studentAttendanceRate, studentTickets, createStudentTicket } =
+  const { studentSchedules, studentLectures, studentAttendance, studentAttendanceRate, studentTickets, createStudentTicket } =
     usePlatformStore();
   const [showRequest, setShowRequest] = useState(false);
   const [rqSubject, setRqSubject] = useState("");
@@ -4289,6 +4485,52 @@ export function LecturesScreen() {
           </form>
         </Card>
       )}
+
+      <Card className="mb-4">
+        <h2 className="text-lg font-bold">المحاضرات المباشرة ({studentLectures.length})</h2>
+        <p className="text-xs text-muted-foreground">المحاضرات القادمة — انضم عبر رابط الاجتماع</p>
+        <div className="mt-4 space-y-2">
+          {studentLectures.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              لا توجد محاضرات مباشرة مجدولة حالياً.
+            </div>
+          ) : (
+            studentLectures.map((l) => (
+              <div key={l.id} className="rounded-md border border-border bg-background/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <b className="text-sm">{l.title}</b>
+                      <Badge tone={l.status === "live" ? "sage" : "brand"}>
+                        {l.status === "live" ? "مباشر الآن" : "مجدولة"}
+                      </Badge>
+                      {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
+                      {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+                    </div>
+                    <small className="mt-1 block text-muted-foreground">
+                      {l.teacher?.fullName ?? "—"}
+                      {" · "}
+                      {new Date(l.startsAt).toLocaleString("ar-EG")}
+                      {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
+                    </small>
+                    {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
+                  </div>
+                  {l.meetingUrl && (
+                    <a
+                      href={l.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-brand/90"
+                    >
+                      دخول المحاضرة ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>

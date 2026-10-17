@@ -121,6 +121,13 @@ const adminNav: readonly NavEntry[] = [
       { to: "/admin", section: "placement-results", label: "نتائج تحديد المستوى", icon: BarChart3 },
     ],
   },
+  {
+    group: "المحاضرات والجداول",
+    icon: CalendarDays,
+    items: [
+      { to: "/admin", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
+    ],
+  },
 ];
 
 const placementOnlyNav: readonly SidebarItem[] = [

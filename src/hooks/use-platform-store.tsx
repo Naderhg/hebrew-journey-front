@@ -407,6 +407,35 @@ export interface PlacementResultRow {
   studentStatus?: string | null;
 }
 
+export interface AdminLectureItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  teacherId: string;
+  teacher?: { id: string; fullName: string; specialty?: string | null };
+  groupName?: string | null;
+  level?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+  meetingUrl?: string | null;
+  status: string; // scheduled | live | completed | cancelled
+  createdById: string;
+  createdBy?: { id: string; fullName: string };
+  createdAt: string;
+}
+
+export interface CreateLectureInput {
+  title: string;
+  description?: string;
+  teacherId: string;
+  groupName?: string;
+  level?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+  startsAt: string; // ISO datetime
+  endsAt?: string;
+  meetingUrl?: string;
+  status?: "scheduled" | "live" | "completed" | "cancelled";
+}
+
 export interface StudentSkillItem {
   id: string;
   studentId: string;
@@ -428,6 +457,22 @@ export interface TeacherSchedule {
   location: string;
   meetingUrl?: string | null;
   isActive: boolean;
+}
+
+export interface LectureItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  teacherId: string;
+  teacher?: { id: string; fullName: string; specialty?: string | null };
+  groupName?: string | null;
+  level?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+  meetingUrl?: string | null;
+  status: string;
+  createdBy?: { id: string; fullName: string };
+  createdAt: string;
 }
 
 export interface TeacherAttendance {
@@ -630,9 +675,11 @@ interface PlatformStoreValue {
   attendance: AttendanceRecord[];
   irregularStudents: IrregularStudent[];
   teacherSchedules: TeacherSchedule[];
+  teacherLectures: LectureItem[];
   teacherHomework: Homework[];
   teacherAttendance: TeacherAttendance[];
   studentSchedules: ScheduleItem[];
+  studentLectures: LectureItem[];
   studentHomework: StudentHomework[];
   studentAttendance: StudentAttendanceItem[];
   studentAttendanceRate: number | null;
@@ -656,6 +703,7 @@ interface PlatformStoreValue {
   mySubscription: MySubscription | null;
   adminPaymentRequests: PaymentRequestItem[];
   placementResults: PlacementResultRow[];
+  adminLectures: AdminLectureItem[];
   loadingData: boolean;
   refreshAll: () => Promise<void>;
   addStaffUser: (input: CreateStaffUserInput) => Promise<PlatformUser>;
@@ -694,6 +742,7 @@ interface PlatformStoreValue {
   recordAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
   // Teacher extras
   fetchTeacherSchedules: () => Promise<void>;
+  fetchTeacherLectures: () => Promise<void>;
   fetchTeacherAttendance: () => Promise<void>;
   recordTeacherAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
   createHomework: (input: { title: string; description?: string; hebrewText?: string; studentId?: string; groupName?: string; dueDate?: string }) => Promise<void>;
@@ -741,6 +790,10 @@ interface PlatformStoreValue {
   fetchAdminPaymentRequests: (status?: string) => Promise<void>;
   reviewPaymentRequest: (id: string, input: { action: "approve" | "reject"; rejectReason?: string }) => Promise<void>;
   fetchPlacementResults: () => Promise<void>;
+  fetchAdminLectures: (filter?: { status?: string }) => Promise<void>;
+  createAdminLecture: (input: CreateLectureInput) => Promise<void>;
+  updateAdminLecture: (id: string, input: Partial<CreateLectureInput>) => Promise<void>;
+  deleteAdminLecture: (id: string) => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -768,9 +821,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [irregularStudents, setIrregularStudents] = useState<IrregularStudent[]>([]);
   const [teacherSchedules, setTeacherSchedules] = useState<TeacherSchedule[]>([]);
+  const [teacherLectures, setTeacherLectures] = useState<LectureItem[]>([]);
   const [teacherHomework, setTeacherHomework] = useState<Homework[]>([]);
   const [teacherAttendance, setTeacherAttendance] = useState<TeacherAttendance[]>([]);
   const [studentSchedules, setStudentSchedules] = useState<ScheduleItem[]>([]);
+  const [studentLectures, setStudentLectures] = useState<LectureItem[]>([]);
   const [studentHomework, setStudentHomework] = useState<StudentHomework[]>([]);
   const [studentAttendance, setStudentAttendance] = useState<StudentAttendanceItem[]>([]);
   const [studentAttendanceRate, setStudentAttendanceRate] = useState<number | null>(null);
@@ -794,6 +849,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [mySubscription, setMySubscription] = useState<MySubscription | null>(null);
   const [adminPaymentRequests, setAdminPaymentRequests] = useState<PaymentRequestItem[]>([]);
   const [placementResults, setPlacementResults] = useState<PlacementResultRow[]>([]);
+  const [adminLectures, setAdminLectures] = useState<AdminLectureItem[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -861,12 +917,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setAdminSubscriptions(subsRes.value.subscriptions);
         if (certRes.status === "fulfilled" && certRes.value?.certificates) setAdminCertificates(certRes.value.certificates);
       } else if (user?.role === "TEACHER") {
-        const [matRes, examsRes, studentsRes, schedRes, hwRes] = await Promise.allSettled([
+        const [matRes, examsRes, studentsRes, schedRes, hwRes, lecRes] = await Promise.allSettled([
           apiFetch<{ materials: CourseMaterial[] }>("/api/teacher/materials"),
           apiFetch<{ exams: Exam[] }>("/api/teacher/exams"),
           apiFetch<{ students: TeacherStudent[] }>("/api/teacher/students"),
           apiFetch<{ schedules: TeacherSchedule[] }>("/api/teacher/schedules"),
           apiFetch<{ homework: Homework[] }>("/api/teacher/homework"),
+          apiFetch<{ lectures: LectureItem[] }>("/api/teacher/lectures"),
         ]);
         if (matRes.status === "fulfilled" && matRes.value?.materials) {
           setMaterials(matRes.value.materials);
@@ -883,6 +940,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (hwRes.status === "fulfilled" && hwRes.value?.homework) {
           setTeacherHomework(hwRes.value.homework);
         }
+        if (lecRes.status === "fulfilled" && lecRes.value?.lectures) {
+          setTeacherLectures(lecRes.value.lectures);
+        }
       } else if (user?.role === "STUDENT") {
         // Locked students can only reach billing endpoints — skip the rest
         // until placement is done and a subscription is confirmed.
@@ -891,7 +951,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
           await fetchMyBilling().catch(() => {});
           return;
         }
-        const [matRes, examsRes, dashRes, schedRes, hwRes, attRes, skillsRes, certRes, tkRes] = await Promise.allSettled([
+        const [matRes, examsRes, dashRes, schedRes, hwRes, attRes, skillsRes, certRes, tkRes, lecRes] = await Promise.allSettled([
           apiFetch<{ materials: CourseMaterial[] }>("/api/student/courses"),
           apiFetch<{ exams: Exam[] }>("/api/student/exams"),
           apiFetch<{
@@ -906,6 +966,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
           apiFetch<{ skills: StudentSkillItem[] }>("/api/student/skills"),
           apiFetch<{ certificates: StudentCertificate[] }>("/api/student/certificates"),
           apiFetch<{ tickets: StudentTicket[] }>("/api/student/tickets"),
+          apiFetch<{ lectures: LectureItem[] }>("/api/student/lectures"),
         ]);
         if (matRes.status === "fulfilled" && matRes.value?.materials) {
           setMaterials(matRes.value.materials);
@@ -925,6 +986,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (skillsRes.status === "fulfilled" && skillsRes.value?.skills) setStudentSkills(skillsRes.value.skills);
         if (certRes.status === "fulfilled" && certRes.value?.certificates) setStudentCertificates(certRes.value.certificates);
         if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setStudentTickets(tkRes.value.tickets);
+        if (lecRes.status === "fulfilled" && lecRes.value?.lectures) setStudentLectures(lecRes.value.lectures);
       } else if (user?.role === "SALES") {
         const [leadsRes, callsRes, packsRes, subsRes, statsRes] = await Promise.allSettled([
           apiFetch<{ leads: SalesLead[] }>("/api/sales/leads"),
@@ -1247,6 +1309,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
+  async function fetchTeacherLectures() {
+    try {
+      const res = await apiFetch<{ lectures: LectureItem[] }>("/api/teacher/lectures");
+      if (res?.lectures) setTeacherLectures(res.lectures);
+    } catch { /* ignore */ }
+  }
+
   async function fetchTeacherAttendance() {
     try {
       const res = await apiFetch<{ attendance: TeacherAttendance[] }>("/api/teacher/attendance");
@@ -1525,6 +1594,27 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (res?.results) setPlacementResults(res.results);
   }
 
+  async function fetchAdminLectures(filter?: { status?: string }) {
+    const qs = filter?.status ? `?status=${filter.status}` : "";
+    const res = await apiFetch<{ lectures: AdminLectureItem[] }>(`/api/admin/lectures${qs}`);
+    if (res?.lectures) setAdminLectures(res.lectures);
+  }
+
+  async function createAdminLecture(input: CreateLectureInput) {
+    await apiFetch("/api/admin/lectures", { method: "POST", body: input });
+    await fetchAdminLectures();
+  }
+
+  async function updateAdminLecture(id: string, input: Partial<CreateLectureInput>) {
+    await apiFetch(`/api/admin/lectures/${id}`, { method: "PATCH", body: input });
+    await fetchAdminLectures();
+  }
+
+  async function deleteAdminLecture(id: string) {
+    await apiFetch(`/api/admin/lectures/${id}`, { method: "DELETE" });
+    await fetchAdminLectures();
+  }
+
   return (
     <PlatformStoreContext.Provider
       value={{
@@ -1549,9 +1639,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         attendance,
         irregularStudents,
         teacherSchedules,
+        teacherLectures,
         teacherHomework,
         teacherAttendance,
         studentSchedules,
+        studentLectures,
         studentHomework,
         studentAttendance,
         studentAttendanceRate,
@@ -1575,6 +1667,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         mySubscription,
         adminPaymentRequests,
         placementResults,
+        adminLectures,
         loadingData,
         refreshAll,
         addStaffUser,
@@ -1611,6 +1704,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         createSchedule,
         recordAttendance,
         fetchTeacherSchedules,
+        fetchTeacherLectures,
         fetchTeacherAttendance,
         recordTeacherAttendance,
         createHomework,
@@ -1652,6 +1746,10 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchAdminPaymentRequests,
         reviewPaymentRequest,
         fetchPlacementResults,
+        fetchAdminLectures,
+        createAdminLecture,
+        updateAdminLecture,
+        deleteAdminLecture,
       }}
     >
       {children}

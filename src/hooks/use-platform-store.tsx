@@ -278,6 +278,8 @@ export interface SupportStudent {
   email: string;
   phone?: string | null;
   level?: string | null;
+  placementScore?: number | null;
+  placementCompletedAt?: string | null;
   studentStatus: string;
   teachers: { id: string; name: string; groupName?: string | null }[];
   examsCount: number;
@@ -357,6 +359,52 @@ export interface Homework {
   feedback?: string | null;
   submittedAt?: string | null;
   createdAt: string;
+  submissions?: HomeworkSub[];
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface PaymentRequestItem {
+  id: string;
+  studentId: string;
+  packageId: string;
+  method: string; // wallet | instapay
+  screenshotUrl?: string | null;
+  status: string; // pending | approved | rejected
+  rejectReason?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  package?: { id: string; nameAr: string; price: number; durationMonths: number };
+  student?: { id: string; fullName: string; email: string; phone?: string | null; level?: string | null };
+  reviewedBy?: { fullName: string } | null;
+}
+
+export interface MySubscription {
+  id: string;
+  status: string;
+  paymentStatus: string;
+  startDate: string;
+  endDate?: string | null;
+  package?: { nameAr: string; durationMonths: number };
+}
+
+export interface PlacementResultRow {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  level?: string | null;
+  placementScore?: number | null;
+  placementCompletedAt?: string | null;
+  studentStatus?: string | null;
 }
 
 export interface StudentSkillItem {
@@ -408,6 +456,20 @@ export interface StudentReport {
 
 // ─── Student extras ─────────────────────────────────────────────────────────
 
+export interface HomeworkSub {
+  id: string;
+  homeworkId: string;
+  studentId: string;
+  student?: { id: string; fullName: string };
+  submissionText?: string | null;
+  audioUrl?: string | null;
+  status: string; // submitted | late | graded
+  grade?: number | null;
+  feedback?: string | null;
+  submittedAt?: string | null;
+  gradedAt?: string | null;
+}
+
 export interface StudentHomework {
   id: string;
   teacherId: string;
@@ -425,6 +487,7 @@ export interface StudentHomework {
   feedback?: string | null;
   submittedAt?: string | null;
   createdAt: string;
+  mySubmission?: HomeworkSub | null;
 }
 
 export interface StudentAttendanceItem {
@@ -587,6 +650,12 @@ interface PlatformStoreValue {
   supportChatMsgs: ChatMsg[];
   teacherChatThreads: TeacherChatThread[];
   supportChatThreads: SupportChatThread[];
+  notifications: AppNotification[];
+  unreadCount: number;
+  myPaymentRequests: PaymentRequestItem[];
+  mySubscription: MySubscription | null;
+  adminPaymentRequests: PaymentRequestItem[];
+  placementResults: PlacementResultRow[];
   loadingData: boolean;
   refreshAll: () => Promise<void>;
   addStaffUser: (input: CreateStaffUserInput) => Promise<PlatformUser>;
@@ -660,6 +729,18 @@ interface PlatformStoreValue {
   fetchSupportChatThreads: () => Promise<void>;
   fetchSupportChatThread: (studentId: string) => Promise<ChatMsg[]>;
   sendSupportChatReply: (studentId: string, content: string) => Promise<void>;
+  // Notifications & misc
+  fetchNotifications: () => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  gradeHomeworkSubmission: (submissionId: string, input: { grade?: number; feedback?: string }) => Promise<void>;
+  submitPlacementResult: (scorePercent: number, level: string) => Promise<void>;
+  // Billing / bookings
+  fetchMyBilling: () => Promise<void>;
+  createPaymentRequest: (input: { packageId: string; method: "wallet" | "instapay"; screenshotUrl: string }) => Promise<void>;
+  fetchAdminPaymentRequests: (status?: string) => Promise<void>;
+  reviewPaymentRequest: (id: string, input: { action: "approve" | "reject"; rejectReason?: string }) => Promise<void>;
+  fetchPlacementResults: () => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -707,6 +788,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [supportChatMsgs, setSupportChatMsgs] = useState<ChatMsg[]>([]);
   const [teacherChatThreads, setTeacherChatThreads] = useState<TeacherChatThread[]>([]);
   const [supportChatThreads, setSupportChatThreads] = useState<SupportChatThread[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [myPaymentRequests, setMyPaymentRequests] = useState<PaymentRequestItem[]>([]);
+  const [mySubscription, setMySubscription] = useState<MySubscription | null>(null);
+  const [adminPaymentRequests, setAdminPaymentRequests] = useState<PaymentRequestItem[]>([]);
+  const [placementResults, setPlacementResults] = useState<PlacementResultRow[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -724,6 +811,16 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
           if (res?.leaderboard) setLeaderboard(res.leaderboard);
         })
         .catch(() => {});
+
+      // Notifications — any authenticated user
+      if (user) {
+        apiFetch<{ notifications: AppNotification[]; unreadCount: number }>("/api/notifications")
+          .then((res) => {
+            if (res?.notifications) setNotifications(res.notifications);
+            if (res?.unreadCount !== undefined) setUnreadCount(res.unreadCount);
+          })
+          .catch(() => {});
+      }
 
       if (user?.role === "ADMIN") {
         const [usersRes, matRes, qRes, examsRes, linksRes, resultsRes, packsRes, leadsRes, repRes, subsRes, certRes] = await Promise.allSettled([
@@ -787,6 +884,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
           setTeacherHomework(hwRes.value.homework);
         }
       } else if (user?.role === "STUDENT") {
+        // Locked students can only reach billing endpoints — skip the rest
+        // until placement is done and a subscription is confirmed.
+        if (!user.placementCompletedAt) return;
+        if (!user.hasActiveSubscription) {
+          await fetchMyBilling().catch(() => {});
+          return;
+        }
         const [matRes, examsRes, dashRes, schedRes, hwRes, attRes, skillsRes, certRes, tkRes] = await Promise.allSettled([
           apiFetch<{ materials: CourseMaterial[] }>("/api/student/courses"),
           apiFetch<{ exams: Exam[] }>("/api/student/exams"),
@@ -855,7 +959,17 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refreshAll();
-  }, [user?.id, user?.role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.role, user?.hasActiveSubscription, user?.placementCompletedAt]);
+
+  // Poll notifications every 60s while logged in
+  useEffect(() => {
+    if (!user) return;
+    const t = setInterval(() => {
+      fetchNotifications().catch(() => {});
+    }, 60_000);
+    return () => clearInterval(t);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addStaffUser(input: CreateStaffUserInput): Promise<PlatformUser> {
     const res = await apiFetch<{ user: PlatformUser }>("/api/admin/users", {
@@ -1335,6 +1449,82 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await apiFetch(`/api/support/chat/${studentId}`, { method: "POST", body: { content } });
   }
 
+  // ─── Notifications & misc ────────────────────────────────────────────────
+
+  async function fetchNotifications() {
+    try {
+      const res = await apiFetch<{ notifications: AppNotification[]; unreadCount: number }>(
+        "/api/notifications"
+      );
+      if (res?.notifications) setNotifications(res.notifications);
+      if (res?.unreadCount !== undefined) setUnreadCount(res.unreadCount);
+    } catch { /* ignore */ }
+  }
+
+  async function markNotificationRead(id: string) {
+    await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
+    );
+    setUnreadCount((c) => Math.max(0, c - 1));
+  }
+
+  async function markAllNotificationsRead() {
+    await apiFetch("/api/notifications/read-all", { method: "POST" });
+    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
+    setUnreadCount(0);
+  }
+
+  async function gradeHomeworkSubmission(submissionId: string, input: { grade?: number; feedback?: string }) {
+    await apiFetch(`/api/teacher/homework/submissions/${submissionId}`, { method: "PATCH", body: input });
+    const res = await apiFetch<{ homework: Homework[] }>("/api/teacher/homework");
+    if (res?.homework) setTeacherHomework(res.homework);
+  }
+
+  async function submitPlacementResult(scorePercent: number, level: string) {
+    await apiFetch("/api/placement/result", { method: "POST", body: { scorePercent, level } });
+  }
+
+  // ─── Billing / bookings ────────────────────────────────────────────────
+
+  async function fetchMyBilling() {
+    const res = await apiFetch<{ requests: PaymentRequestItem[]; subscription: MySubscription | null }>(
+      "/api/student/payment-requests"
+    );
+    if (res) {
+      setMyPaymentRequests(res.requests ?? []);
+      setMySubscription(res.subscription ?? null);
+    }
+  }
+
+  async function createPaymentRequest(input: {
+    packageId: string;
+    method: "wallet" | "instapay";
+    screenshotUrl: string;
+  }) {
+    await apiFetch("/api/student/payment-requests", { method: "POST", body: input });
+    await fetchMyBilling();
+  }
+
+  async function fetchAdminPaymentRequests(status?: string) {
+    const qs = status ? `?status=${status}` : "";
+    const res = await apiFetch<{ requests: PaymentRequestItem[] }>(`/api/admin/payment-requests${qs}`);
+    if (res?.requests) setAdminPaymentRequests(res.requests);
+  }
+
+  async function reviewPaymentRequest(
+    id: string,
+    input: { action: "approve" | "reject"; rejectReason?: string }
+  ) {
+    await apiFetch(`/api/admin/payment-requests/${id}`, { method: "PATCH", body: input });
+    await fetchAdminPaymentRequests();
+  }
+
+  async function fetchPlacementResults() {
+    const res = await apiFetch<{ results: PlacementResultRow[] }>("/api/admin/placement-results");
+    if (res?.results) setPlacementResults(res.results);
+  }
+
   return (
     <PlatformStoreContext.Provider
       value={{
@@ -1379,6 +1569,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         supportChatMsgs,
         teacherChatThreads,
         supportChatThreads,
+        notifications,
+        unreadCount,
+        myPaymentRequests,
+        mySubscription,
+        adminPaymentRequests,
+        placementResults,
         loadingData,
         refreshAll,
         addStaffUser,
@@ -1446,6 +1642,16 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchSupportChatThreads,
         fetchSupportChatThread,
         sendSupportChatReply,
+        fetchNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
+        gradeHomeworkSubmission,
+        submitPlacementResult,
+        fetchMyBilling,
+        createPaymentRequest,
+        fetchAdminPaymentRequests,
+        reviewPaymentRequest,
+        fetchPlacementResults,
       }}
     >
       {children}

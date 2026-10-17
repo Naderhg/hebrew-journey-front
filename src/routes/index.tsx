@@ -317,7 +317,7 @@ function Landing() {
                     <Badge tone="brand">{p.durationMonths} شهر</Badge>
                   </div>
                   <p className="mt-2 font-lat text-3xl font-bold text-brand">
-                    ${p.price}
+                    {p.price} جنيه
                     <small className="text-sm font-normal text-muted-foreground"> / للباقة</small>
                   </p>
                   {p.description && (

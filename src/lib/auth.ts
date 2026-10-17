@@ -13,6 +13,10 @@ export interface AuthUser {
   isActive?: boolean;
   emailVerifiedAt?: string;
   createdAt?: string;
+  // student onboarding/billing gates
+  level?: string | null;
+  placementCompletedAt?: string | null;
+  hasActiveSubscription?: boolean;
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {

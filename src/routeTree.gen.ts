@@ -17,6 +17,7 @@ import { Route as ConversationRouteImport } from './routes/conversation'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ExamsRouteImport } from './routes/exams'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as HomeworkRouteImport } from './routes/homework'
 import { Route as LecturesRouteImport } from './routes/lectures'
 import { Route as LoginRouteImport } from './routes/login'
@@ -25,8 +26,10 @@ import { Route as PlacementRouteImport } from './routes/placement'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
+import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeacherRouteImport } from './routes/teacher'
 
@@ -70,6 +73,11 @@ const ExamsRoute = ExamsRouteImport.update({
   path: '/exams',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HomeworkRoute = HomeworkRouteImport.update({
   id: '/homework',
   path: '/homework',
@@ -110,6 +118,11 @@ const RegisterRoute = RegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
@@ -118,6 +131,11 @@ const SalesRoute = SalesRouteImport.update({
 const ScenariosRoute = ScenariosRouteImport.update({
   id: '/scenarios',
   path: '/scenarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubscribeRoute = SubscribeRouteImport.update({
+  id: '/subscribe',
+  path: '/subscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SupportRoute = SupportRouteImport.update({
@@ -140,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/homework': typeof HomeworkRoute
   '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
@@ -148,8 +167,10 @@ export interface FileRoutesByFullPath {
   '/plan': typeof PlanRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
+  '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
 }
@@ -162,6 +183,7 @@ export interface FileRoutesByTo {
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/homework': typeof HomeworkRoute
   '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
@@ -170,8 +192,10 @@ export interface FileRoutesByTo {
   '/plan': typeof PlanRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
+  '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
 }
@@ -185,6 +209,7 @@ export interface FileRoutesById {
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/homework': typeof HomeworkRoute
   '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
@@ -193,8 +218,10 @@ export interface FileRoutesById {
   '/plan': typeof PlanRoute
   '/progress': typeof ProgressRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
+  '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
 }
@@ -209,6 +236,7 @@ export interface FileRouteTypes {
     | '/courses'
     | '/dashboard'
     | '/exams'
+    | '/forgot-password'
     | '/homework'
     | '/lectures'
     | '/login'
@@ -217,8 +245,10 @@ export interface FileRouteTypes {
     | '/plan'
     | '/progress'
     | '/register'
+    | '/reset-password'
     | '/sales'
     | '/scenarios'
+    | '/subscribe'
     | '/support'
     | '/teacher'
   fileRoutesByTo: FileRoutesByTo
@@ -231,6 +261,7 @@ export interface FileRouteTypes {
     | '/courses'
     | '/dashboard'
     | '/exams'
+    | '/forgot-password'
     | '/homework'
     | '/lectures'
     | '/login'
@@ -239,8 +270,10 @@ export interface FileRouteTypes {
     | '/plan'
     | '/progress'
     | '/register'
+    | '/reset-password'
     | '/sales'
     | '/scenarios'
+    | '/subscribe'
     | '/support'
     | '/teacher'
   id:
@@ -253,6 +286,7 @@ export interface FileRouteTypes {
     | '/courses'
     | '/dashboard'
     | '/exams'
+    | '/forgot-password'
     | '/homework'
     | '/lectures'
     | '/login'
@@ -261,8 +295,10 @@ export interface FileRouteTypes {
     | '/plan'
     | '/progress'
     | '/register'
+    | '/reset-password'
     | '/sales'
     | '/scenarios'
+    | '/subscribe'
     | '/support'
     | '/teacher'
   fileRoutesById: FileRoutesById
@@ -276,6 +312,7 @@ export interface RootRouteChildren {
   CoursesRoute: typeof CoursesRoute
   DashboardRoute: typeof DashboardRoute
   ExamsRoute: typeof ExamsRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   HomeworkRoute: typeof HomeworkRoute
   LecturesRoute: typeof LecturesRoute
   LoginRoute: typeof LoginRoute
@@ -284,8 +321,10 @@ export interface RootRouteChildren {
   PlanRoute: typeof PlanRoute
   ProgressRoute: typeof ProgressRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SalesRoute: typeof SalesRoute
   ScenariosRoute: typeof ScenariosRoute
+  SubscribeRoute: typeof SubscribeRoute
   SupportRoute: typeof SupportRoute
   TeacherRoute: typeof TeacherRoute
 }
@@ -348,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExamsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/homework': {
       id: '/homework'
       path: '/homework'
@@ -404,6 +450,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sales': {
       id: '/sales'
       path: '/sales'
@@ -416,6 +469,13 @@ declare module '@tanstack/react-router' {
       path: '/scenarios'
       fullPath: '/scenarios'
       preLoaderRoute: typeof ScenariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscribe': {
+      id: '/subscribe'
+      path: '/subscribe'
+      fullPath: '/subscribe'
+      preLoaderRoute: typeof SubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/support': {
@@ -444,6 +504,7 @@ const rootRouteChildren: RootRouteChildren = {
   CoursesRoute: CoursesRoute,
   DashboardRoute: DashboardRoute,
   ExamsRoute: ExamsRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   HomeworkRoute: HomeworkRoute,
   LecturesRoute: LecturesRoute,
   LoginRoute: LoginRoute,
@@ -452,8 +513,10 @@ const rootRouteChildren: RootRouteChildren = {
   PlanRoute: PlanRoute,
   ProgressRoute: ProgressRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SalesRoute: SalesRoute,
   ScenariosRoute: ScenariosRoute,
+  SubscribeRoute: SubscribeRoute,
   SupportRoute: SupportRoute,
   TeacherRoute: TeacherRoute,
 }

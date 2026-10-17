@@ -53,6 +53,8 @@ import {
   type AdminSalesReport,
   type AdminCertificate,
   type Subscription,
+  type PaymentRequestItem,
+  type PlacementResultRow,
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, type UserRole } from "../lib/auth";
@@ -512,8 +514,21 @@ function PlacementResult({
   correctCount: number;
   total: number;
 }) {
+  const { submitPlacementResult } = usePlatformStore();
+  const { user } = useAuth();
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const level =
     scorePercent >= 80 ? "B2" : scorePercent >= 55 ? "B1" : scorePercent >= 30 ? "A2" : "A1";
+
+  useEffect(() => {
+    if (!user) return;
+    setSaveState("saving");
+    submitPlacementResult(scorePercent, level)
+      .then(() => setSaveState("saved"))
+      .catch(() => setSaveState("error"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   return (
     <AppShell role="STUDENT">
       <PageHeader title="نتيجة اختبار المستوى" subtitle="تم حساب النتيجة بناءً على إجاباتك" />
@@ -528,8 +543,30 @@ function PlacementResult({
         <div className="mt-4">
           <ProgressBar value={scorePercent} tone="sage" />
         </div>
-        <Link to="/plan">
-          <Button className="mt-6 w-full">الانتقال إلى خطة التعلم</Button>
+        {saveState === "saved" && (
+          <p className="mt-3 text-xs font-semibold text-sage">تم حفظ مستواك في ملفك الشخصي</p>
+        )}
+        {saveState === "error" && (
+          <p className="mt-3 text-xs font-semibold text-danger">تعذر حفظ النتيجة — حاول مجدداً لاحقاً</p>
+        )}
+
+        <div className="mt-6 rounded-md border border-brand/30 bg-brand/5 p-4 text-right">
+          <b className="text-sm">الخطوة التالية: احجز محاضرتك المجانية</b>
+          <p className="mt-1 text-xs text-muted-foreground">
+            تواصل معنا على واتساب لحجز محاضرة تجريبية مجانية مع مدرسك
+          </p>
+          <a
+            href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`أهلاً، أنا ${user?.fullName ?? "طالب جديد"}. خلصت اختبار تحديد المستوى وطلع مستواي ${level} — عايز أحجز المحاضرة المجانية`)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-sage px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sage/90"
+          >
+            احجز محاضرتك المجانية عبر واتساب
+          </a>
+        </div>
+
+        <Link to="/subscribe">
+          <Button className="mt-4 w-full">متابعة — اختيار الباقة والاشتراك</Button>
         </Link>
       </Card>
     </AppShell>
@@ -748,6 +785,7 @@ export function TeacherScreen() {
     recordTeacherAttendance,
     createHomework,
     gradeHomework,
+    gradeHomeworkSubmission,
     updateStudentSkill,
     fetchStudentReport,
     createTeacherSchedule,
@@ -1387,12 +1425,7 @@ export function TeacherScreen() {
                           {hw.dueDate && ` · تسليم: ${new Date(hw.dueDate).toLocaleDateString("ar-EG")}`}
                         </small>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge tone={hw.status === "graded" ? "sage" : hw.status === "submitted" ? "gold" : hw.status === "late" ? "danger" : "muted"}>
-                          {hw.status === "graded" ? "مُصحّح" : hw.status === "submitted" ? "مُسلَّم" : hw.status === "late" ? "متأخر" : "مُكلَّف"}
-                        </Badge>
-                        {hw.grade !== null && <Badge tone="brand">{hw.grade}%</Badge>}
-                      </div>
+                      <Badge tone="muted">{hw.submissions?.length ?? 0} تسليم</Badge>
                     </div>
                     {hw.description && <p className="mt-2 text-xs text-muted-foreground">{hw.description}</p>}
                     {hw.hebrewText && (
@@ -1401,38 +1434,58 @@ export function TeacherScreen() {
                         <HebrewTTS text={hw.hebrewText} label="استمع للنص" />
                       </div>
                     )}
-                    {hw.submissionText && (
-                      <div className="mt-2 rounded-md bg-muted/60 p-2 text-xs">
-                        <small className="text-muted-foreground">تسليم الطالب:</small>
-                        <p className="mt-1">{hw.submissionText}</p>
-                      </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                      <Input
-                        type="number" min={0} max={100} placeholder="الدرجة"
-                        value={hwDrafts[hw.id]?.grade ?? (hw.grade?.toString() ?? "")}
-                        onChange={(e) => setHwDrafts((prev) => ({ ...prev, [hw.id]: { grade: e.target.value, feedback: prev[hw.id]?.feedback ?? hw.feedback ?? "" } }))}
-                        className="h-8 w-24 text-xs"
-                      />
-                      <Input
-                        placeholder="ملاحظة للطالب"
-                        value={hwDrafts[hw.id]?.feedback ?? (hw.feedback ?? "")}
-                        onChange={(e) => setHwDrafts((prev) => ({ ...prev, [hw.id]: { grade: prev[hw.id]?.grade ?? hw.grade?.toString() ?? "", feedback: e.target.value } }))}
-                        className="h-8 min-w-40 flex-1 text-xs"
-                      />
-                      <Button
-                        variant="secondary" className="min-h-8 px-3 py-1 text-xs"
-                        onClick={() => {
-                          const d = hwDrafts[hw.id];
-                          gradeHomework(hw.id, {
-                            status: "graded",
-                            ...(d?.grade ? { grade: Number(d.grade) } : {}),
-                            ...(d?.feedback ? { feedback: d.feedback } : {}),
-                          }).catch(() => {});
-                        }}
-                      >
-                        حفظ التقييم
-                      </Button>
+                    <div className="mt-3 space-y-2 border-t border-border pt-3">
+                      {(hw.submissions ?? []).length === 0 && !hw.submissionText ? (
+                        <p className="py-2 text-center text-xs text-muted-foreground">لا توجد تسليمات من الطلاب بعد.</p>
+                      ) : (
+                        (hw.submissions ?? []).map((sub) => (
+                          <div key={sub.id} className="rounded-md border border-border/60 bg-muted/30 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <b className="text-xs">{sub.student?.fullName ?? "طالب"}</b>
+                              <div className="flex items-center gap-2">
+                                <Badge tone={sub.status === "graded" ? "sage" : sub.status === "late" ? "danger" : "gold"}>
+                                  {sub.status === "graded" ? "مُصحّح" : sub.status === "late" ? "متأخر" : "مُسلَّم"}
+                                </Badge>
+                                {sub.grade !== null && sub.grade !== undefined && <Badge tone="brand">{sub.grade}%</Badge>}
+                              </div>
+                            </div>
+                            {sub.submissionText && <p className="mt-2 text-xs text-muted-foreground">{sub.submissionText}</p>}
+                            {sub.audioUrl && <audio controls src={mediaSrc(sub.audioUrl)} className="mt-2 w-full" />}
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Input
+                                type="number" min={0} max={100} placeholder="الدرجة"
+                                value={hwDrafts[sub.id]?.grade ?? (sub.grade?.toString() ?? "")}
+                                onChange={(e) => setHwDrafts((prev) => ({ ...prev, [sub.id]: { grade: e.target.value, feedback: prev[sub.id]?.feedback ?? sub.feedback ?? "" } }))}
+                                className="h-8 w-24 text-xs"
+                              />
+                              <Input
+                                placeholder="ملاحظة للطالب"
+                                value={hwDrafts[sub.id]?.feedback ?? (sub.feedback ?? "")}
+                                onChange={(e) => setHwDrafts((prev) => ({ ...prev, [sub.id]: { grade: prev[sub.id]?.grade ?? sub.grade?.toString() ?? "", feedback: e.target.value } }))}
+                                className="h-8 min-w-40 flex-1 text-xs"
+                              />
+                              <Button
+                                variant="secondary" className="min-h-8 px-3 py-1 text-xs"
+                                onClick={() => {
+                                  const d = hwDrafts[sub.id];
+                                  gradeHomeworkSubmission(sub.id, {
+                                    ...(d?.grade ? { grade: Number(d.grade) } : {}),
+                                    ...(d?.feedback ? { feedback: d.feedback } : {}),
+                                  }).catch(() => {});
+                                }}
+                              >
+                                حفظ التقييم
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      {hw.submissionText && (hw.submissions ?? []).length === 0 && (
+                        <div className="rounded-md bg-muted/60 p-2 text-xs">
+                          <small className="text-muted-foreground">تسليم قديم:</small>
+                          <p className="mt-1">{hw.submissionText}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
@@ -1784,6 +1837,8 @@ export type AdminSection =
   | "results"
   | "placement"
   | "packages"
+  | "bookings"
+  | "placement-results"
   | "sales-report"
   | "leads"
   | "certificates";
@@ -1825,9 +1880,21 @@ export function AdminScreen() {
     assignLead,
     issueCertificate,
     deleteCertificate,
+    adminPaymentRequests,
+    fetchAdminPaymentRequests,
+    reviewPaymentRequest,
+    placementResults,
+    fetchPlacementResults,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  const [bookingFilter, setBookingFilter] = useState<string>("");
+
+  useEffect(() => {
+    if (activeSection === "bookings") fetchAdminPaymentRequests(bookingFilter).catch(() => {});
+    if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, bookingFilter]);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -3498,11 +3565,207 @@ export function AdminScreen() {
           onDelete={deleteCertificate}
         />
       )}
+
+      {activeSection === "bookings" && (
+        <AdminBookingsSection
+          requests={adminPaymentRequests}
+          onRefresh={() => fetchAdminPaymentRequests(bookingFilter)}
+          filter={bookingFilter}
+          onFilterChange={setBookingFilter}
+          onReview={reviewPaymentRequest}
+        />
+      )}
+
+      {activeSection === "placement-results" && (
+        <AdminPlacementResultsSection results={placementResults} />
+      )}
     </AppShell>
   );
 }
 
 // ─── Admin ops sections ─────────────────────────────────────────────────────
+
+function AdminBookingsSection({
+  requests,
+  onRefresh,
+  filter,
+  onFilterChange,
+  onReview,
+}: {
+  requests: PaymentRequestItem[];
+  onRefresh: () => void;
+  filter: string;
+  onFilterChange: (s: string) => void;
+  onReview: (id: string, input: { action: "approve" | "reject"; rejectReason?: string }) => Promise<void>;
+}) {
+  const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  async function handle(id: string, action: "approve" | "reject") {
+    setError("");
+    setBusyId(id);
+    try {
+      await onReview(id, {
+        action,
+        ...(action === "reject" && rejectReasons[id]?.trim()
+          ? { rejectReason: rejectReasons[id].trim() }
+          : {}),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر تنفيذ العملية");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold">طلبات الحجز والمدفوعات ({requests.length})</h3>
+          <div className="flex items-center gap-2">
+            <select
+              value={filter}
+              onChange={(e) => onFilterChange(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">الكل</option>
+              <option value="pending">قيد المراجعة</option>
+              <option value="approved">مؤكدة</option>
+              <option value="rejected">مرفوضة</option>
+            </select>
+            <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onRefresh}>
+              تحديث
+            </Button>
+          </div>
+        </div>
+        {error && <p className="mt-3 rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>}
+      </Card>
+
+      {requests.length === 0 ? (
+        <Card className="py-12 text-center text-sm text-muted-foreground">
+          لا توجد طلبات حجز {filter === "pending" ? "قيد المراجعة" : ""} حالياً.
+        </Card>
+      ) : (
+        requests.map((r) => (
+          <Card key={r.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <b className="text-sm">{r.student?.fullName ?? "طالب"}</b>
+                <small className="block text-muted-foreground">
+                  {r.student?.email}
+                  {r.student?.phone && ` · ${r.student.phone}`}
+                  {r.student?.level && ` · مستوى ${r.student.level}`}
+                </small>
+                <small className="mt-1 block text-muted-foreground">
+                  {new Date(r.createdAt).toLocaleString("ar-EG")}
+                  {r.reviewedBy && ` · راجعه: ${r.reviewedBy.fullName}`}
+                </small>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge tone={r.status === "approved" ? "sage" : r.status === "rejected" ? "danger" : "gold"}>
+                  {r.status === "approved" ? "مؤكد" : r.status === "rejected" ? "مرفوض" : "قيد المراجعة"}
+                </Badge>
+                <Badge tone="muted">{r.method === "wallet" ? "محفظة إلكترونية" : "انستاباي"}</Badge>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md bg-muted/40 p-3 text-sm">
+              <b>{r.package?.nameAr}</b>
+              <span className="text-muted-foreground">
+                {r.package?.price} ج.م · {r.package?.durationMonths} {r.package?.durationMonths === 1 ? "شهر" : "شهور"}
+              </span>
+              {r.screenshotUrl && (
+                <a
+                  href={mediaSrc(r.screenshotUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-brand hover:underline"
+                >
+                  عرض إثبات التحويل
+                </a>
+              )}
+            </div>
+            {r.screenshotUrl && /\.(png|jpe?g|webp)$/i.test(r.screenshotUrl) && (
+              <img
+                src={mediaSrc(r.screenshotUrl)}
+                alt="إثبات التحويل"
+                className="mt-2 max-h-48 rounded-md border border-border object-contain"
+              />
+            )}
+            {r.status === "rejected" && r.rejectReason && (
+              <p className="mt-2 text-xs text-danger">سبب الرفض: {r.rejectReason}</p>
+            )}
+
+            {r.status === "pending" && (
+              <div className="mt-3 space-y-2 border-t border-border pt-3">
+                <Input
+                  placeholder="سبب الرفض (اختياري — يظهر للطالب)"
+                  value={rejectReasons[r.id] ?? ""}
+                  onChange={(e) => setRejectReasons((p) => ({ ...p, [r.id]: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    className="min-h-9 px-4 text-xs"
+                    disabled={busyId === r.id}
+                    onClick={() => handle(r.id, "approve")}
+                  >
+                    {busyId === r.id ? "..." : "تأكيد الدفع وتفعيل الاشتراك"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="min-h-9 px-4 text-xs text-danger"
+                    disabled={busyId === r.id}
+                    onClick={() => handle(r.id, "reject")}
+                  >
+                    رفض الطلب
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
+
+function AdminPlacementResultsSection({ results }: { results: PlacementResultRow[] }) {
+  return (
+    <Card>
+      <h3 className="font-bold">نتائج اختبار تحديد المستوى ({results.length})</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        الطلاب الذين أكملوا اختبار تحديد المستوى — مرتبون بالأحدث
+      </p>
+      <div className="mt-4 space-y-2">
+        {results.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">لم يكمل أي طالب الاختبار بعد.</p>
+        ) : (
+          results.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 p-3">
+              <div>
+                <b className="text-sm">{r.fullName}</b>
+                <small className="block text-muted-foreground">
+                  {r.email}
+                  {r.phone && ` · ${r.phone}`}
+                </small>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge tone="brand">مستوى {r.level}</Badge>
+                <Badge tone="muted">{r.placementScore}%</Badge>
+                <small className="text-muted-foreground">
+                  {r.placementCompletedAt ? new Date(r.placementCompletedAt).toLocaleDateString("ar-EG") : ""}
+                </small>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
 
 function AdminPackagesSection({
   packages,
@@ -4358,21 +4621,25 @@ export function StudentHomeworkScreen() {
             لا توجد واجبات مسندة لك حالياً.
           </Card>
         ) : (
-          studentHomework.map((hw) => (
+          studentHomework.map((hw) => {
+            const sub = hw.mySubmission;
+            const st = sub?.status ?? "assigned";
+            return (
             <Card key={hw.id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <b>{hw.title}</b>
                   <small className="block text-muted-foreground">
                     المدرس: {hw.teacher.fullName}
+                    {hw.groupName && ` · مجموعة ${hw.groupName}`}
                     {hw.dueDate && ` · التسليم: ${new Date(hw.dueDate).toLocaleDateString("ar-EG")}`}
                   </small>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge tone={hw.status === "graded" ? "sage" : hw.status === "submitted" ? "gold" : hw.status === "late" ? "danger" : "muted"}>
-                    {hw.status === "graded" ? "تم التصحيح" : hw.status === "submitted" ? "مُسلَّم" : hw.status === "late" ? "متأخر" : "مطلوب"}
+                  <Badge tone={st === "graded" ? "sage" : st === "submitted" ? "gold" : st === "late" ? "danger" : "muted"}>
+                    {st === "graded" ? "تم التصحيح" : st === "submitted" ? "مُسلَّم" : st === "late" ? "متأخر" : "مطلوب"}
                   </Badge>
-                  {hw.grade !== null && hw.grade !== undefined && <Badge tone="brand">{hw.grade}%</Badge>}
+                  {sub?.grade !== null && sub?.grade !== undefined && <Badge tone="brand">{sub.grade}%</Badge>}
                 </div>
               </div>
 
@@ -4384,23 +4651,24 @@ export function StudentHomeworkScreen() {
                 </div>
               )}
 
-              {hw.status === "graded" ? (
+              {st === "graded" ? (
                 <div className="mt-3 rounded-md border border-sage/30 bg-sage/5 p-3">
                   <div className="flex items-center gap-2">
-                    <b className="text-sm">نتيجتك: {hw.grade}%</b>
+                    <b className="text-sm">نتيجتك: {sub?.grade}%</b>
                   </div>
-                  {hw.feedback && <p className="mt-1 text-sm text-muted-foreground">ملاحظة المدرس: {hw.feedback}</p>}
-                  {hw.submissionText && (
-                    <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">إجابتك: {hw.submissionText}</p>
+                  {sub?.feedback && <p className="mt-1 text-sm text-muted-foreground">ملاحظة المدرس: {sub.feedback}</p>}
+                  {sub?.submissionText && (
+                    <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">إجابتك: {sub.submissionText}</p>
                   )}
-                  {hw.submissionAudioUrl && (
-                    <audio controls src={mediaSrc(hw.submissionAudioUrl)} className="mt-2 w-full" />
+                  {sub?.audioUrl && (
+                    <audio controls src={mediaSrc(sub.audioUrl)} className="mt-2 w-full" />
                   )}
                 </div>
-              ) : hw.status === "submitted" || hw.status === "late" ? (
+              ) : st === "submitted" || st === "late" ? (
                 <div className="mt-3 rounded-md bg-muted/60 p-3 text-sm text-muted-foreground">
                   تم تسليم الواجب — بانتظار تصحيح المدرس.
-                  {hw.submissionText && <p className="mt-2 border-t border-border pt-2 text-xs">إجابتك: {hw.submissionText}</p>}
+                  {sub?.submissionText && <p className="mt-2 border-t border-border pt-2 text-xs">إجابتك: {sub.submissionText}</p>}
+                  {sub?.audioUrl && <audio controls src={mediaSrc(sub.audioUrl)} className="mt-2 w-full" />}
                 </div>
               ) : (
                 <div className="mt-4 space-y-3 border-t border-border pt-4">
@@ -4425,9 +4693,291 @@ export function StudentHomeworkScreen() {
                 </div>
               )}
             </Card>
-          ))
+            );
+          })
         )}
       </div>
+    </AppShell>
+  );
+}
+
+export function SubscribeScreen() {
+  const { user, refreshUser } = useAuth();
+  const {
+    publicPackages,
+    fetchPublicPackages,
+    myPaymentRequests,
+    mySubscription,
+    fetchMyBilling,
+    createPaymentRequest,
+  } = usePlatformStore();
+  const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+  const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
+  const [shot, setShot] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
+  const lastRejected = myPaymentRequests.find((r) => r.status === "rejected");
+  const selectedPkg = publicPackages.find((p) => p.id === selectedPkgId) ?? null;
+
+  useEffect(() => {
+    fetchPublicPackages().catch(() => {});
+    fetchMyBilling().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-refresh the subscription flag while a request is pending review
+  useEffect(() => {
+    if (!pendingReq) return;
+    const t = setInterval(() => {
+      refreshUser().catch(() => {});
+      fetchMyBilling().catch(() => {});
+    }, 20000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingReq?.id]);
+
+  async function copyNumber() {
+    try {
+      await navigator.clipboard.writeText("01270869510");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable
+    }
+  }
+
+  async function handleSubmit() {
+    if (!selectedPkg || !method) return;
+    setError("");
+    if (!shot) {
+      setError("ارفع سكرين شوت لإثبات التحويل قبل الإرسال");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const uploaded = await uploadFile(shot, "payments");
+      await createPaymentRequest({
+        packageId: selectedPkg.id,
+        method,
+        screenshotUrl: uploaded.url,
+      });
+      setSelectedPkgId(null);
+      setMethod(null);
+      setShot(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر إرسال طلب الحجز — حاول مرة أخرى");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <AppShell role="STUDENT">
+      <PageHeader
+        title="الباقات والاشتراك"
+        subtitle="اختر باقتك، حوّل على الرقم، وارفع إثبات التحويل — الإدارة تؤكد وتفتح حسابك"
+      />
+
+      {user?.hasActiveSubscription ? (
+        <Card className="mx-auto max-w-lg py-10 text-center">
+          <Check className="mx-auto size-10 text-sage" />
+          <h2 className="mt-3 text-lg font-bold">اشتراكك نشط</h2>
+          {mySubscription?.package && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {mySubscription.package.nameAr} — حتى{" "}
+              {mySubscription.endDate ? new Date(mySubscription.endDate).toLocaleDateString("ar-EG") : "—"}
+            </p>
+          )}
+          <Link to="/dashboard">
+            <Button className="mt-5">الانتقال للداشبورد</Button>
+          </Link>
+        </Card>
+      ) : pendingReq ? (
+        <Card className="mx-auto max-w-lg py-10 text-center">
+          <Badge tone="gold" className="mx-auto">قيد المراجعة</Badge>
+          <h2 className="mt-3 text-lg font-bold">طلب حجزك وصل الإدارة</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {pendingReq.package?.nameAr} — {pendingReq.package?.price} ج.م ·{" "}
+            {pendingReq.method === "wallet" ? "محفظة إلكترونية" : "انستاباي"}
+            <br />
+            تم الإرسال {new Date(pendingReq.createdAt).toLocaleString("ar-EG")}
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            بمجرد تأكيد الإدارة للتحويل، ستتفتح كل أقسام المنصة تلقائياً — سنوافيك بإشعار.
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-5"
+            onClick={() => {
+              refreshUser().catch(() => {});
+              fetchMyBilling().catch(() => {});
+            }}
+          >
+            تحديث حالة الطلب
+          </Button>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {lastRejected && (
+            <Card className="border-danger/40 bg-danger/5">
+              <b className="text-sm text-danger">تم رفض طلبك السابق ({lastRejected.package?.nameAr})</b>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {lastRejected.rejectReason || "لم يتم التحقق من التحويل"} — يمكنك إعادة الحجز أو التواصل مع الدعم.
+              </p>
+            </Card>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {publicPackages.map((pkg) => (
+              <Card key={pkg.id} className="flex flex-col">
+                <div className="flex items-start justify-between gap-2">
+                  <b>{pkg.nameAr}</b>
+                  <Badge tone="brand">{pkg.durationMonths === 1 ? "شهرياً" : `${pkg.durationMonths} شهور`}</Badge>
+                </div>
+                <p className="mt-2 text-2xl font-bold text-brand">
+                  {pkg.price} <span className="text-sm font-normal text-muted-foreground">ج.م</span>
+                </p>
+                {pkg.description && (
+                  <p className="mt-2 text-xs text-muted-foreground">{pkg.description}</p>
+                )}
+                {pkg.teacher && (
+                  <small className="mt-2 block text-muted-foreground">
+                    المدرس: {pkg.teacher.fullName}
+                    {pkg.teacher.specialty && ` · ${pkg.teacher.specialty}`}
+                  </small>
+                )}
+                {(pkg.features ?? []).length > 0 && (
+                  <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    {(pkg.features ?? []).slice(0, 5).map((f, i) => (
+                      <li key={i} className="flex items-center gap-1.5">
+                        <Check className="size-3 text-sage" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Button
+                  className="mt-4 w-full"
+                  variant={selectedPkgId === pkg.id ? "secondary" : "primary"}
+                  onClick={() => {
+                    setSelectedPkgId(selectedPkgId === pkg.id ? null : pkg.id);
+                    setMethod(null);
+                    setShot(null);
+                    setError("");
+                  }}
+                >
+                  احجز الآن
+                </Button>
+              </Card>
+            ))}
+          </div>
+
+          {selectedPkg && (
+            <Card className="mx-auto max-w-xl">
+              <h3 className="font-bold">تفاصيل الحجز — {selectedPkg.nameAr}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                المبلغ المطلوب: <b className="text-brand">{selectedPkg.price} ج.م</b>
+              </p>
+
+              <div className="mt-4 space-y-1.5">
+                <Label>طريقة التحويل</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMethod("instapay")}
+                    className={`rounded-md border p-3 text-sm font-semibold transition ${
+                      method === "instapay"
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border hover:border-brand/50"
+                    }`}
+                  >
+                    انستاباي InstaPay
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMethod("wallet")}
+                    className={`rounded-md border p-3 text-sm font-semibold transition ${
+                      method === "wallet"
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border hover:border-brand/50"
+                    }`}
+                  >
+                    محفظة إلكترونية
+                  </button>
+                </div>
+              </div>
+
+              {method && (
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-md border border-brand/30 bg-brand/5 p-4 text-center">
+                    <small className="block text-muted-foreground">
+                      {method === "instapay"
+                        ? "حوّل على رقم انستاباي التالي:"
+                        : "حوّل على رقم المحفظة الإلكترونية التالي (فودافون كاش / اتصالات كاش / أورانج كاش):"}
+                    </small>
+                    <div className="mt-2 flex items-center justify-center gap-3">
+                      <b dir="ltr" className="font-lat text-xl tracking-widest">{PAYMENT_NUMBER_DISPLAY}</b>
+                      <Button variant="secondary" className="min-h-8 px-3 text-xs" onClick={copyNumber}>
+                        {copied ? "تم النسخ" : "نسخ الرقم"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <ol className="space-y-2 text-sm">
+                    <li className="flex items-start gap-2">
+                      <Badge tone="brand" className="shrink-0">1</Badge>
+                      حوّل المبلغ ({selectedPkg.price} ج.م) على الرقم أعلاه
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Badge tone="brand" className="shrink-0">2</Badge>
+                      ارفع سكرين شوت لإثبات التحويل واضغط إرسال
+                    </li>
+                  </ol>
+
+                  <div className="space-y-1.5">
+                    <Label>سكرين شوت إثبات التحويل</Label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,application/pdf"
+                      onChange={(e) => setShot(e.target.files?.[0] ?? null)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:ml-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs"
+                    />
+                    {shot && <small className="block text-sage">{shot.name}</small>}
+                  </div>
+
+                  {error && (
+                    <p className="rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>
+                  )}
+
+                  <Button
+                    className="w-full"
+                    onClick={handleSubmit}
+                    disabled={submitting || !shot}
+                  >
+                    {submitting ? "جاري الإرسال..." : "إرسال طلب الحجز"}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          )}
+
+          <Card className="text-center">
+            <p className="text-sm text-muted-foreground">
+              تحتاج مساعدة في الحجز؟ تواصل معنا على واتساب
+            </p>
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("أهلاً، محتاج مساعدة في حجز باقة على منصة Ohran")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-md bg-sage px-4 py-2 text-sm font-bold text-white hover:bg-sage/90"
+            >
+              تواصل واتساب — {PAYMENT_NUMBER_DISPLAY}
+            </a>
+          </Card>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -5733,6 +6283,8 @@ const STUDENT_STATUSES: Record<string, string> = {
 };
 
 const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const WHATSAPP_NUMBER = "201270869510";
+const PAYMENT_NUMBER_DISPLAY = "0127 086 9510";
 
 export function SupportScreen() {
   const {
@@ -5918,7 +6470,15 @@ export function SupportScreen() {
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    {s.level && <span>المستوى: {s.level}</span>}
+                    {s.level && (
+                      <span>
+                        المستوى: {s.level}
+                        {s.placementScore !== null && s.placementScore !== undefined && ` (${s.placementScore}%)`}
+                      </span>
+                    )}
+                    {s.placementCompletedAt && (
+                      <span>اختبار المستوى: {new Date(s.placementCompletedAt).toLocaleDateString("ar-EG")}</span>
+                    )}
                     {s.teachers.map((t) => (
                       <span key={t.id}>المدرس: {t.name}{t.groupName && ` (${t.groupName})`}</span>
                     ))}

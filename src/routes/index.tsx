@@ -2,18 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Check,
-  ClipboardCheck,
+  ChevronDown,
+  Crown,
+  Facebook,
   GraduationCap,
-  Headphones,
-  MessageCircle,
-  Mic,
-  RotateCcw,
-  Sparkles,
-  UsersRound,
-  Video,
+  Instagram,
+  Linkedin,
+  Mail,
+  MapPin,
+  Phone,
+  Rocket,
+  Sprout,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, Input, Label, ProgressBar } from "../components/ui";
+import { Badge, Button, Card, Input, Label } from "../components/ui";
 import { usePlatformStore, type PublicPackage } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { getHomeRouteForRole } from "../lib/auth";
@@ -21,14 +23,14 @@ import { getHomeRouteForRole } from "../lib/auth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Ohran — أكاديمية العبرية للناطقين بالعربية" },
+      { title: "Ohran Academy — أكاديمية العبرية للناطقين بالعربية" },
       {
         name: "description",
         content:
-          "أكاديمية عبرية متكاملة: مدرسون متخصصون، محاضرات لايف، اختبار تحديد مستوى، وباقات مرنة.",
+          "الأكاديمية الأولى لتعليم العبرية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
       },
-      { property: "og:title", content: "Ohran — أكاديمية العبرية" },
-      { property: "og:description", content: "تعلّم العبرية مع مدرسين متخصصين وباقات مرنة." },
+      { property: "og:title", content: "Ohran Academy — أكاديمية العبرية" },
+      { property: "og:description", content: "تعلّم العبرية مع مدرسين معتمدين وبرامج مصممة لأهدافك." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -36,13 +38,8 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-function BookingModal({
-  pkg,
-  onClose,
-}: {
-  pkg: PublicPackage;
-  onClose: () => void;
-}) {
+/* ─── Booking modal (unchanged flow) ─── */
+function BookingModal({ pkg, onClose }: { pkg: PublicPackage; onClose: () => void }) {
   const { submitPublicLead } = usePlatformStore();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -77,9 +74,7 @@ function BookingModal({
             <p className="mt-2 text-sm text-muted-foreground">
               سيتواصل معك فريق المبيعات قريباً لإتمام حجز باقة <b>{pkg.nameAr}</b>.
             </p>
-            <Button className="mt-5 w-full" onClick={onClose}>
-              تمام
-            </Button>
+            <Button className="mt-5 w-full" onClick={onClose}>تمام</Button>
           </div>
         ) : (
           <>
@@ -105,9 +100,7 @@ function BookingModal({
                 <Button type="submit" className="flex-1" disabled={saving}>
                   {saving ? "جاري الإرسال..." : "تأكيد الحجز"}
                 </Button>
-                <Button type="button" variant="ghost" onClick={onClose}>
-                  إلغاء
-                </Button>
+                <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
               </div>
             </form>
           </>
@@ -117,414 +110,548 @@ function BookingModal({
   );
 }
 
+/* ─── 3D Hebrew cube for the hero ─── */
+function HebrewCube() {
+  const size = 110;
+  const faces = ["א", "ל", "ף", "ש", "מ", "ד"];
+  const transforms = [
+    `rotateY(0deg) translateZ(${size / 2}px)`,
+    `rotateY(90deg) translateZ(${size / 2}px)`,
+    `rotateY(180deg) translateZ(${size / 2}px)`,
+    `rotateY(270deg) translateZ(${size / 2}px)`,
+    `rotateX(90deg) translateZ(${size / 2}px)`,
+    `rotateX(-90deg) translateZ(${size / 2}px)`,
+  ];
+  return (
+    <div style={{ perspective: 900 }} className="grid place-items-center">
+      <div
+        className="preserve-3d animate-cube-spin relative"
+        style={{ width: size, height: size }}
+      >
+        {faces.map((f, i) => (
+          <div key={i} className="he-cube-face text-4xl" style={{ transform: transforms[i] }}>
+            {f}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const NAVY = "#0b2f6e";
+const NAVY_DEEP = "#071f4d";
+const GREEN = "#7fc341";
+
+const TEACHERS = [
+  {
+    name: "د. ليلى حسن",
+    badge: "A1-B2 · خبيرة المبتدئين",
+    desc: "متخصصة في مهارات المحادثة للمبتدئين وتطوير النطق الصحيح من خلال أساليب تفاعلية.",
+    slots: ["الأحد 10:00", "الثلاثاء 14:00", "الجمعة 09:00"],
+    avatarBg: "bg-[#dbe7ff]",
+    initials: "ل",
+  },
+  {
+    name: "أ. كريم عبد الله",
+    badge: "B1-C1 · خبير القواعد",
+    desc: "متخصص في تدريس القواعد المعقدة بأسلوب مبسط، وخبرة طويلة في تأهيل الطلاب للامتحانات.",
+    slots: ["الاثنين 11:00", "الأربعاء 16:00", "السبت 10:00"],
+    avatarBg: "bg-[#efe9e4]",
+    initials: "כ",
+  },
+  {
+    name: "أ. سارة سالم",
+    badge: "أخصائية الأطفال واليافعين",
+    desc: "تعتمد أساليب الألعاب والوسائل التفاعلية لجعل تعلم العبرية ممتعاً للأطفال والشباب.",
+    slots: ["الأحد 15:00", "الثلاثاء 17:00", "الخميس 11:00"],
+    avatarBg: "bg-[#ffe0e7]",
+    initials: "س",
+  },
+];
+
+const FAQ_ITEMS = [
+  "كم من الوقت أحتاج لأتحدث بطلاقة؟",
+  "هل تقدمون دروساً عبر الإنترنت؟",
+  "هل يمكنني تغيير المعلم إذا أردت؟",
+];
+
+function FaqItem({ q }: { q: string }) {
+  const [open, setOpen] = useState(false);
+  const answers: Record<string, string> = {
+    "كم من الوقت أحتاج لأتحدث بطلاقة؟":
+      "يختلف حسب مستواك والتزامك — في المتوسط يصل طلابنا للمحادثة اليومية خلال 4-6 أشهر من الالتزام بالبرنامج والواجبات.",
+    "هل تقدمون دروساً عبر الإنترنت؟":
+      "نعم، كل برامجنا متاحة أونلاين عبر جلسات مباشرة مع المدرس، إضافة إلى مكتبة فيديوهات وتسجيلات تفاعلية داخل المنصة.",
+    "هل يمكنني تغيير المعلم إذا أردت؟":
+      "بالتأكيد — يمكنك طلب تغيير المدرس في أي وقت من خلال خدمة العملاء، وسننقلك لمدرس آخر يناسب احتياجك دون أي تكلفة إضافية.",
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      className="w-full rounded-xl border border-[#e3e9f5] bg-white px-5 py-4 text-right transition-shadow hover:shadow-md"
+    >
+      <span className="flex items-center justify-between gap-3">
+        <b className="text-sm font-bold text-[#0b2f6e]">{q}</b>
+        <span
+          className={`grid size-6 shrink-0 place-items-center rounded-full transition-transform duration-300 ${open ? "rotate-180 bg-[#7fc341] text-white" : "bg-[#eef3fb] text-[#7fc341]"}`}
+        >
+          <ChevronDown className="size-3.5" />
+        </span>
+      </span>
+      <span
+        className={`block overflow-hidden text-sm leading-7 text-[#5a6b8c] transition-all duration-300 ${open ? "mt-2 max-h-40" : "max-h-0"}`}
+      >
+        {answers[q]}
+      </span>
+    </button>
+  );
+}
+
 function Landing() {
   const { user } = useAuth();
-  const { placementQuestions, publicPackages, fetchPublicPackages } = usePlatformStore();
-  const activeQuestions = placementQuestions.filter((q) => q.isActive);
-
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [finished, setFinished] = useState(false);
+  const { publicPackages, fetchPublicPackages } = usePlatformStore();
   const [bookingPkg, setBookingPkg] = useState<PublicPackage | null>(null);
 
   useEffect(() => {
     fetchPublicPackages();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const currentQ = activeQuestions[currentIdx];
-
-  function handleSelectOption(optionIdx: number) {
-    if (!currentQ) return;
-    setAnswers((prev) => ({ ...prev, [currentQ.id]: optionIdx }));
-  }
-
-  function handleNext() {
-    if (currentIdx + 1 < activeQuestions.length) setCurrentIdx(currentIdx + 1);
-    else setFinished(true);
-  }
-
-  function handleReset() {
-    setAnswers({});
-    setCurrentIdx(0);
-    setFinished(false);
-  }
-
-  const correctCount = activeQuestions.reduce(
-    (acc, q) => (answers[q.id] === q.correctOptionIndex ? acc + 1 : acc),
-    0,
-  );
-  const scorePercent =
-    activeQuestions.length > 0 ? Math.round((correctCount / activeQuestions.length) * 100) : 0;
-  const estimatedLevel =
-    scorePercent >= 80 ? "B2" : scorePercent >= 55 ? "B1" : scorePercent >= 30 ? "A2" : "A1";
-
   return (
-    <div dir="rtl" className="relative min-h-screen overflow-hidden bg-paper text-ink">
-      <div className="page-glow absolute inset-0 -z-10" />
-      <div className="grid-fade absolute inset-0 -z-10 opacity-40" />
+    <div dir="rtl" className="relative min-h-screen overflow-x-clip bg-[#f6f9fd] text-ink">
+      {/* soft bg blobs */}
+      <div className="pointer-events-none absolute -top-32 -left-32 size-[420px] rounded-full bg-[#dce9ff] blur-3xl opacity-70" />
+      <div className="pointer-events-none absolute top-1/3 -right-40 size-[380px] rounded-full bg-[#e4f4d4] blur-3xl opacity-60" />
 
       {/* ─── Header ─── */}
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
-        <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-md bg-brand font-lat text-xl font-bold text-primary-foreground">
-            O
+      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
+        <nav className="hidden items-center gap-7 text-sm font-medium text-[#33436b] lg:flex">
+          <a href="#faq" className="hover:text-[#0b2f6e]">الأسئلة الشائعة</a>
+          <a href="#teachers" className="hover:text-[#0b2f6e]">المعلمون</a>
+          <a href="#programs" className="hover:text-[#0b2f6e]">البرامج</a>
+          <a href="#about" className="hover:text-[#0b2f6e]">عن الأكاديمية</a>
+        </nav>
+        <div className="flex items-center gap-2">
+          <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
+            <GraduationCap className="size-5" />
           </span>
-          <span>
-            <b className="block text-lg">Ohran</b>
-            <small className="font-he text-muted-foreground">עברית שוטפת</small>
+          <span className="leading-tight">
+            <b className="block text-[15px] font-bold" style={{ color: NAVY }}>Ohran Academy</b>
           </span>
         </div>
-        <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-          <a href="#features" className="hover:text-foreground">لماذا أهران</a>
-          <a href="#method" className="hover:text-foreground">منهجيتنا</a>
-          <a href="#packages" className="hover:text-foreground">الباقات والأسعار</a>
-          <a href="#quiz" className="hover:text-foreground">اختبار المستوى</a>
-        </nav>
         <div className="flex items-center gap-2">
           {user ? (
             <Link to={getHomeRouteForRole(user.role)}>
-              <Button>لوحة التحكم الخاصة بك</Button>
+              <button className="rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/25 transition-transform hover:-translate-y-0.5" style={{ background: NAVY }}>
+                لوحة التحكم
+              </button>
             </Link>
           ) : (
             <>
-              <Link to="/login">
-                <Button variant="ghost">تسجيل الدخول</Button>
+              <Link to="/login" className="hidden text-sm font-medium text-[#33436b] hover:text-[#0b2f6e] sm:block">
+                تسجيل الدخول
               </Link>
               <Link to="/register">
-                <Button>إنشاء حساب طالب</Button>
+                <button className="rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/25 transition-transform hover:-translate-y-0.5" style={{ background: NAVY }}>
+                  احجز جلستك الآن
+                </button>
               </Link>
             </>
           )}
         </div>
       </header>
 
-      {/* ─── Hero ─── */}
-      <main className="mx-auto max-w-7xl px-5 pb-20">
-        <section className="pt-10 text-center lg:pt-16">
-          <Badge className="mx-auto">
-            <Sparkles className="ms-1 size-3" />
-            أكاديمية العبرية الأولى للناطقين بالعربية
-          </Badge>
-          <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-[1.3] lg:text-6xl">
-            اتكلم العبرية <span className="text-brand">بثقة</span> — بمدرس حقيقي ومتابعة يومية
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-            محاضرات لايف أونلاين وأوفلاين، مدرسون متخصصون، اختبار تحديد مستوى مجاني، وخطة تعلم
-            شخصية من أول يوم.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a href="#packages">
-              <Button className="min-h-12 px-8 text-base">
-                احجز باقتك الآن <ArrowLeft className="size-4" />
-              </Button>
-            </a>
-            <a href="#quiz">
-              <Button variant="ghost" className="min-h-12 px-6 text-base">
-                اختبر مستواك مجاناً
-              </Button>
-            </a>
+      <main className="relative z-10 mx-auto max-w-7xl px-5 pb-24">
+        {/* ─── Hero ─── */}
+        <section className="grid items-center gap-10 pt-10 lg:grid-cols-2 lg:pt-14">
+          {/* text */}
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#dfe8f7] bg-white px-4 py-1.5 text-xs font-semibold text-[#33436b] shadow-sm">
+              الأكاديمية الأولى لتعليم العبرية باحترافية
+            </span>
+            <h1 className="mt-6 text-4xl font-bold leading-[1.25] lg:text-5xl">
+              <span style={{ color: NAVY }}>اكتشف قوة</span>
+              <br />
+              <span style={{ color: GREEN }}>اللغة العبرية</span>{" "}
+              <span style={{ color: NAVY }}>مع Ohran</span>
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-8 text-[#5a6b8c]">
+              انضم إلى أكاديمية أوهران وتعلم اللغة العبرية على يد نخبة من الخبراء، من خلال برامج
+              تفاعلية ومنهجية مدروسة تضمن لك الإتقان.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                href="#programs"
+                className="rounded-xl border-2 px-7 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ borderColor: NAVY, color: NAVY }}
+              >
+                تصفح البرامج
+              </a>
+              <a
+                href="#teachers"
+                className="rounded-xl px-7 py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/30 transition-all hover:-translate-y-0.5"
+                style={{ background: NAVY }}
+              >
+                تعرّف على معلمينا ←
+              </a>
+            </div>
+          </div>
+
+          {/* 3D visual */}
+          <div className="relative mx-auto w-full max-w-lg">
+            <div
+              className="relative overflow-hidden rounded-[2rem] p-10 lg:p-14"
+              style={{
+                background: `radial-gradient(120% 130% at 30% 10%, #123b8f 0%, ${NAVY_DEEP} 55%, #050f2b 100%)`,
+                boxShadow: "0 40px 80px -24px rgba(7,31,77,.55), inset 0 1px 0 rgba(255,255,255,.08)",
+              }}
+            >
+              {/* floating letter shards */}
+              <span className="he-cube-face animate-float absolute right-8 top-8 size-12 text-2xl" style={{ ["--fl-rot" as string]: "-12deg" }}>ב</span>
+              <span className="he-cube-face animate-float-slow absolute left-10 top-16 size-10 text-xl" style={{ ["--fl-rot" as string]: "10deg" }}>ח</span>
+              <span className="he-cube-face animate-float absolute bottom-24 right-12 size-8 text-lg" style={{ ["--fl-rot" as string]: "14deg", animationDelay: "1.2s" }}>ר</span>
+              <span className="he-cube-face animate-float-slow absolute left-16 bottom-32 size-7 text-base" style={{ ["--fl-rot" as string]: "-8deg", animationDelay: ".6s" }}>ט</span>
+              <span className="he-cube-face animate-float absolute right-1/3 top-6 size-6 text-sm" style={{ animationDelay: "1.8s" }}>צ</span>
+              {/* orbs */}
+              <span className="animate-float absolute left-6 top-24 size-3 rounded-full bg-[#7fc341] shadow-[0_0_18px_#7fc341]" style={{ animationDelay: ".9s" }} />
+              <span className="animate-float-slow absolute right-1/4 bottom-40 size-2.5 rounded-full bg-[#54c7ec] shadow-[0_0_16px_#54c7ec]" style={{ animationDelay: "1.5s" }} />
+              <span className="animate-float absolute right-10 top-1/2 size-2 rounded-full bg-[#a78bfa] shadow-[0_0_14px_#a78bfa]" />
+
+              {/* glow word */}
+              <p dir="ltr" className="animate-glow-pulse relative z-10 text-center font-he text-7xl font-bold text-[#8fd0f5] lg:text-8xl" style={{ letterSpacing: ".05em" }}>
+                עִבְרִית
+              </p>
+              <p className="relative z-10 mt-4 text-center text-sm font-medium tracking-widest text-[#9db8e8]">
+                اللغة العبرية · Hebrew
+              </p>
+
+              {/* 3D cube */}
+              <div className="relative z-10 mt-10 flex justify-center">
+                <HebrewCube />
+              </div>
+            </div>
+
+            {/* floating chips outside card */}
+            <div className="animate-float absolute -right-4 top-10 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: NAVY, animationDelay: ".4s" }}>
+              +15 معلم خبير
+            </div>
+            <div className="animate-float-slow absolute -left-4 bottom-12 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: GREEN, animationDelay: "1.1s" }}>
+              98% نسبة رضا الطلاب
+            </div>
           </div>
         </section>
 
-        {/* ─── Features ─── */}
-        <section id="features" className="mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* ─── Why Ohran ─── */}
+        <section id="about" className="mt-24 grid items-center gap-10 lg:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-bold leading-snug">
+              <span style={{ color: GREEN }}>لماذا تختار</span>{" "}
+              <span style={{ color: NAVY }}>أكاديمية Ohran؟</span>
+            </h2>
+            <p className="mt-4 leading-8 text-[#5a6b8c]">
+              نحن نجمع بين أحدث التقنيات التعليمية والأساليب التقليدية الفعالة لنخلق لك تجربة تعليمية
+              فعالة، مصممة خصيصاً لأهدافك الشخصية والمهنية.
+            </p>
+            <ul className="mt-7 space-y-4">
+              {[
+                "معلمون ناطقون باللغة ومعتمدون دولياً",
+                "جداول زمنية مرنة (أونلاين وحضوري)",
+                "منهاج مخصص لكل مستويات الإتقان",
+              ].map((x) => (
+                <li key={x} className="flex items-center gap-3 text-sm font-semibold text-[#2d3f63]">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ background: `${GREEN}26`, color: "#4f9e1f" }}>
+                    <Check className="size-4" />
+                  </span>
+                  {x}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* illustration card */}
+          <div className="tilt-hover relative">
+            <div
+              className="relative overflow-hidden rounded-[2rem] p-10"
+              style={{
+                background: "linear-gradient(160deg, #eaf3ff 0%, #f4f9ec 55%, #ffffff 100%)",
+                boxShadow: "0 30px 60px -20px rgba(11,47,110,.18)",
+                border: "1px solid #e3ecf9",
+              }}
+            >
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { icon: GraduationCap, bg: "#0b2f6e", c: "#fff", r: "-6deg" },
+                  { icon: Rocket, bg: GREEN, c: "#fff", r: "5deg" },
+                  { icon: Crown, bg: "#ffb703", c: "#fff", r: "-4deg" },
+                ].map(({ icon: Icon, bg, c, r }, i) => (
+                  <div
+                    key={i}
+                    className="animate-float mx-auto grid aspect-square w-full max-w-28 place-items-center rounded-2xl"
+                    style={{ background: bg, color: c, ["--fl-rot" as string]: r, animationDelay: `${i * 0.8}s`, boxShadow: `0 18px 34px -10px ${bg}66` }}
+                  >
+                    <Icon className="size-10" />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-8 rounded-2xl bg-white/80 p-5 text-center shadow-inner backdrop-blur">
+                <b className="block text-lg" style={{ color: NAVY }}>بيئة تعلم متكاملة</b>
+                <p className="mt-1 text-xs leading-6 text-[#5a6b8c]">
+                  لايف مباشر + واجبات مصححة + تقارير تقدم + شهادات معتمدة — كل شيء في مكان واحد.
+                </p>
+              </div>
+              <span className="he-shard animate-float-slow absolute left-8 top-8 size-9 text-lg">א</span>
+              <span className="he-shard animate-float absolute right-10 bottom-24 size-7 text-sm" style={{ animationDelay: "1s" }}>ת</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ─── Stats bar ─── */}
+      <section style={{ background: `linear-gradient(90deg, ${NAVY_DEEP}, ${NAVY})` }}>
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-8 px-5 py-12 sm:grid-cols-4">
           {[
-            {
-              icon: Video,
-              t: "محاضرات لايف أونلاين وأوفلاين",
-              d: "جلسات Zoom مباشرة مع مدرسك وحصص حضورية — الجدول يحدده مدرسك ويظهر في حسابك تلقائياً.",
-            },
-            {
-              icon: UsersRound,
-              t: "مدرسون متخصصون",
-              d: "كل باقة لها مدرس مسؤول يتابع تقدمك، يصحح واجباتك، ويقيّم مهاراتك الأربع.",
-            },
-            {
-              icon: Mic,
-              t: "تدريب نطق وتسجيل",
-              d: "سجّل صوتك داخل المنصة، والمدرس يصحح النطق والطلاقة بملاحظات مفصلة.",
-            },
-            {
-              icon: ClipboardCheck,
-              t: "اختبارات وامتحانات شاملة",
-              d: "ترجمة، قراءة، كتابة، استماع وتحدث — مع نتائج وتصحيح مفصل لكل سؤال.",
-            },
-            {
-              icon: MessageCircle,
-              t: "محادثة مباشرة مع مدرسك",
-              d: "شات مباشر مع المدرس وخدمة العملاء، ومساعد ذكي يتكلم معك في أي وقت.",
-            },
-            {
-              icon: GraduationCap,
-              t: "شهادات معتمدة",
-              d: "شهادة إتمام لكل مستوى عند استيفاء شروط النجاح، تصدر من إدارة الأكاديمية.",
-            },
-          ].map(({ icon: Icon, t, d }) => (
-            <Card key={t}>
-              <span className="grid size-10 place-items-center rounded-md bg-brand/10 text-brand">
-                <Icon className="size-5" />
-              </span>
-              <h2 className="mt-3 text-lg font-bold">{t}</h2>
-              <p className="mt-2 text-sm leading-7 text-muted-foreground">{d}</p>
-            </Card>
+            { v: "50k+", l: "ساعة تعليمية" },
+            { v: "15+", l: "معلم خبير" },
+            { v: "98%", l: "نسبة الرضا" },
+            { v: "2,500+", l: "خريج ناجح" },
+          ].map((s) => (
+            <div key={s.l} className="text-center">
+              <b className="block font-lat text-4xl font-bold" style={{ color: GREEN }}>{s.v}</b>
+              <small className="mt-1 block text-sm text-[#c4d4ee]">{s.l}</small>
+            </div>
           ))}
-        </section>
+        </div>
+      </section>
 
-        {/* ─── Methodology ─── */}
-        <section id="method" className="mt-20">
+      <main className="relative z-10 mx-auto max-w-7xl px-5">
+        {/* ─── Programs ─── */}
+        <section id="programs" className="mt-24">
           <div className="text-center">
-            <Badge>منهجيتنا</Badge>
-            <h2 className="mt-4 text-3xl font-bold">رحلتك من الصفر للطلاقة في 4 خطوات</h2>
+            <h2 className="text-3xl font-bold">
+              <span style={{ color: GREEN }}>برامجنا</span> <span style={{ color: NAVY }}>التعليمية</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5a6b8c]">
+              مسارات دراسية منظمة مصممة لتأخذك من مستوى المبتدئ إلى التحدث بطلاقة
+            </p>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
+
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
             {[
-              ["١", "اختبار تحديد المستوى", "اختبار مجاني يحدد مستواك بدقة قبل البدء."],
-              ["٢", "اختيار الباقة المناسبة", "باقات مرنة بأسعار واضحة ومدرس متخصص لكل باقة."],
-              ["٣", "محاضرات ومتابعة", "لايف Zoom + واجبات + تصحيح مفصل وتقارير دورية."],
-              ["٤", "شهادة الإتمام", "تقييم نهائي وشهادة معتمدة تفتح لك المستوى التالي."],
-            ].map(([n, t, d]) => (
-              <Card key={n} className="text-center">
-                <span className="mx-auto grid size-10 place-items-center rounded-full bg-brand font-lat font-bold text-primary-foreground">
-                  {n}
+              {
+                icon: Sprout, iconBg: "#2f6fed",
+                title: "مسار المبتدئين (A1-A2)",
+                desc: "إتقان الأبجدية، القواعد الأساسية، وإجراء محادثات يومية بسيطة بثقة تامة.",
+                link: "ابدأ الآن", linkC: GREEN,
+              },
+              {
+                icon: Rocket, iconBg: "#0d3a86",
+                title: "المستوى المتوسط (B1-B2)",
+                desc: "توسيع المفردات، فهم الوسائل الإعلامية، والتعبير عن أفكار معقدة بطلاقة أكبر.",
+                link: "ارتقِ بمستواك", linkC: GREEN,
+              },
+              {
+                icon: Crown, iconBg: "#1647a8",
+                title: "المستوى المتقدم (C1)",
+                desc: "إتقان اللهجة، فهم المصطلحات المعقدة، والتعامل باحترافية في بيئات العمل العبرية.",
+                link: "كن محترفاً", linkC: "#0b2f6e",
+              },
+            ].map((p) => (
+              <div
+                key={p.title}
+                className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-7 text-center shadow-sm"
+              >
+                <span
+                  className="mx-auto grid size-14 place-items-center rounded-xl text-white"
+                  style={{ background: p.iconBg, boxShadow: `0 14px 28px -10px ${p.iconBg}88` }}
+                >
+                  <p.icon className="size-7" />
                 </span>
-                <h3 className="mt-3 font-bold">{t}</h3>
-                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{d}</p>
-              </Card>
+                <h3 className="mt-5 text-lg font-bold" style={{ color: NAVY }}>{p.title}</h3>
+                <p className="mt-2.5 text-sm leading-7 text-[#5a6b8c]">{p.desc}</p>
+                <a href="#packages" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold transition-transform hover:translate-x-[-4px]" style={{ color: p.linkC }}>
+                  {p.link} <ArrowLeft className="size-4" />
+                </a>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* ─── Packages ─── */}
-        <section id="packages" className="mt-20">
+        {/* ─── Packages (live from API) ─── */}
+        <section id="packages" className="mt-24">
           <div className="text-center">
-            <Badge>الباقات والأسعار</Badge>
-            <h2 className="mt-4 text-3xl font-bold">اختار الباقة اللي تناسبك</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-              كل باقة لها مدرس متخصص مسؤول عنها — احجز وسيتواصل معك فريقنا لتأكيد التسجيل.
+            <h2 className="text-3xl font-bold" style={{ color: NAVY }}>الباقات والأسعار</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-[#5a6b8c]">
+              اختر باقتك وسيتواصل معك فريقنا لتأكيد الحجز.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {publicPackages.length === 0 ? (
-              <Card className="col-span-full py-12 text-center text-sm text-muted-foreground">
+              <div className="col-span-full rounded-2xl border border-[#e7edf7] bg-white py-12 text-center text-sm text-[#5a6b8c]">
                 الباقات تُعرض هنا فور تفعيلها من إدارة الأكاديمية.
-              </Card>
+              </div>
             ) : (
               publicPackages.map((p) => (
-                <Card key={p.id} className="flex flex-col">
+                <div key={p.id} className="tilt-hover flex flex-col rounded-2xl border border-[#e7edf7] bg-white p-7 shadow-sm">
                   <div className="flex items-start justify-between">
-                    <h3 className="text-lg font-bold">{p.nameAr}</h3>
-                    <Badge tone="brand">{p.durationMonths} شهر</Badge>
+                    <h3 className="text-lg font-bold" style={{ color: NAVY }}>{p.nameAr}</h3>
+                    <span className="rounded-full px-3 py-1 text-[11px] font-bold text-white" style={{ background: NAVY }}>
+                      {p.durationMonths} شهر
+                    </span>
                   </div>
-                  <p className="mt-2 font-lat text-3xl font-bold text-brand">
+                  <p className="mt-3 font-lat text-3xl font-bold" style={{ color: GREEN }}>
                     {p.price} جنيه
-                    <small className="text-sm font-normal text-muted-foreground"> / للباقة</small>
+                    <small className="text-sm font-normal text-[#8a98b5]"> / للباقة</small>
                   </p>
-                  {p.description && (
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{p.description}</p>
-                  )}
+                  {p.description && <p className="mt-2 text-sm leading-6 text-[#5a6b8c]">{p.description}</p>}
                   {p.teacher && (
-                    <div className="mt-3 flex items-center gap-2.5 rounded-md bg-muted/60 p-2.5">
-                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand2/15 font-bold text-brand2">
+                    <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-[#f2f6fd] p-3">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full font-bold text-white" style={{ background: NAVY }}>
                         {p.teacher.fullName[0]}
                       </span>
                       <div className="min-w-0">
-                        <b className="block text-xs">{p.teacher.fullName}</b>
+                        <b className="block text-xs" style={{ color: NAVY }}>{p.teacher.fullName}</b>
                         {p.teacher.specialty && (
-                          <small className="block truncate text-muted-foreground">
-                            {p.teacher.specialty}
-                          </small>
+                          <small className="block truncate text-[#5a6b8c]">{p.teacher.specialty}</small>
                         )}
                       </div>
                     </div>
                   )}
                   {p.features && p.features.length > 0 && (
-                    <ul className="mt-3 flex-1 space-y-1.5 border-t border-border pt-3">
+                    <ul className="mt-4 flex-1 space-y-2 border-t border-[#eef2f9] pt-4">
                       {p.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Check className="mt-0.5 size-3.5 shrink-0 text-sage" />
+                        <li key={i} className="flex items-start gap-2 text-xs text-[#5a6b8c]">
+                          <Check className="mt-0.5 size-3.5 shrink-0" style={{ color: "#4f9e1f" }} />
                           {f}
                         </li>
                       ))}
                     </ul>
                   )}
-                  <Button className="mt-4 w-full" onClick={() => setBookingPkg(p)}>
+                  <button
+                    className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/25 transition-transform hover:-translate-y-0.5"
+                    style={{ background: NAVY }}
+                    onClick={() => setBookingPkg(p)}
+                  >
                     احجز الآن
-                  </Button>
-                </Card>
+                  </button>
+                </div>
               ))
             )}
           </div>
         </section>
 
-        {/* ─── Placement quiz ─── */}
-        <section id="quiz" className="mt-20">
-          <div className="grid items-start gap-10 lg:grid-cols-[1fr_540px]">
-            <div className="pt-4">
-              <Badge tone="gold">
-                <ClipboardCheck className="ms-1 size-3" />
-                اختبار مجاني
-              </Badge>
-              <h2 className="mt-5 text-3xl font-bold leading-snug">
-                مش متأكد من مستواك؟ <br />
-                اكتشفه في دقائق
-              </h2>
-              <p className="mt-4 leading-8 text-muted-foreground">
-                اختبار تفاعلي قصير يحدد مستواك التقريبي (A1 → B2) — جرّبه الآن بدون تسجيل، وسجّل
-                حسابك بعدها لحفظ النتيجة والبدء بخطة مناسبة.
-              </p>
-              <div className="mt-6 space-y-2.5 text-sm text-muted-foreground">
-                {[
-                  "أسئلة محدّثة مباشرة من إدارة الأكاديمية",
-                  "نتيجة فورية مع مستوى مقترح",
-                  "سجّل بعدها وابدأ مع مدرسك الخاص",
-                ].map((x) => (
-                  <p key={x}>
-                    <Check className="ms-2 inline size-4 text-sage" />
-                    {x}
-                  </p>
-                ))}
-              </div>
-            </div>
+        {/* ─── Teachers ─── */}
+        <section id="teachers" className="mt-24">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold">
+              <span style={{ color: GREEN }}>نخبة</span> <span style={{ color: NAVY }}>معلمينا</span>
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5a6b8c]">
+              تعلّم من خبراء معتمدين. اطلع على مواعيدهم الأسبوعية واحجز جلستك مباشرة.
+            </p>
+          </div>
 
-            <Card className="p-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-border pb-4">
-                <div className="flex items-center gap-2">
-                  <span className="grid size-9 place-items-center rounded-md bg-brand/10 text-brand">
-                    <ClipboardCheck className="size-5" />
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {TEACHERS.map((t) => (
+              <div key={t.name} className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-6 text-center shadow-sm">
+                <div className="relative mx-auto w-fit">
+                  <span className={`grid size-28 place-items-center rounded-full text-4xl font-bold ring-4 ring-white shadow-lg ${t.avatarBg}`} style={{ color: NAVY }}>
+                    {t.initials}
                   </span>
-                  <div>
-                    <h2 className="text-lg font-bold">اختبار تحديد المستوى السريع</h2>
-                    <small className="text-muted-foreground">الأسئلة محدّثة من إدارة المنصة</small>
+                  <span className="absolute -bottom-1 -left-1 grid size-7 place-items-center rounded-full text-white" style={{ background: GREEN }}>
+                    <Check className="size-4" />
+                  </span>
+                </div>
+                <h3 className="mt-4 text-lg font-bold" style={{ color: NAVY }}>{t.name}</h3>
+                <span className="mt-1.5 inline-block rounded-full px-3 py-1 text-[11px] font-bold" style={{ background: `${GREEN}22`, color: "#4f9e1f" }}>
+                  {t.badge}
+                </span>
+                <p className="mt-3 text-xs leading-6 text-[#5a6b8c]">{t.desc}</p>
+                <div className="mt-4 border-t border-[#eef2f9] pt-4">
+                  <p className="mb-2 text-[11px] font-semibold text-[#8a98b5]">المواعيد المتاحة هذا الأسبوع</p>
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {t.slots.map((s) => (
+                      <span key={s} className="rounded-md bg-[#eef3fb] px-2 py-1 text-[10px] font-semibold" style={{ color: NAVY }}>
+                        {s}
+                      </span>
+                    ))}
                   </div>
                 </div>
-                <Badge tone="brand">{activeQuestions.length} أسئلة</Badge>
+                <a href="#packages">
+                  <button className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/20 transition-transform hover:-translate-y-0.5" style={{ background: NAVY }}>
+                    احجز جلسة الآن
+                  </button>
+                </a>
               </div>
-
-              {activeQuestions.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  لا توجد أسئلة مفعلة حالياً في اختبار تحديد المستوى.
-                </div>
-              ) : finished ? (
-                <div className="mt-6 space-y-5 text-center">
-                  <div className="mx-auto grid size-20 place-items-center rounded-xl bg-brand/10 font-lat text-3xl font-bold text-brand">
-                    {estimatedLevel}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">مستواك المبدئي المقترح: {estimatedLevel}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      أجبت بشكل صحيح على {correctCount} من أصل {activeQuestions.length} (
-                      {scorePercent}%)
-                    </p>
-                  </div>
-                  <ProgressBar value={scorePercent} tone="sage" />
-                  <div className="flex flex-col gap-2 pt-2 sm:flex-row">
-                    <Link to="/register" className="flex-1">
-                      <Button className="w-full">سجّل كطالب لحفظ النتيجة والبدء</Button>
-                    </Link>
-                    <Button variant="ghost" onClick={handleReset}>
-                      <RotateCcw className="size-4" />
-                      إعادة الاختبار
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-5">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      السؤال {currentIdx + 1} من {activeQuestions.length}
-                    </span>
-                    <div className="flex gap-2">
-                      <Badge tone="gold">{currentQ.section}</Badge>
-                      <Badge tone="muted">مستوى {currentQ.levelTag}</Badge>
-                    </div>
-                  </div>
-
-                  <div className="mt-2">
-                    <ProgressBar
-                      value={Math.round(((currentIdx + 1) / activeQuestions.length) * 100)}
-                    />
-                  </div>
-
-                  <h3 className="mt-5 text-base font-bold">{currentQ.promptAr}</h3>
-                  {currentQ.hebrewText && (
-                    <div
-                      dir="rtl"
-                      className="mt-3 rounded-md bg-muted/80 p-3.5 font-he text-lg leading-8 text-foreground"
-                    >
-                      {currentQ.hebrewText}
-                    </div>
-                  )}
-
-                  <div className="mt-4 space-y-2.5">
-                    {currentQ.options.map((opt, idx) => {
-                      const selected = answers[currentQ.id] === idx;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => handleSelectOption(idx)}
-                          className={`flex w-full items-center justify-between rounded-md border p-3.5 text-right text-sm transition-colors ${
-                            selected
-                              ? "border-brand bg-brand/10 font-semibold text-brand"
-                              : "border-border bg-background/60 hover:border-brand/50"
-                          }`}
-                        >
-                          <span>{opt}</span>
-                          <span
-                            className={`grid size-5 shrink-0 place-items-center rounded-full border text-xs ${
-                              selected ? "border-brand bg-brand text-primary-foreground" : "border-border"
-                            }`}
-                          >
-                            {selected ? "✓" : idx + 1}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-between">
-                    <Button
-                      variant="ghost"
-                      disabled={currentIdx === 0}
-                      onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
-                    >
-                      السابق
-                    </Button>
-                    <Button onClick={handleNext} disabled={answers[currentQ.id] === undefined}>
-                      {currentIdx + 1 === activeQuestions.length ? "عرض النتيجة" : "السؤال التالي"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </Card>
+            ))}
           </div>
         </section>
 
-        {/* ─── Final CTA ─── */}
-        <section className="mt-20">
-          <Card className="bg-brand/5 px-8 py-12 text-center">
-            <Headphones className="mx-auto size-10 text-brand" />
-            <h2 className="mt-4 text-2xl font-bold">جاهز تبدأ رحلتك مع العبرية؟</h2>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-muted-foreground">
-              أنشئ حسابك كطالب، اختبر مستواك، واختار الباقة المناسبة — فريقنا جاهز لأي استفسار.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link to="/register">
-                <Button className="min-h-11 px-8">إنشاء حساب طالب</Button>
-              </Link>
-              <a href="#packages">
-                <Button variant="ghost" className="min-h-11 px-6">
-                  تصفح الباقات
-                </Button>
-              </a>
-            </div>
-          </Card>
+        {/* ─── FAQ ─── */}
+        <section id="faq" className="mx-auto mt-24 max-w-3xl">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold">
+              <span style={{ color: GREEN }}>الأسئلة</span> <span style={{ color: NAVY }}>الشائعة</span>
+            </h2>
+          </div>
+          <div className="mt-8 space-y-3">
+            {FAQ_ITEMS.map((q) => <FaqItem key={q} q={q} />)}
+          </div>
         </section>
       </main>
 
-      <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        Ohran · أكاديمية العبرية للناطقين بالعربية · جميع الحقوق محفوظة
+      {/* ─── Footer ─── */}
+      <footer className="mt-24" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY_DEEP})` }}>
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
+                <GraduationCap className="size-5" />
+              </span>
+              <b className="text-lg font-bold text-white">Ohran Academy</b>
+            </div>
+            <p className="mt-4 text-xs leading-6 text-[#aebfdd]">
+              نعمل على تمكين الأفراد من التواصل باللغة العبرية منذ عام 2015 بأحدث المناهج التعليمية.
+            </p>
+          </div>
+          <div>
+            <b className="text-sm font-bold text-white">روابط سريعة</b>
+            <ul className="mt-4 space-y-2.5 text-xs text-[#aebfdd]">
+              <li><a href="#about" className="hover:text-white">عن الأكاديمية</a></li>
+              <li><a href="#programs" className="hover:text-white">برامجنا</a></li>
+              <li><a href="#teachers" className="hover:text-white">معلمونا</a></li>
+              <li><a href="#faq" className="hover:text-white">الأسئلة الشائعة</a></li>
+            </ul>
+          </div>
+          <div>
+            <b className="text-sm font-bold text-white">اتصل بنا</b>
+            <ul className="mt-4 space-y-3 text-xs text-[#aebfdd]">
+              <li className="flex items-center gap-2"><Mail className="size-4" style={{ color: GREEN }} /> info@ohran.com</li>
+              <li className="flex items-center gap-2"><Phone className="size-4" style={{ color: GREEN }} /> <span dir="ltr">+20 1270 869 510</span></li>
+              <li className="flex items-center gap-2"><MapPin className="size-4" style={{ color: GREEN }} /> القاهرة، مصر</li>
+            </ul>
+          </div>
+          <div>
+            <b className="text-sm font-bold text-white">تابعنا</b>
+            <div className="mt-4 flex gap-2.5">
+              {[Facebook, Instagram, Linkedin].map((Icon, i) => (
+                <a key={i} href="#" className="grid size-10 place-items-center rounded-lg bg-white/10 text-white transition-colors hover:bg-[#7fc341]">
+                  <Icon className="size-4" />
+                </a>
+              ))}
+            </div>
+            {user ? null : (
+              <Link to="/register">
+                <button className="mt-6 rounded-lg px-5 py-2.5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5" style={{ background: GREEN }}>
+                  انضم إلينا الآن
+                </button>
+              </Link>
+            )}
+          </div>
+        </div>
+        <div className="border-t border-white/10 py-5 text-center text-[11px] text-[#7f94bd]">
+          Ohran Academy · جميع الحقوق محفوظة {new Date().getFullYear()}
+        </div>
       </footer>
 
       {bookingPkg && <BookingModal pkg={bookingPkg} onClose={() => setBookingPkg(null)} />}

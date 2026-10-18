@@ -436,6 +436,35 @@ export interface CreateLectureInput {
   status?: "scheduled" | "live" | "completed" | "cancelled";
 }
 
+export interface WeeklyScheduleItem {
+  id: string;
+  teacherId: string;
+  teacher?: { id: string; fullName: string; specialty?: string | null };
+  groupName?: string | null;
+  title: string;
+  description?: string | null;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  location: string;
+  meetingUrl?: string | null;
+  isActive: boolean;
+  _count?: { attendances: number };
+}
+
+export interface CreateScheduleInput {
+  teacherId: string;
+  title: string;
+  description?: string;
+  groupName?: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  location: "online" | "offline";
+  meetingUrl?: string;
+  isActive?: boolean;
+}
+
 export interface StudentSkillItem {
   id: string;
   studentId: string;
@@ -704,6 +733,9 @@ interface PlatformStoreValue {
   adminPaymentRequests: PaymentRequestItem[];
   placementResults: PlacementResultRow[];
   adminLectures: AdminLectureItem[];
+  adminSchedules: WeeklyScheduleItem[];
+  publicSchedules: WeeklyScheduleItem[];
+  supportLectures: AdminLectureItem[];
   loadingData: boolean;
   refreshAll: () => Promise<void>;
   addStaffUser: (input: CreateStaffUserInput) => Promise<PlatformUser>;
@@ -786,7 +818,7 @@ interface PlatformStoreValue {
   submitPlacementResult: (scorePercent: number, level: string) => Promise<void>;
   // Billing / bookings
   fetchMyBilling: () => Promise<void>;
-  createPaymentRequest: (input: { packageId: string; method: "wallet" | "instapay"; screenshotUrl: string }) => Promise<void>;
+  createPaymentRequest: (input: { packageId: string; method: "wallet" | "instapay"; studyMode?: "online" | "offline"; screenshotUrl: string }) => Promise<void>;
   fetchAdminPaymentRequests: (status?: string) => Promise<void>;
   reviewPaymentRequest: (id: string, input: { action: "approve" | "reject"; rejectReason?: string }) => Promise<void>;
   fetchPlacementResults: () => Promise<void>;
@@ -794,6 +826,12 @@ interface PlatformStoreValue {
   createAdminLecture: (input: CreateLectureInput) => Promise<void>;
   updateAdminLecture: (id: string, input: Partial<CreateLectureInput>) => Promise<void>;
   deleteAdminLecture: (id: string) => Promise<void>;
+  fetchAdminSchedules: () => Promise<void>;
+  createAdminSchedule: (input: CreateScheduleInput) => Promise<void>;
+  updateAdminSchedule: (id: string, input: Partial<CreateScheduleInput>) => Promise<void>;
+  deleteAdminSchedule: (id: string) => Promise<void>;
+  fetchPublicSchedules: () => Promise<void>;
+  fetchSupportLectures: () => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -850,6 +888,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [adminPaymentRequests, setAdminPaymentRequests] = useState<PaymentRequestItem[]>([]);
   const [placementResults, setPlacementResults] = useState<PlacementResultRow[]>([]);
   const [adminLectures, setAdminLectures] = useState<AdminLectureItem[]>([]);
+  const [adminSchedules, setAdminSchedules] = useState<WeeklyScheduleItem[]>([]);
+  const [publicSchedules, setPublicSchedules] = useState<WeeklyScheduleItem[]>([]);
+  const [supportLectures, setSupportLectures] = useState<AdminLectureItem[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -1032,6 +1073,17 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     }, 60_000);
     return () => clearInterval(t);
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Near-real-time dashboard data — poll every 45s while the tab is visible
+  useEffect(() => {
+    if (!user) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshAll().catch(() => {});
+      }
+    }, 45_000);
+    return () => clearInterval(t);
+  }, [user?.id, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addStaffUser(input: CreateStaffUserInput): Promise<PlatformUser> {
     const res = await apiFetch<{ user: PlatformUser }>("/api/admin/users", {
@@ -1569,6 +1621,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function createPaymentRequest(input: {
     packageId: string;
     method: "wallet" | "instapay";
+    studyMode?: "online" | "offline";
     screenshotUrl: string;
   }) {
     await apiFetch("/api/student/payment-requests", { method: "POST", body: input });
@@ -1613,6 +1666,38 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function deleteAdminLecture(id: string) {
     await apiFetch(`/api/admin/lectures/${id}`, { method: "DELETE" });
     await fetchAdminLectures();
+  }
+
+  async function fetchAdminSchedules() {
+    const res = await apiFetch<{ schedules: WeeklyScheduleItem[] }>("/api/admin/schedules");
+    if (res?.schedules) setAdminSchedules(res.schedules);
+  }
+
+  async function createAdminSchedule(input: CreateScheduleInput) {
+    await apiFetch("/api/admin/schedules", { method: "POST", body: input });
+    await fetchAdminSchedules();
+  }
+
+  async function updateAdminSchedule(id: string, input: Partial<CreateScheduleInput>) {
+    await apiFetch(`/api/admin/schedules/${id}`, { method: "PATCH", body: input });
+    await fetchAdminSchedules();
+  }
+
+  async function deleteAdminSchedule(id: string) {
+    await apiFetch(`/api/admin/schedules/${id}`, { method: "DELETE" });
+    await fetchAdminSchedules();
+  }
+
+  async function fetchPublicSchedules() {
+    try {
+      const res = await apiFetch<{ schedules: WeeklyScheduleItem[] }>("/api/public/schedules");
+      if (res?.schedules) setPublicSchedules(res.schedules);
+    } catch { /* public page — ignore */ }
+  }
+
+  async function fetchSupportLectures() {
+    const res = await apiFetch<{ lectures: AdminLectureItem[] }>("/api/support/lectures");
+    if (res?.lectures) setSupportLectures(res.lectures);
   }
 
   return (
@@ -1668,6 +1753,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         adminPaymentRequests,
         placementResults,
         adminLectures,
+        adminSchedules,
+        publicSchedules,
+        supportLectures,
         loadingData,
         refreshAll,
         addStaffUser,
@@ -1750,6 +1838,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         createAdminLecture,
         updateAdminLecture,
         deleteAdminLecture,
+        fetchAdminSchedules,
+        createAdminSchedule,
+        updateAdminSchedule,
+        deleteAdminSchedule,
+        fetchPublicSchedules,
+        fetchSupportLectures,
       }}
     >
       {children}

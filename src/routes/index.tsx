@@ -210,12 +210,38 @@ function FaqItem({ q }: { q: string }) {
 
 function Landing() {
   const { user } = useAuth();
-  const { publicPackages, fetchPublicPackages } = usePlatformStore();
+  const { publicPackages, fetchPublicPackages, publicSchedules, fetchPublicSchedules } = usePlatformStore();
   const [bookingPkg, setBookingPkg] = useState<PublicPackage | null>(null);
 
   useEffect(() => {
     fetchPublicPackages();
+    fetchPublicSchedules();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Group live weekly schedules by teacher — replaces hardcoded slots
+  const LANDING_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+  const liveTeachers = Object.values(
+    publicSchedules.reduce<Record<string, { name: string; badge: string; slots: string[]; online: boolean }>>(
+      (acc, s) => {
+        const t = s.teacher;
+        if (!t) return acc;
+        acc[t.id] ??= {
+          name: t.fullName,
+          badge: t.specialty ?? "مدرس لغة عبرية",
+          slots: [],
+          online: s.location === "online",
+        };
+        acc[t.id].slots.push(`${LANDING_DAY_NAMES[s.dayOfWeek]} ${s.startTime}`);
+        acc[t.id].online ||= s.location === "online";
+        return acc;
+      },
+      {},
+    ),
+  );
+  const teachersToRender =
+    liveTeachers.length > 0
+      ? liveTeachers.map((t) => ({ ...t, desc: "أونلاين وحضوري — مواعيد ثابتة كل أسبوع", avatarBg: "bg-[#dbe7ff]", initials: t.name.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟" }))
+      : TEACHERS;
 
   return (
     <div dir="rtl" className="relative min-h-screen overflow-x-clip bg-[#f6f9fd] text-ink">
@@ -552,7 +578,7 @@ function Landing() {
           </div>
 
           <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {TEACHERS.map((t) => (
+            {teachersToRender.map((t) => (
               <div key={t.name} className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-6 text-center shadow-sm">
                 <div className="relative mx-auto w-fit">
                   <span className={`grid size-28 place-items-center rounded-full text-4xl font-bold ring-4 ring-white shadow-lg ${t.avatarBg}`} style={{ color: NAVY }}>

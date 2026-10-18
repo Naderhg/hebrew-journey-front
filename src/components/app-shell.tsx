@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  RotateCcw,
   ShieldCheck,
   TicketCheck,
   Upload,
@@ -126,6 +127,7 @@ const adminNav: readonly NavEntry[] = [
     icon: CalendarDays,
     items: [
       { to: "/admin", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
+      { to: "/admin", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
     ],
   },
 ];
@@ -153,6 +155,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
     { to: "/support", section: "tickets", label: "الشكاوى والتذاكر", icon: TicketCheck },
     { to: "/support", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
     { to: "/support", section: "schedules", label: "جداول المدرسين", icon: ClipboardCheck },
+    { to: "/support", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
     { to: "/support", section: "attendance", label: "الحضور والغياب", icon: UsersRound },
     { to: "/support", section: "irregular", label: "متابعة الطلاب", icon: BarChart3 },
   ],

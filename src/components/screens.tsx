@@ -57,6 +57,8 @@ import {
   type PlacementResultRow,
   type AdminLectureItem,
   type CreateLectureInput,
+  type WeeklyScheduleItem,
+  type CreateScheduleInput,
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, type UserRole } from "../lib/auth";
@@ -1819,7 +1821,8 @@ export type AdminSection =
   | "sales-report"
   | "leads"
   | "certificates"
-  | "lectures";
+  | "lectures"
+  | "schedules";
 
 export function AdminScreen() {
   const {
@@ -1868,6 +1871,11 @@ export function AdminScreen() {
     createAdminLecture,
     updateAdminLecture,
     deleteAdminLecture,
+    adminSchedules,
+    fetchAdminSchedules,
+    createAdminSchedule,
+    updateAdminSchedule,
+    deleteAdminSchedule,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
@@ -1878,6 +1886,7 @@ export function AdminScreen() {
     if (activeSection === "bookings") fetchAdminPaymentRequests(bookingFilter).catch(() => {});
     if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
     if (activeSection === "lectures") fetchAdminLectures({ status: lectureFilter }).catch(() => {});
+    if (activeSection === "schedules") fetchAdminSchedules().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, bookingFilter, lectureFilter]);
 
@@ -3576,6 +3585,16 @@ export function AdminScreen() {
           onDelete={deleteAdminLecture}
         />
       )}
+
+      {activeSection === "schedules" && (
+        <AdminSchedulesSection
+          schedules={adminSchedules}
+          teachers={users.filter((u) => u.role === "TEACHER")}
+          onCreate={createAdminSchedule}
+          onUpdate={updateAdminSchedule}
+          onDelete={deleteAdminSchedule}
+        />
+      )}
     </AppShell>
   );
 }
@@ -3951,6 +3970,197 @@ function AdminLecturesSection({
                     <option value="cancelled">ملغاة</option>
                   </select>
                   <button onClick={() => onDelete(l.id).catch(() => {})} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SCH_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+function AdminSchedulesSection({
+  schedules,
+  teachers,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: {
+  schedules: WeeklyScheduleItem[];
+  teachers: PlatformUser[];
+  onCreate: (input: CreateScheduleInput) => Promise<void>;
+  onUpdate: (id: string, input: Partial<CreateScheduleInput>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [teacherId, setTeacherId] = useState("");
+  const [title, setTitle] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [dayOfWeek, setDayOfWeek] = useState(0);
+  const [startTime, setStartTime] = useState("18:00");
+  const [endTime, setEndTime] = useState("19:30");
+  const [location, setLocation] = useState<"online" | "offline">("online");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  function resetForm() {
+    setTeacherId(""); setTitle(""); setGroupName(""); setDayOfWeek(0);
+    setStartTime("18:00"); setEndTime("19:30"); setLocation("online"); setMeetingUrl("");
+    setEditId(null); setShowForm(false); setErr("");
+  }
+
+  function startEdit(s: WeeklyScheduleItem) {
+    setEditId(s.id);
+    setTeacherId(s.teacherId);
+    setTitle(s.title);
+    setGroupName(s.groupName ?? "");
+    setDayOfWeek(s.dayOfWeek);
+    setStartTime(s.startTime);
+    setEndTime(s.endTime);
+    setLocation(s.location === "offline" ? "offline" : "online");
+    setMeetingUrl(s.meetingUrl ?? "");
+    setShowForm(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!teacherId || !title) {
+      setErr("العنوان والمدرس مطلوبان");
+      return;
+    }
+    setSaving(true);
+    try {
+      const input: CreateScheduleInput = {
+        teacherId, title, dayOfWeek, startTime, endTime, location,
+        ...(groupName ? { groupName } : {}),
+        ...(meetingUrl ? { meetingUrl } : {}),
+      };
+      if (editId) await onUpdate(editId, input);
+      else await onCreate(input);
+      resetForm();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "فشل حفظ الموعد");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold">المواعيد الأسبوعية الثابتة ({schedules.length})</h2>
+            <p className="text-xs text-muted-foreground">
+              المواعيد المتكررة كل أسبوع — تظهر للطلاب المرتبطين بالمدرس وعلى الموقع الرئيسي
+            </p>
+          </div>
+          <Button variant="secondary" className="text-xs" onClick={() => (showForm ? resetForm() : setShowForm(true))}>
+            {showForm ? "إلغاء" : "+ موعد جديد"}
+          </Button>
+        </div>
+
+        {showForm && (
+          <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>عنوان الموعد</Label>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="مثال: محاضرة أسبوعية — قواعد" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>المدرس</Label>
+                <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— اختر المدرس —</option>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.fullName}{t.specialty ? ` — ${t.specialty}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المجموعة (اختياري)</Label>
+                <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="مثال: مجموعة المساء" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>اليوم</Label>
+                <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  {SCH_DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>النوع</Label>
+                <select value={location} onChange={(e) => setLocation(e.target.value as "online" | "offline")} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="online">أونلاين</option>
+                  <option value="offline">أوفلاين (حضوري)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>من</Label>
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>إلى</Label>
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+              </div>
+              {location === "online" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>رابط الاجتماع (اختياري)</Label>
+                  <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} type="url" dir="ltr" placeholder="https://zoom.us/j/..." />
+                </div>
+              )}
+            </div>
+            {err && <p className="text-sm font-semibold text-danger">{err}</p>}
+            <Button type="submit" disabled={saving}>
+              {saving ? "جاري الحفظ..." : editId ? "حفظ التعديل" : "إضافة الموعد"}
+            </Button>
+          </form>
+        )}
+      </Card>
+
+      <div className="space-y-2">
+        {schedules.length === 0 ? (
+          <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد مواعيد أسبوعية بعد.</Card>
+        ) : (
+          schedules.map((s) => (
+            <Card key={s.id}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <b className="text-sm">{s.title}</b>
+                    <Badge tone={s.location === "online" ? "brand" : "gold"}>
+                      {s.location === "online" ? "أونلاين" : "أوفلاين"}
+                    </Badge>
+                    <Badge tone={s.isActive ? "sage" : "danger"}>{s.isActive ? "مفعل" : "معطل"}</Badge>
+                    {s.groupName && <Badge tone="muted">{s.groupName}</Badge>}
+                  </div>
+                  <small className="mt-1 block text-muted-foreground">
+                    المدرس: {s.teacher?.fullName ?? "—"} · {SCH_DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
+                  </small>
+                  {s.meetingUrl && (
+                    <a href={s.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
+                      رابط الاجتماع ↗
+                    </a>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="ghost" className="min-h-7 px-2.5 text-xs" onClick={() => startEdit(s)}>
+                    تعديل
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="min-h-7 px-2.5 text-xs"
+                    onClick={() => onUpdate(s.id, { isActive: !s.isActive }).catch(() => {})}
+                  >
+                    {s.isActive ? "تعطيل" : "تفعيل"}
+                  </Button>
+                  <button onClick={() => onDelete(s.id).catch(() => {})} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
                     <Trash2 className="size-4" />
                   </button>
                 </div>
@@ -4955,6 +5165,7 @@ export function SubscribeScreen() {
   } = usePlatformStore();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
+  const [studyMode, setStudyMode] = useState<"online" | "offline" | null>(null);
   const [shot, setShot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -4992,7 +5203,7 @@ export function SubscribeScreen() {
   }
 
   async function handleSubmit() {
-    if (!selectedPkg || !method) return;
+    if (!selectedPkg || !method || !studyMode) return;
     setError("");
     if (!shot) {
       setError("ارفع سكرين شوت لإثبات التحويل قبل الإرسال");
@@ -5004,10 +5215,12 @@ export function SubscribeScreen() {
       await createPaymentRequest({
         packageId: selectedPkg.id,
         method,
+        studyMode,
         screenshotUrl: uploaded.url,
       });
       setSelectedPkgId(null);
       setMethod(null);
+      setStudyMode(null);
       setShot(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر إرسال طلب الحجز — حاول مرة أخرى");
@@ -5124,6 +5337,35 @@ export function SubscribeScreen() {
               </p>
 
               <div className="mt-4 space-y-1.5">
+                <Label>نظام الحضور</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStudyMode("online")}
+                    className={`rounded-md border p-3 text-sm font-semibold transition ${
+                      studyMode === "online"
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border hover:border-brand/50"
+                    }`}
+                  >
+                    أونلاين
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudyMode("offline")}
+                    className={`rounded-md border p-3 text-sm font-semibold transition ${
+                      studyMode === "offline"
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border hover:border-brand/50"
+                    }`}
+                  >
+                    أوفلاين (حضوري)
+                  </button>
+                </div>
+              </div>
+
+              {studyMode && (
+                <div className="mt-4 space-y-1.5">
                 <Label>طريقة التحويل</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -5149,7 +5391,8 @@ export function SubscribeScreen() {
                     محفظة إلكترونية
                   </button>
                 </div>
-              </div>
+                </div>
+              )}
 
               {method && (
                 <div className="mt-4 space-y-4">
@@ -6498,7 +6741,7 @@ export function SalesScreen() {
   );
 }
 
-type SupportSection = "students" | "tickets" | "chat" | "schedules" | "attendance" | "irregular";
+type SupportSection = "students" | "tickets" | "chat" | "schedules" | "lectures" | "attendance" | "irregular";
 
 const TICKET_CATEGORIES: Record<string, string> = {
   login: "مشكلة دخول",
@@ -6546,6 +6789,8 @@ export function SupportScreen() {
     fetchSupportChatThreads,
     fetchSupportChatThread,
     sendSupportChatReply,
+    supportLectures,
+    fetchSupportLectures,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<SupportSection>("students");
@@ -6579,6 +6824,10 @@ export function SupportScreen() {
   useEffect(() => {
     fetchSupportChatThreads();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeSection === "lectures") fetchSupportLectures().catch(() => {});
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openChat(studentId: string) {
     setChatStudentId(studentId);
@@ -6956,7 +7205,7 @@ export function SupportScreen() {
             <div>
               <h2 className="text-lg font-bold">جداول المدرسين ({schedules.length})</h2>
               <p className="text-xs text-muted-foreground">
-                عرض فقط — المدرس هو من يحدد مواعيد محاضراته وروابط Zoom من لوحته الخاصة
+                عرض فقط — المواعيد الأسبوعية الثابتة يحددها الأدمن من لوحة التحكم
               </p>
             </div>
           </div>
@@ -6975,6 +7224,53 @@ export function SupportScreen() {
                     </small>
                   </div>
                   <small className="text-muted-foreground">المدرس: {s.teacher.fullName}</small>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      )}
+
+      {activeSection === "lectures" && (
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold">المحاضرات المباشرة ({supportLectures.length})</h2>
+              <p className="text-xs text-muted-foreground">
+                عرض فقط — المحاضرات المجدولة والمباشرة من الإدارة
+              </p>
+            </div>
+            <Button variant="ghost" className="min-h-8 px-3 text-xs" onClick={() => fetchSupportLectures().catch(() => {})}>
+              تحديث
+            </Button>
+          </div>
+          <div className="mt-4 space-y-2">
+            {supportLectures.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">لا توجد محاضرات مجدولة.</div>
+            ) : (
+              supportLectures.map((l) => (
+                <div key={l.id} className="rounded-md border border-border bg-background/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <b className="text-sm">{l.title}</b>
+                        <Badge tone={l.status === "live" ? "sage" : "brand"}>
+                          {l.status === "live" ? "مباشر الآن" : "مجدولة"}
+                        </Badge>
+                        {l.level && <Badge tone="muted">{l.level}</Badge>}
+                        {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+                      </div>
+                      <small className="mt-1 block text-muted-foreground">
+                        {l.teacher?.fullName ?? "—"} · {new Date(l.startsAt).toLocaleString("ar-EG")}
+                        {l.endsAt && ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}`}
+                      </small>
+                    </div>
+                    {l.meetingUrl && (
+                      <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand hover:underline">
+                        رابط الاجتماع ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))
             )}

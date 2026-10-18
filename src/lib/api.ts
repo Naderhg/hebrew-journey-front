@@ -35,6 +35,20 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
+// The API runs on a separate origin (IP), so SameSite=Lax cookies never reach
+// /api/auth/refresh. We persist the refresh token and send it in the body.
+export function setRefreshToken(token: string | null) {
+  if (token) {
+    localStorage.setItem("ohran_refresh_token", token);
+  } else {
+    localStorage.removeItem("ohran_refresh_token");
+  }
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem("ohran_refresh_token");
+}
+
 type FetchOptions = {
   method?: string;
   body?: unknown;
@@ -43,14 +57,19 @@ type FetchOptions = {
 };
 
 async function refreshAccessToken(): Promise<boolean> {
+  const rt = getRefreshToken();
+  if (!rt) return false;
   try {
     const res = await fetch(`${API_URL}/api/auth/refresh`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       credentials: "include",
+      body: JSON.stringify({ refreshToken: rt }),
     });
     if (!res.ok) return false;
     const data = await res.json();
     setAccessToken(data.accessToken);
+    if (data.refreshToken) setRefreshToken(data.refreshToken);
     return true;
   } catch {
     return false;

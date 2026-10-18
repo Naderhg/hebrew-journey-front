@@ -1,4 +1,4 @@
-import { apiFetch, setAccessToken, getAccessToken } from "./api";
+import { apiFetch, setAccessToken, getAccessToken, setRefreshToken, getRefreshToken } from "./api";
 
 export type UserRole = "STUDENT" | "TEACHER" | "ADMIN" | "SALES" | "SUPPORT";
 
@@ -62,18 +62,23 @@ export async function login(input: {
   email: string;
   password: string;
 }): Promise<{ user: AuthUser; accessToken: string }> {
-  const result = await apiFetch<{ user: AuthUser; accessToken: string }>("/api/auth/login", {
+  const result = await apiFetch<{ user: AuthUser; accessToken: string; refreshToken: string }>("/api/auth/login", {
     method: "POST",
     body: input,
     skipAuth: true,
   });
   setAccessToken(result.accessToken);
+  setRefreshToken(result.refreshToken);
   return result;
 }
 
 export async function logout(): Promise<void> {
-  await apiFetch("/api/auth/logout", { method: "POST" });
+  await apiFetch("/api/auth/logout", {
+    method: "POST",
+    body: { refreshToken: getRefreshToken() },
+  }).catch(() => {});
   setAccessToken(null);
+  setRefreshToken(null);
 }
 
 export async function getMe(): Promise<{ user: AuthUser }> {

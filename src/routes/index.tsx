@@ -142,32 +142,7 @@ const NAVY = "#0b2f6e";
 const NAVY_DEEP = "#071f4d";
 const GREEN = "#7fc341";
 
-const TEACHERS = [
-  {
-    name: "د. ليلى حسن",
-    badge: "A1-B2 · خبيرة المبتدئين",
-    desc: "متخصصة في مهارات المحادثة للمبتدئين وتطوير النطق الصحيح من خلال أساليب تفاعلية.",
-    slots: ["الأحد 10:00", "الثلاثاء 14:00", "الجمعة 09:00"],
-    avatarBg: "bg-[#dbe7ff]",
-    initials: "ل",
-  },
-  {
-    name: "أ. كريم عبد الله",
-    badge: "B1-C1 · خبير القواعد",
-    desc: "متخصص في تدريس القواعد المعقدة بأسلوب مبسط، وخبرة طويلة في تأهيل الطلاب للامتحانات.",
-    slots: ["الاثنين 11:00", "الأربعاء 16:00", "السبت 10:00"],
-    avatarBg: "bg-[#efe9e4]",
-    initials: "כ",
-  },
-  {
-    name: "أ. سارة سالم",
-    badge: "أخصائية الأطفال واليافعين",
-    desc: "تعتمد أساليب الألعاب والوسائل التفاعلية لجعل تعلم العبرية ممتعاً للأطفال والشباب.",
-    slots: ["الأحد 15:00", "الثلاثاء 17:00", "الخميس 11:00"],
-    avatarBg: "bg-[#ffe0e7]",
-    initials: "س",
-  },
-];
+const TEACHER_CARD_COLORS = ["bg-[#dbe7ff]", "bg-[#efe9e4]", "bg-[#ffe0e7]", "bg-[#e2f5d9]"];
 
 const FAQ_ITEMS = [
   "كم من الوقت أحتاج لأتحدث بطلاقة؟",
@@ -238,10 +213,12 @@ function Landing() {
       {},
     ),
   );
-  const teachersToRender =
-    liveTeachers.length > 0
-      ? liveTeachers.map((t) => ({ ...t, desc: "أونلاين وحضوري — مواعيد ثابتة كل أسبوع", avatarBg: "bg-[#dbe7ff]", initials: t.name.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟" }))
-      : TEACHERS;
+  const teachersToRender = liveTeachers.map((t, i) => ({
+    ...t,
+    desc: "أونلاين وحضوري — مواعيد ثابتة كل أسبوع",
+    avatarBg: TEACHER_CARD_COLORS[i % TEACHER_CARD_COLORS.length],
+    initials: t.name.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟",
+  }));
 
   return (
     <div dir="rtl" className="relative min-h-screen overflow-x-clip bg-[#f6f9fd] text-ink">
@@ -578,6 +555,11 @@ function Landing() {
           </div>
 
           <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {teachersToRender.length === 0 && (
+              <div className="col-span-full rounded-2xl border border-[#e7edf7] bg-white py-12 text-center text-sm text-[#5a6b8c]">
+                سيظهر المعلمون هنا فور إضافة مواعيدهم من إدارة الأكاديمية.
+              </div>
+            )}
             {teachersToRender.map((t) => (
               <div key={t.name} className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-6 text-center shadow-sm">
                 <div className="relative mx-auto w-fit">

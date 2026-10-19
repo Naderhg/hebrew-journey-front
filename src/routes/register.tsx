@@ -11,7 +11,6 @@ export const Route = createFileRoute("/register")({
 function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -23,7 +22,7 @@ function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      await register({ email, password, fullName, ...(phone ? { phone } : {}) });
+      await register({ phone, password, fullName });
       navigate({ to: "/login" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر إنشاء الحساب، تأكد من اتصال السيرفر");
@@ -70,14 +69,15 @@ function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Label htmlFor="phone">رقم الهاتف</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="phone"
+                type="tel"
+                dir="ltr"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 required
-                placeholder="student@example.com"
+                placeholder="01xxxxxxxxx"
               />
             </div>
             <div className="space-y-2">
@@ -90,16 +90,6 @@ function RegisterPage() {
                 required
                 minLength={8}
                 placeholder="8 أحرف على الأقل"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">رقم الهاتف (اختياري)</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+20..."
               />
             </div>
 

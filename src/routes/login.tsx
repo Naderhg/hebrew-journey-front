@@ -12,7 +12,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,11 +22,11 @@ function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const loggedInUser = await login(email, password);
+      const loggedInUser = await login(identifier, password);
       const targetRoute = getHomeRouteForRole(loggedInUser.role);
       navigate({ to: targetRoute });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "فشل تسجيل الدخول — تأكد من البريد الإلكتروني وكلمة المرور");
+      setError(err instanceof Error ? err.message : "فشل تسجيل الدخول — تأكد من رقم الهاتف وكلمة المرور");
     } finally {
       setLoading(false);
     }
@@ -56,14 +56,15 @@ function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Label htmlFor="identifier">رقم الهاتف أو البريد الإلكتروني</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                dir="ltr"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
-                placeholder="you@example.com"
+                placeholder="01xxxxxxxxx"
               />
             </div>
             <div className="space-y-2">

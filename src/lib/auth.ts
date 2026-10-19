@@ -4,7 +4,7 @@ export type UserRole = "STUDENT" | "TEACHER" | "ADMIN" | "SALES" | "SUPPORT";
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email?: string | null;
   fullName: string;
   phone?: string;
   role: UserRole;
@@ -44,10 +44,10 @@ export function getHomeRouteForRole(role?: string): string {
 }
 
 export async function register(input: {
-  email: string;
+  phone: string;
   password: string;
   fullName: string;
-  phone?: string;
+  email?: string;
   locale?: string;
 }): Promise<{ user: AuthUser }> {
   const result = await apiFetch<{ user: AuthUser }>("/api/auth/register", {
@@ -59,7 +59,7 @@ export async function register(input: {
 }
 
 export async function login(input: {
-  email: string;
+  identifier: string;
   password: string;
 }): Promise<{ user: AuthUser; accessToken: string }> {
   const result = await apiFetch<{ user: AuthUser; accessToken: string; refreshToken: string }>("/api/auth/login", {

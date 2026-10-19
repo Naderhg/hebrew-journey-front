@@ -6,8 +6,8 @@ import { useAuth } from "./use-auth";
 export interface PlatformUser {
   id: string;
   fullName: string;
-  email: string;
-  phone?: string;
+  email: string | null;
+  phone?: string | null;
   role: UserRole;
   level?: string;
   specialty?: string;
@@ -48,8 +48,10 @@ export interface PlacementQuestion {
   section: PlacementSection;
   promptAr: string;
   hebrewText: string;
+  questionType: "mcq" | "truefalse" | "text";
   options: string[];
   correctOptionIndex: number;
+  expectedAnswer?: string | null;
   levelTag: "A1" | "A2" | "B1" | "B2";
   isActive: boolean;
 }
@@ -95,7 +97,7 @@ export interface ExamResult {
   feedback?: string | null;
   recordingUrl?: string | null;
   submittedAt: string;
-  student?: { id: string; fullName: string; email: string };
+  student?: { id: string; fullName: string; email: string | null; phone?: string | null };
   exam?: { id: string; title: string; type: ExamType; questions?: ExamQuestions; assignedTeacher?: { fullName: string } };
 }
 
@@ -124,8 +126,8 @@ export interface Exam {
 export interface StudentTeacherLink {
   id: string;
   groupName?: string | null;
-  student: { id: string; fullName: string; email: string };
-  teacher: { id: string; fullName: string; email: string };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null };
+  teacher: { id: string; fullName: string; email: string | null; phone?: string | null };
 }
 
 export interface TeacherStudent {
@@ -136,7 +138,7 @@ export interface TeacherStudent {
   avgScore: number | null;
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone?: string;
   level?: string;
   createdAt: string;
@@ -144,9 +146,9 @@ export interface TeacherStudent {
 
 interface CreateStaffUserInput {
   fullName: string;
-  email: string;
+  phone: string;
   password?: string;
-  phone?: string;
+  email?: string;
   role: Exclude<UserRole, "STUDENT">;
   specialty?: string;
 }
@@ -168,8 +170,10 @@ interface CreatePlacementQuestionInput {
   section: PlacementSection;
   promptAr: string;
   hebrewText: string;
+  questionType: "mcq" | "truefalse" | "text";
   options: string[];
   correctOptionIndex: number;
+  expectedAnswer?: string;
   levelTag: "A1" | "A2" | "B1" | "B2";
 }
 
@@ -241,7 +245,7 @@ export interface Package {
 export interface Subscription {
   id: string;
   studentId: string;
-  student: { id: string; fullName: string; email: string; phone?: string | null };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null };
   packageId: string;
   package: { id: string; nameAr: string; price: number; durationMonths: number };
   status: string;
@@ -275,7 +279,7 @@ export interface SalesStats {
 export interface SupportStudent {
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
   level?: string | null;
   placementScore?: number | null;
@@ -293,7 +297,7 @@ export interface SupportTicketItem {
   category: string;
   priority: string;
   status: string;
-  student?: { id: string; fullName: string; email: string } | null;
+  student?: { id: string; fullName: string; email: string | null; phone?: string | null } | null;
   support?: { id: string; fullName: string } | null;
   forwardedTo?: { id: string; fullName: string; role: string } | null;
   _count?: { messages: number };
@@ -321,7 +325,7 @@ export interface AttendanceRecord {
   scheduleId: string;
   schedule: { id: string; title: string; dayOfWeek: number; startTime: string; teacher: { fullName: string } };
   studentId: string;
-  student: { id: string; fullName: string; email: string };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null };
   date: string;
   status: string;
   notes?: string | null;
@@ -330,7 +334,7 @@ export interface AttendanceRecord {
 export interface IrregularStudent {
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
   studentStatus: string;
   teacher: string;
@@ -346,7 +350,7 @@ export interface Homework {
   id: string;
   teacherId: string;
   studentId?: string | null;
-  student?: { id: string; fullName: string; email: string } | null;
+  student?: { id: string; fullName: string; email: string | null; phone?: string | null } | null;
   groupName?: string | null;
   title: string;
   description?: string | null;
@@ -383,7 +387,7 @@ export interface PaymentRequestItem {
   reviewedAt?: string | null;
   createdAt: string;
   package?: { id: string; nameAr: string; price: number; durationMonths: number };
-  student?: { id: string; fullName: string; email: string; phone?: string | null; level?: string | null };
+  student?: { id: string; fullName: string; email: string | null; phone?: string | null; level?: string | null };
   reviewedBy?: { fullName: string } | null;
 }
 
@@ -399,7 +403,7 @@ export interface MySubscription {
 export interface PlacementResultRow {
   id: string;
   fullName: string;
-  email: string;
+  email: string | null;
   phone?: string | null;
   level?: string | null;
   placementScore?: number | null;
@@ -509,14 +513,14 @@ export interface TeacherAttendance {
   scheduleId: string;
   schedule: { title: string; dayOfWeek: number; startTime: string };
   studentId: string;
-  student: { id: string; fullName: string; email: string };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null };
   date: string;
   status: string;
   notes?: string | null;
 }
 
 export interface StudentReport {
-  student: { id: string; fullName: string; email: string; level?: string | null; studentStatus: string };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null; level?: string | null; studentStatus: string };
   avgScore: number | null;
   examsTaken: number;
   skills: Record<string, { score: number; notes: string | null }>;
@@ -607,7 +611,7 @@ export interface AdminLead extends SalesLead {
 export interface SalesReportRow {
   salesId: string;
   name: string;
-  email: string;
+  email: string | null;
   leads: number;
   newLeads: number;
   converted: number;
@@ -634,7 +638,7 @@ export interface AdminSalesReport {
 export interface AdminCertificate {
   id: string;
   studentId: string;
-  student: { id: string; fullName: string; email: string; level?: string | null };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null; level?: string | null };
   title: string;
   level?: string | null;
   description?: string | null;
@@ -662,13 +666,13 @@ export interface MyTeacher {
 }
 
 export interface TeacherChatThread {
-  student: { id: string; fullName: string; email: string };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null };
   groupName?: string | null;
   lastMessage: { content: string; createdAt: string; fromRole: string } | null;
 }
 
 export interface SupportChatThread {
-  student: { id: string; fullName: string; email: string };
+  student: { id: string; fullName: string; email: string | null; phone?: string | null };
   lastMessage: { content: string; createdAt: string; fromRole: string };
 }
 

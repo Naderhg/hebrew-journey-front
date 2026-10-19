@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Award,
@@ -17,7 +17,6 @@ import {
   Plus,
   Search,
   Send,
-  Server,
   Square,
   Trash2,
   TrendingUp,
@@ -425,11 +424,26 @@ export function PlacementScreen() {
   const { placementQuestions } = usePlatformStore();
   const activeQuestions = placementQuestions.filter((q) => q.isActive);
   const [step, setStep] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number | string>>({});
+
+  const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const isCorrect = (q: (typeof activeQuestions)[number]) => {
+    const ans = selectedAnswers[q.id];
+    if (q.questionType === "text") {
+      return typeof ans === "string" && !!q.expectedAnswer
+        && normalize(ans) === normalize(q.expectedAnswer);
+    }
+    return ans === q.correctOptionIndex;
+  };
+  const hasAnswer = (q: (typeof activeQuestions)[number]) => {
+    const ans = selectedAnswers[q.id];
+    if (q.questionType === "text") return typeof ans === "string" && ans.trim().length > 0;
+    return typeof ans === "number";
+  };
 
   if (step >= activeQuestions.length && activeQuestions.length > 0) {
     const correctCount = activeQuestions.reduce(
-      (acc, q) => (selectedAnswers[q.id] === q.correctOptionIndex ? acc + 1 : acc),
+      (acc, q) => (isCorrect(q) ? acc + 1 : acc),
       0,
     );
     const scorePercent = Math.round((correctCount / activeQuestions.length) * 100);
@@ -478,21 +492,36 @@ export function PlacementScreen() {
               </div>
               <h2 className="mt-4 text-2xl font-bold">{currentQ.promptAr}</h2>
               <p className="mt-3 font-he text-xl leading-9">{currentQ.hebrewText}</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {currentQ.options.map((x, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedAnswers((p) => ({ ...p, [currentQ.id]: idx }))}
-                    className={`rounded-md border p-4 text-right text-sm transition-colors ${
-                      selectedAnswers[currentQ.id] === idx
-                        ? "border-brand bg-brand/10 font-bold text-brand"
-                        : "border-border bg-background/60 hover:border-brand hover:bg-brand/5"
-                    }`}
-                  >
-                    {x}
-                  </button>
-                ))}
-              </div>
+
+              {currentQ.questionType === "text" ? (
+                <div className="mt-6">
+                  <Input
+                    dir="rtl"
+                    value={typeof selectedAnswers[currentQ.id] === "string" ? (selectedAnswers[currentQ.id] as string) : ""}
+                    onChange={(e) =>
+                      setSelectedAnswers((p) => ({ ...p, [currentQ.id]: e.target.value }))
+                    }
+                    placeholder="اكتب إجابتك هنا..."
+                    className="text-base"
+                  />
+                </div>
+              ) : (
+                <div className={`mt-6 grid gap-3 ${currentQ.questionType === "truefalse" ? "" : "sm:grid-cols-2"}`}>
+                  {(currentQ.questionType === "truefalse" ? ["صح", "خطأ"] : currentQ.options).map((x, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedAnswers((p) => ({ ...p, [currentQ.id]: idx }))}
+                      className={`rounded-md border p-4 text-center text-sm font-bold transition-colors ${
+                        selectedAnswers[currentQ.id] === idx
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-border bg-background/60 hover:border-brand hover:bg-brand/5"
+                      }`}
+                    >
+                      {x}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex justify-between">
               <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))}>
@@ -519,19 +548,34 @@ function PlacementResult({
   total: number;
 }) {
   const { submitPlacementResult } = usePlatformStore();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const submitted = useRef(false);
   const level =
     scorePercent >= 80 ? "B2" : scorePercent >= 55 ? "B1" : scorePercent >= 30 ? "A2" : "A1";
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || submitted.current) return;
+    submitted.current = true;
     setSaveState("saving");
     submitPlacementResult(scorePercent, level)
-      .then(() => setSaveState("saved"))
+      .then(() => {
+        setSaveState("saved");
+        return refreshUser().catch(() => {});
+      })
       .catch(() => setSaveState("error"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  async function goToSubscribe() {
+    try {
+      await refreshUser();
+    } catch {
+      // ignore — navigation still allowed; the gate re-checks on the server
+    }
+    navigate({ to: "/subscribe" });
+  }
 
   return (
     <AppShell role="STUDENT">
@@ -569,9 +613,9 @@ function PlacementResult({
           </a>
         </div>
 
-        <Link to="/subscribe">
-          <Button className="mt-4 w-full">متابعة — اختيار الباقة والاشتراك</Button>
-        </Link>
+        <Button className="mt-4 w-full" onClick={goToSubscribe}>
+          متابعة — اختيار الباقة والاشتراك
+        </Button>
       </Card>
     </AppShell>
   );
@@ -989,7 +1033,7 @@ export function TeacherScreen() {
                     <span className="flex-1">
                       <b className="text-sm">{s.fullName}</b>
                       <small className="block text-muted-foreground">
-                        {s.email} · المستوى: {s.level ?? "غير محدد"}
+                        {s.phone ?? s.email ?? "—"} · المستوى: {s.level ?? "غير محدد"}
                       </small>
                     </span>
                   </button>
@@ -1003,7 +1047,7 @@ export function TeacherScreen() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-bold">{selectedStudent.fullName}</h2>
-                    <p className="text-xs text-muted-foreground">{selectedStudent.email}</p>
+                    <p className="text-xs text-muted-foreground">{selectedStudent.phone ?? selectedStudent.email ?? "—"}</p>
                   </div>
                   <Badge tone="brand">المستوى: {selectedStudent.level ?? "غير محدد"}</Badge>
                 </div>
@@ -1507,7 +1551,7 @@ export function TeacherScreen() {
                       <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 p-3">
                         <div>
                           <b className="text-sm">{s.fullName}</b>
-                          <small className="block text-muted-foreground">{s.email}</small>
+                          <small className="block text-muted-foreground">{s.phone ?? s.email ?? "—"}</small>
                         </div>
                         <div className="flex gap-1.5">
                           {(["present", "late", "absent", "excused"] as const).map((st) => (
@@ -1944,6 +1988,7 @@ export function AdminScreen() {
 
   const [qSection, setQSection] = useState<PlacementSection>("قراءة");
   const [qLevel, setQLevel] = useState<"A1" | "A2" | "B1" | "B2">("B1");
+  const [qType, setQType] = useState<"mcq" | "truefalse" | "text">("mcq");
   const [qPromptAr, setQPromptAr] = useState("");
   const [qHebrewText, setQHebrewText] = useState("");
   const [opt1, setOpt1] = useState("");
@@ -1951,6 +1996,8 @@ export function AdminScreen() {
   const [opt3, setOpt3] = useState("");
   const [opt4, setOpt4] = useState("");
   const [correctIdx, setCorrectIdx] = useState(0);
+  const [qTrueFalse, setQTrueFalse] = useState(true); // for truefalse: true = صح
+  const [qExpected, setQExpected] = useState("");    // for text: expected answer
   const [questionSuccess, setQuestionSuccess] = useState("");
   const [questionError, setQuestionError] = useState("");
 
@@ -1968,9 +2015,8 @@ export function AdminScreen() {
     try {
       await addStaffUser({
         fullName,
-        email,
+        phone,
         password: password || "Ohran@1234",
-        ...(phone ? { phone } : {}),
         role: newUserRole,
         ...(specialty ? { specialty } : {}),
       });
@@ -2135,16 +2181,39 @@ export function AdminScreen() {
     e.preventDefault();
     setQuestionError("");
     setQuestionSuccess("");
-    const options = [opt1, opt2, opt3, opt4].map((o) => o.trim()).filter(Boolean);
-    if (!qPromptAr.trim() || options.length < 2) return;
+    if (!qPromptAr.trim()) return;
+
+    let options: string[] = [];
+    let correctOptionIndex = 0;
+    let expectedAnswer: string | undefined;
+
+    if (qType === "mcq") {
+      options = [opt1, opt2, opt3, opt4].map((o) => o.trim()).filter(Boolean);
+      if (options.length < 2) {
+        setQuestionError("أسئلة الاختيار تحتاج خيارين على الأقل");
+        return;
+      }
+      correctOptionIndex = Math.min(correctIdx, options.length - 1);
+    } else if (qType === "truefalse") {
+      options = ["صح", "خطأ"];
+      correctOptionIndex = qTrueFalse ? 0 : 1;
+    } else {
+      expectedAnswer = qExpected.trim();
+      if (!expectedAnswer) {
+        setQuestionError("سؤال النص يحتاج الإجابة المتوقعة");
+        return;
+      }
+    }
 
     try {
       await addPlacementQuestion({
         section: qSection,
         promptAr: qPromptAr,
         hebrewText: qHebrewText,
+        questionType: qType,
         options,
-        correctOptionIndex: Math.min(correctIdx, options.length - 1),
+        correctOptionIndex,
+        ...(expectedAnswer ? { expectedAnswer } : {}),
         levelTag: qLevel,
       });
 
@@ -2155,6 +2224,8 @@ export function AdminScreen() {
       setOpt3("");
       setOpt4("");
       setCorrectIdx(0);
+      setQTrueFalse(true);
+      setQExpected("");
       setQuestionSuccess("تم نشر السؤال فوراً في اختبار تحديد المستوى بالصفحة الرئيسية.");
     } catch (err) {
       setQuestionError(err instanceof Error ? err.message : "فشل حفظ السؤال");
@@ -2185,7 +2256,7 @@ export function AdminScreen() {
             {list.map((u) => (
               <tr key={u.id} className="border-b border-border/60">
                 <td className="px-3 py-3.5 font-semibold">{u.fullName}</td>
-                <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">{u.email}</td>
+                <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">{u.email || "—"}</td>
                 <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">
                   {u.phone || "—"}
                 </td>
@@ -2212,7 +2283,14 @@ export function AdminScreen() {
                 <td className="px-3 py-3.5">
                   {u.role !== "ADMIN" && (
                     <button
-                      onClick={() => deleteUser(u.id)}
+                      onClick={async () => {
+                        if (!confirm(`حذف المستخدم "${u.fullName}" نهائياً؟`)) return;
+                        try {
+                          await deleteUser(u.id);
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : "فشل حذف المستخدم");
+                        }
+                      }}
                       className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
                       title="حذف المستخدم"
                     >
@@ -2241,42 +2319,42 @@ export function AdminScreen() {
 
       {activeSection === "overview" && (
         <>
-          <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            <Card className="p-4">
-              <small className="text-muted-foreground">المدرسون</small>
-              <b className="mt-1 block font-lat text-2xl text-brand">{counts.teachers}</b>
-              <span className="text-xs text-muted-foreground">في قاعدة البيانات</span>
-            </Card>
-            <Card className="p-4">
-              <small className="text-muted-foreground">الطلاب المسجلون</small>
-              <b className="mt-1 block font-lat text-2xl text-sage">{counts.students}</b>
-              <span className="text-xs text-muted-foreground">تسجيل ذاتي</span>
-            </Card>
-            <Card className="p-4">
-              <small className="text-muted-foreground">فريق المبيعات (Sales)</small>
-              <b className="mt-1 block font-lat text-2xl">{counts.sales}</b>
-              <span className="text-xs text-muted-foreground">في قاعدة البيانات</span>
-            </Card>
-            <Card className="p-4">
-              <small className="text-muted-foreground">خدمة العملاء (Support)</small>
-              <b className="mt-1 block font-lat text-2xl">{counts.support}</b>
-              <span className="text-xs text-muted-foreground">في قاعدة البيانات</span>
-            </Card>
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: "المدرسون", sub: "في قاعدة البيانات", value: counts.teachers, icon: UsersRound, chip: "bg-brand/10 text-brand" },
+              { label: "الطلاب المسجلون", sub: "تسجيل ذاتي", value: counts.students, icon: GraduationCap, chip: "bg-sage/15 text-sage" },
+              { label: "فريق المبيعات", sub: "في قاعدة البيانات", value: counts.sales, icon: TicketCheck, chip: "bg-gold/15 text-gold" },
+              { label: "خدمة العملاء", sub: "في قاعدة البيانات", value: counts.support, icon: Headphones, chip: "bg-brand2/10 text-brand2" },
+            ].map((s) => (
+              <Card key={s.label} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <b className="block font-lat text-2xl">{s.value}</b>
+                    <small className="mt-0.5 block text-muted-foreground">{s.label}</small>
+                    <span className="text-[11px] text-muted-foreground/70">{s.sub}</span>
+                  </div>
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${s.chip}`}>
+                    <s.icon className="size-4.5" />
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <small className="text-muted-foreground">سيرفر VPS (API)</small>
-                <Server className="size-4 text-sage" />
+                <Badge tone="sage">متصل</Badge>
               </div>
               <b className="mt-1 block font-lat text-sm">{SERVER_CONFIG.vpsServerIp}</b>
-              <span className="text-xs text-sage">متصل</span>
             </Card>
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <small className="text-muted-foreground">سيرفر التخزين (Storage)</small>
-                <Server className="size-4 text-brand" />
+                <Badge tone="brand">متصل</Badge>
               </div>
               <b className="mt-1 block font-lat text-sm">{SERVER_CONFIG.storageServerIp}</b>
-              <span className="text-xs text-brand">متصل</span>
             </Card>
           </div>
 
@@ -2375,7 +2453,7 @@ export function AdminScreen() {
                     <option value="">اختر طالباً...</option>
                     {studentsList.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.fullName} ({s.email})
+                        {s.fullName} — {s.phone ?? s.email ?? "—"}
                       </option>
                     ))}
                   </select>
@@ -2538,13 +2616,14 @@ export function AdminScreen() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>البريد الإلكتروني</Label>
+              <Label>رقم الهاتف</Label>
               <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="tel"
+                dir="ltr"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 required
-                placeholder="staff@ohran.com"
+                placeholder="01xxxxxxxxx"
               />
             </div>
 
@@ -2570,11 +2649,12 @@ export function AdminScreen() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>رقم الهاتف (اختياري)</Label>
+              <Label>البريد الإلكتروني (اختياري)</Label>
               <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+20..."
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="staff@ohran.com"
               />
             </div>
 
@@ -3361,6 +3441,9 @@ export function AdminScreen() {
                         </span>
                         <Badge tone="gold">{q.section}</Badge>
                         <Badge tone="brand">مستوى {q.levelTag}</Badge>
+                        <Badge tone="muted">
+                          {q.questionType === "truefalse" ? "صح/خطأ" : q.questionType === "text" ? "إجابة نصية" : "اختيار متعدد"}
+                        </Badge>
                         <Badge tone={q.isActive ? "sage" : "muted"}>
                           {q.isActive ? "مفعل بالرئيسية" : "مخفي"}
                         </Badge>
@@ -3385,7 +3468,27 @@ export function AdminScreen() {
                     <p dir="rtl" className="mt-1 font-he text-base text-brand">
                       {q.hebrewText}
                     </p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {q.questionType === "text" ? (
+                      <div className="mt-3 rounded-sm bg-sage/15 px-3 py-1.5 text-xs font-bold text-sage ring-1 ring-sage/30">
+                        الإجابة المتوقعة: {q.expectedAnswer}
+                      </div>
+                    ) : q.questionType === "truefalse" ? (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {["صح", "خطأ"].map((opt, oIdx) => (
+                          <div
+                            key={oIdx}
+                            className={`rounded-sm px-3 py-1.5 text-xs ${
+                              oIdx === q.correctOptionIndex
+                                ? "bg-sage/15 font-bold text-sage ring-1 ring-sage/30"
+                                : "bg-muted/60 text-muted-foreground"
+                            }`}
+                          >
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {q.options.map((opt, oIdx) => (
                         <div
                           key={oIdx}
@@ -3398,7 +3501,8 @@ export function AdminScreen() {
                           {oIdx + 1}. {opt} {oIdx === q.correctOptionIndex && " (الإجابة الصحيحة)"}
                         </div>
                       ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -3481,47 +3585,91 @@ export function AdminScreen() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>الاختيارات الأربعة</Label>
-                <Input
-                  value={opt1}
-                  onChange={(e) => setOpt1(e.target.value)}
-                  required
-                  placeholder="الاختيار الأول"
-                />
-                <Input
-                  value={opt2}
-                  onChange={(e) => setOpt2(e.target.value)}
-                  required
-                  placeholder="الاختيار الثاني"
-                />
-                <Input
-                  value={opt3}
-                  onChange={(e) => setOpt3(e.target.value)}
-                  required
-                  placeholder="الاختيار الثالث"
-                />
-                <Input
-                  value={opt4}
-                  onChange={(e) => setOpt4(e.target.value)}
-                  required
-                  placeholder="الاختيار الرابع"
-                />
+              <div className="space-y-1.5">
+                <Label>نوع السؤال</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    ["mcq", "اختيار من متعدد"],
+                    ["truefalse", "صح / خطأ"],
+                    ["text", "إجابة نصية"],
+                  ] as const).map(([v, l]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setQType(v)}
+                      className={`rounded-md border p-2.5 text-xs font-semibold transition ${
+                        qType === v
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-border hover:border-brand/50"
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>رقم الإجابة الصحيحة</Label>
-                <select
-                  value={correctIdx}
-                  onChange={(e) => setCorrectIdx(Number(e.target.value))}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value={0}>الاختيار الأول (1)</option>
-                  <option value={1}>الاختيار الثاني (2)</option>
-                  <option value={2}>الاختيار الثالث (3)</option>
-                  <option value={3}>الاختيار الرابع (4)</option>
-                </select>
-              </div>
+              {qType === "mcq" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>الاختيارات (2 على الأقل)</Label>
+                    <Input value={opt1} onChange={(e) => setOpt1(e.target.value)} placeholder="الاختيار الأول" />
+                    <Input value={opt2} onChange={(e) => setOpt2(e.target.value)} placeholder="الاختيار الثاني" />
+                    <Input value={opt3} onChange={(e) => setOpt3(e.target.value)} placeholder="الاختيار الثالث (اختياري)" />
+                    <Input value={opt4} onChange={(e) => setOpt4(e.target.value)} placeholder="الاختيار الرابع (اختياري)" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>رقم الإجابة الصحيحة</Label>
+                    <select
+                      value={correctIdx}
+                      onChange={(e) => setCorrectIdx(Number(e.target.value))}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value={0}>الاختيار الأول (1)</option>
+                      <option value={1}>الاختيار الثاني (2)</option>
+                      <option value={2}>الاختيار الثالث (3)</option>
+                      <option value={3}>الاختيار الرابع (4)</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              {qType === "truefalse" && (
+                <div className="space-y-1.5">
+                  <Label>الإجابة الصحيحة</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([true, false] as const).map((v) => (
+                      <button
+                        key={String(v)}
+                        type="button"
+                        onClick={() => setQTrueFalse(v)}
+                        className={`rounded-md border p-3 text-sm font-bold transition ${
+                          qTrueFalse === v
+                            ? "border-brand bg-brand/10 text-brand"
+                            : "border-border hover:border-brand/50"
+                        }`}
+                      >
+                        {v ? "صح" : "خطأ"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {qType === "text" && (
+                <div className="space-y-1.5">
+                  <Label>الإجابة المتوقعة (النص الصحيح)</Label>
+                  <Input
+                    dir="rtl"
+                    value={qExpected}
+                    onChange={(e) => setQExpected(e.target.value)}
+                    placeholder="الإجابة الصحيحة — يُقارن بها نص الطالب بعد تجاهل المسافات"
+                  />
+                  <small className="text-muted-foreground">
+                    المقارنة بتتجاهل حالة الأحرف والمسافات الزائدة — اكتب الإجابة الأدق
+                  </small>
+                </div>
+              )}
 
               <Button type="submit" className="w-full">
                 <Plus className="size-4" />
@@ -3670,8 +3818,7 @@ function AdminBookingsSection({
               <div>
                 <b className="text-sm">{r.student?.fullName ?? "طالب"}</b>
                 <small className="block text-muted-foreground">
-                  {r.student?.email}
-                  {r.student?.phone && ` · ${r.student.phone}`}
+                  {r.student?.phone ?? r.student?.email ?? "—"}
                   {r.student?.level && ` · مستوى ${r.student.level}`}
                 </small>
                 <small className="mt-1 block text-muted-foreground">
@@ -3764,8 +3911,7 @@ function AdminPlacementResultsSection({ results }: { results: PlacementResultRow
               <div>
                 <b className="text-sm">{r.fullName}</b>
                 <small className="block text-muted-foreground">
-                  {r.email}
-                  {r.phone && ` · ${r.phone}`}
+                  {r.phone ?? r.email ?? "—"}
                 </small>
               </div>
               <div className="flex items-center gap-2">
@@ -4314,7 +4460,17 @@ function AdminPackagesSection({
                   <Button variant="ghost" className="min-h-7 px-2 py-1 text-xs" onClick={() => onUpdate(p.id, { isActive: !p.isActive })}>
                     {p.isActive ? "تعطيل" : "تفعيل"}
                   </Button>
-                  <button onClick={() => onDelete(p.id).catch(() => {})} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`حذف الباقة "${p.nameAr}" نهائياً؟ سيتم حذف اشتراكاتها وطلبات حجزها معها.`)) return;
+                      try {
+                        await onDelete(p.id);
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "فشل حذف الباقة");
+                      }
+                    }}
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                  >
                     <Trash2 className="size-4" />
                   </button>
                 </div>
@@ -4387,7 +4543,7 @@ function AdminSalesReportSection({ report, onRefresh }: { report: AdminSalesRepo
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <b className="text-sm">{s.name}</b>
-                    <small className="block text-muted-foreground">{s.email}</small>
+                    <small className="block text-muted-foreground">{s.email ?? "—"}</small>
                   </div>
                   <Badge tone="brand">تحويل {s.conversionRate}%</Badge>
                 </div>
@@ -4548,7 +4704,7 @@ function AdminCertificatesSection({
                 <select value={cStudentId} onChange={(e) => setCStudentId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— اختر الطالب —</option>
                   {students.map((s) => (
-                    <option key={s.id} value={s.id}>{s.fullName} ({s.email})</option>
+                    <option key={s.id} value={s.id}>{s.fullName} — {s.phone ?? s.email ?? "—"}</option>
                   ))}
                 </select>
               </div>
@@ -4590,7 +4746,7 @@ function AdminCertificatesSection({
                   <div>
                     <b className="text-sm">{c.title}</b>
                     <small className="block text-muted-foreground">
-                      {c.student.fullName} · {c.student.email}
+                      {c.student.fullName} · {c.student.phone ?? c.student.email ?? "—"}
                     </small>
                     <small className="block text-muted-foreground">
                       {new Date(c.issuedAt).toLocaleDateString("ar-EG")}
@@ -5959,7 +6115,7 @@ function AdminResultsSection({
                 <div>
                   <b className="text-sm">{r.student?.fullName ?? "طالب"}</b>
                   <small className="block text-muted-foreground">
-                    {r.student?.email} · {r.exam?.title ?? "امتحان"} ·{" "}
+                    {r.student?.phone ?? r.student?.email ?? "—"} · {r.exam?.title ?? "امتحان"} ·{" "}
                     {new Date(r.submittedAt).toLocaleString("ar-EG")}
                   </small>
                 </div>
@@ -6583,7 +6739,7 @@ export function SalesScreen() {
                     >
                       <option value="">— اختر الطالب —</option>
                       {students.map((s) => (
-                        <option key={s.id} value={s.id}>{s.fullName} — {s.email}</option>
+                        <option key={s.id} value={s.id}>{s.fullName} — {s.phone ?? s.email ?? "—"}</option>
                       ))}
                     </select>
                   </div>
@@ -6935,7 +7091,7 @@ export function SupportScreen() {
                     <div>
                       <b className="text-sm">{s.fullName}</b>
                       <small className="block text-muted-foreground">
-                        {s.email} {s.phone && `· ${s.phone}`}
+                        {s.phone ?? s.email ?? "—"}
                       </small>
                     </div>
                     <div className="flex items-center gap-2">
@@ -7380,7 +7536,7 @@ export function SupportScreen() {
                     <div>
                       <b className="text-sm">{s.fullName}</b>
                       <small className="block text-muted-foreground">
-                        {s.email} · {s.phone ?? "—"} · المدرس: {s.teacher}
+                        {s.phone ?? s.email ?? "—"} · المدرس: {s.teacher}
                       </small>
                       <p className="mt-1 text-xs text-danger">{s.reason}</p>
                     </div>

@@ -225,7 +225,7 @@ export function AppShell({
   if (needsPlacement) navItems = placementOnlyNav;
   else if (isLocked) navItems = lockedStudentNav;
   const displayName = user ? user.fullName : "غير مسجل الدخول";
-  const displaySubtitle = user ? `${ROLE_LABELS[currentUserRole]} · ${user.email}` : ROLE_LABELS[role];
+  const displaySubtitle = user ? `${ROLE_LABELS[currentUserRole]} · ${user.phone ?? user.email ?? ""}` : ROLE_LABELS[role];
 
   async function handleLogout() {
     try {
@@ -259,7 +259,7 @@ export function AppShell({
     const isActive = item.section
       ? path === item.to && (activeSection ?? "overview") === item.section
       : path === item.to;
-    const cls = `flex min-w-0 items-center gap-2 rounded-md px-3 py-2.5 text-right transition-colors ${
+    const cls = `flex min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-right transition-colors ${
       isActive
         ? "bg-brand/10 font-semibold text-brand"
         : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -297,10 +297,9 @@ export function AppShell({
 
   return (
     <div dir="rtl" className="relative min-h-screen overflow-x-hidden bg-paper text-ink">
-      <div className="page-glow pointer-events-none fixed inset-0 -z-10" />
       <div className="mx-auto flex max-w-[1480px] flex-col gap-4 p-4 lg:flex-row lg:p-5">
         {/* Mobile top bar */}
-        <header className="glass flex items-center justify-between rounded-lg px-4 py-3 lg:hidden">
+        <header className="glass flex items-center justify-between rounded-xl px-4 py-3 lg:hidden">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -390,7 +389,7 @@ export function AppShell({
         )}
 
         <aside
-          className={`glass shrink-0 flex-col gap-4 p-4 lg:sticky lg:top-5 lg:flex lg:h-[calc(100vh-2.5rem)] lg:w-[260px] lg:rounded-lg ${
+          className={`glass shrink-0 flex-col gap-4 p-4 lg:sticky lg:top-5 lg:flex lg:h-[calc(100vh-2.5rem)] lg:w-[264px] lg:rounded-xl ${
             sidebarOpen
               ? "fixed inset-y-0 start-0 z-50 flex w-[290px] max-w-[85vw] overflow-y-auto rounded-e-lg"
               : "hidden"
@@ -435,7 +434,7 @@ export function AppShell({
                     onClick={() =>
                       setOpenGroups((p) => ({ ...p, [entry.group]: !isOpen }))
                     }
-                    className={`flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-right transition-colors ${
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-right transition-colors ${
                       groupActive
                         ? "bg-brand/5 font-semibold text-brand"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -529,10 +528,10 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="glass mb-4 flex flex-wrap items-center gap-3 rounded-lg px-5 py-4">
+    <header className="glass mb-4 flex flex-wrap items-center gap-3 rounded-xl px-5 py-4">
       <div>
-        <h1 className="text-xl font-bold">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        <h1 className="text-lg font-bold">{title}</h1>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">{subtitle}</p>
       </div>
       {actions && <div className="me-auto flex flex-wrap gap-2">{actions}</div>}
     </header>

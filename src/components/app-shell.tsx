@@ -6,6 +6,7 @@ import {
   BookOpen,
   Bot,
   BriefcaseBusiness,
+  CalendarCheck,
   CalendarDays,
   ChevronDown,
   ClipboardCheck,
@@ -56,6 +57,7 @@ function isGroup(entry: NavEntry): entry is SidebarGroup {
 
 const studentNav: readonly SidebarItem[] = [
   { to: "/dashboard", label: "لوحة الطالب", icon: LayoutDashboard },
+  { to: "/sessions", label: "حصصي الفردية", icon: CalendarCheck },
   { to: "/courses", label: "كورساتي", icon: Film },
   { to: "/lectures", label: "المحاضرات والمواعيد", icon: CalendarDays },
   { to: "/homework", label: "الواجبات", icon: ClipboardList },
@@ -72,6 +74,7 @@ const studentNav: readonly SidebarItem[] = [
 
 const teacherNav: readonly SidebarItem[] = [
   { to: "/teacher", section: "students", label: "طلابي وتقدمهم", icon: UsersRound },
+  { to: "/teacher", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
   { to: "/teacher", section: "materials", label: "الكورسات والماتيريال", icon: Film },
   { to: "/teacher", section: "exams", label: "الامتحانات والنتائج", icon: FileCheck },
   { to: "/teacher", section: "schedule", label: "جدولي", icon: CalendarDays },
@@ -110,6 +113,7 @@ const adminNav: readonly NavEntry[] = [
     items: [
       { to: "/admin", section: "packages", label: "الباقات والأسعار", icon: TicketCheck },
       { to: "/admin", section: "bookings", label: "الحجوزات والمدفوعات", icon: CreditCard },
+      { to: "/admin", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
       { to: "/admin", section: "sales-report", label: "تقارير المبيعات", icon: BarChart3 },
       { to: "/admin", section: "leads", label: "توزيع العملاء", icon: BriefcaseBusiness },
     ],

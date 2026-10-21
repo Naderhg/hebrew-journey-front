@@ -686,6 +686,49 @@ export interface PublicPackage {
   teacher?: { fullName: string; specialty?: string | null } | null;
 }
 
+// ─── Session-package booking types ───
+export interface SessionSubscription {
+  id: string;
+  packageName: string;
+  sessionsTotal: number;
+  sessionsUsed: number;
+  sessionsRemaining: number | null;
+  expiresAt: string | null;
+}
+
+export interface LessonBookingItem {
+  id: string;
+  teacher?: { id: string; fullName: string };
+  student?: { id: string; fullName: string; phone?: string | null };
+  subscription?: { id: string; package: { nameAr: string } } | null;
+  startsAt: string;
+  endsAt: string;
+  status: "booked" | "completed" | "cancelled" | "no_show";
+  meetingUrl?: string | null;
+  cancelledBy?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface AvailableSlot {
+  availabilityId: string;
+  teacherId: string;
+  teacherName: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface TeacherAvailabilitySlot {
+  id: string;
+  dayOfWeek: number | null;
+  specificDate: string | null;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}
+
 interface PlatformStoreValue {
   users: PlatformUser[];
   materials: CourseMaterial[];
@@ -836,6 +879,22 @@ interface PlatformStoreValue {
   deleteAdminSchedule: (id: string) => Promise<void>;
   fetchPublicSchedules: () => Promise<void>;
   fetchSupportLectures: () => Promise<void>;
+  // ─── Session-package bookings ───
+  fetchMySessions: () => Promise<void>;
+  fetchAvailableSlots: () => Promise<void>;
+  bookSession: (input: { availabilityId: string; startsAt: string }) => Promise<void>;
+  rescheduleBooking: (id: string, input: { newAvailabilityId: string; newStartsAt: string }) => Promise<void>;
+  cancelBooking: (id: string, reason?: string) => Promise<{ refunded: boolean }>;
+  fetchTeacherAvailability: () => Promise<void>;
+  addTeacherAvailability: (input: { dayOfWeek: number | null; specificDate?: string | null; startTime: string; endTime: string }) => Promise<void>;
+  toggleTeacherAvailability: (id: string) => Promise<void>;
+  deleteTeacherAvailability: (id: string) => Promise<void>;
+  fetchTeacherBookings: () => Promise<void>;
+  setBookingStatus: (id: string, status: "completed" | "no_show" | "booked") => Promise<void>;
+  teacherCancelBooking: (id: string, reason?: string) => Promise<void>;
+  fetchAdminBookings: (filter?: { status?: string; teacherId?: string; studentId?: string }) => Promise<void>;
+  fetchAdminBookingsReport: () => Promise<void>;
+  adminUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -895,6 +954,14 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [adminSchedules, setAdminSchedules] = useState<WeeklyScheduleItem[]>([]);
   const [publicSchedules, setPublicSchedules] = useState<WeeklyScheduleItem[]>([]);
   const [supportLectures, setSupportLectures] = useState<AdminLectureItem[]>([]);
+  // booking state
+  const [mySessions, setMySessions] = useState<SessionSubscription[]>([]);
+  const [myBookings, setMyBookings] = useState<LessonBookingItem[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilitySlot[]>([]);
+  const [teacherBookings, setTeacherBookings] = useState<LessonBookingItem[]>([]);
+  const [adminBookings, setAdminBookings] = useState<LessonBookingItem[]>([]);
+  const [adminBookingsReport, setAdminBookingsReport] = useState<{ students: any[]; totals: any } | null>(null);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -1704,6 +1771,115 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (res?.lectures) setSupportLectures(res.lectures);
   }
 
+  // ─── Session-package booking functions ───
+  async function fetchMySessions() {
+    const res = await apiFetch<{ subscriptions: SessionSubscription[]; bookings: LessonBookingItem[] }>("/api/student/sessions");
+    if (res) {
+      setMySessions(res.subscriptions ?? []);
+      setMyBookings(res.bookings ?? []);
+    }
+  }
+
+  async function fetchAvailableSlots() {
+    const res = await apiFetch<{ slots: AvailableSlot[] }>("/api/student/available-slots");
+    if (res) setAvailableSlots(res.slots ?? []);
+  }
+
+  async function bookSession(input: { availabilityId: string; startsAt: string }) {
+    await apiFetch("/api/student/bookings", {
+      method: "POST",
+      body: input,
+    });
+    await fetchMySessions();
+    await fetchAvailableSlots();
+  }
+
+  async function rescheduleBooking(id: string, input: { newAvailabilityId: string; newStartsAt: string }) {
+    await apiFetch(`/api/student/bookings/${id}/reschedule`, {
+      method: "PATCH",
+      body: input,
+    });
+    await fetchMySessions();
+    await fetchAvailableSlots();
+  }
+
+  async function cancelBooking(id: string, reason?: string): Promise<{ refunded: boolean }> {
+    const res = await apiFetch<{ refunded: boolean }>(`/api/student/bookings/${id}`, {
+      method: "DELETE",
+      body: { reason },
+    });
+    await fetchMySessions();
+    await fetchAvailableSlots();
+    return res ?? { refunded: false };
+  }
+
+  async function fetchTeacherAvailability() {
+    const res = await apiFetch<{ availability: TeacherAvailabilitySlot[] }>("/api/teacher/availability");
+    if (res) setTeacherAvailability(res.availability ?? []);
+  }
+
+  async function addTeacherAvailability(input: { dayOfWeek: number | null; specificDate?: string | null; startTime: string; endTime: string }) {
+    await apiFetch("/api/teacher/availability", {
+      method: "POST",
+      body: input,
+    });
+    await fetchTeacherAvailability();
+  }
+
+  async function toggleTeacherAvailability(id: string) {
+    await apiFetch(`/api/teacher/availability/${id}/toggle`, { method: "PATCH" });
+    await fetchTeacherAvailability();
+  }
+
+  async function deleteTeacherAvailability(id: string) {
+    await apiFetch(`/api/teacher/availability/${id}`, { method: "DELETE" });
+    await fetchTeacherAvailability();
+  }
+
+  async function fetchTeacherBookings() {
+    const res = await apiFetch<{ bookings: LessonBookingItem[] }>("/api/teacher/bookings");
+    if (res) setTeacherBookings(res.bookings ?? []);
+  }
+
+  async function setBookingStatus(id: string, status: "completed" | "no_show" | "booked") {
+    await apiFetch(`/api/teacher/bookings/${id}/status`, {
+      method: "PATCH",
+      body: { status },
+    });
+    await fetchTeacherBookings();
+  }
+
+  async function teacherCancelBooking(id: string, reason?: string) {
+    await apiFetch(`/api/teacher/bookings/${id}`, {
+      method: "DELETE",
+      body: { reason },
+    });
+    await fetchTeacherBookings();
+  }
+
+  async function fetchAdminBookings(filter?: { status?: string; teacherId?: string; studentId?: string }) {
+    const params = new URLSearchParams();
+    if (filter?.status) params.set("status", filter.status);
+    if (filter?.teacherId) params.set("teacherId", filter.teacherId);
+    if (filter?.studentId) params.set("studentId", filter.studentId);
+    const qs = params.toString();
+    const res = await apiFetch<{ bookings: LessonBookingItem[] }>(`/api/admin/bookings${qs ? `?${qs}` : ""}`);
+    if (res) setAdminBookings(res.bookings ?? []);
+  }
+
+  async function fetchAdminBookingsReport() {
+    const res = await apiFetch<{ students: any[]; totals: any }>("/api/admin/bookings/report");
+    if (res) setAdminBookingsReport(res);
+  }
+
+  async function adminUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) {
+    await apiFetch(`/api/admin/bookings/${id}`, {
+      method: "PATCH",
+      body: input,
+    });
+    await fetchAdminBookings();
+  }
+
   return (
     <PlatformStoreContext.Provider
       value={{
@@ -1848,6 +2024,29 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         deleteAdminSchedule,
         fetchPublicSchedules,
         fetchSupportLectures,
+        // bookings
+        mySessions,
+        myBookings,
+        availableSlots,
+        teacherAvailability,
+        teacherBookings,
+        adminBookings,
+        adminBookingsReport,
+        fetchMySessions,
+        fetchAvailableSlots,
+        bookSession,
+        rescheduleBooking,
+        cancelBooking,
+        fetchTeacherAvailability,
+        addTeacherAvailability,
+        toggleTeacherAvailability,
+        deleteTeacherAvailability,
+        fetchTeacherBookings,
+        setBookingStatus,
+        teacherCancelBooking,
+        fetchAdminBookings,
+        fetchAdminBookingsReport,
+        adminUpdateBooking,
       }}
     >
       {children}

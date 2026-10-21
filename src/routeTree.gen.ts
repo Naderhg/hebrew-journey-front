@@ -29,6 +29,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
+import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeacherRouteImport } from './routes/teacher'
@@ -133,6 +134,11 @@ const ScenariosRoute = ScenariosRouteImport.update({
   path: '/scenarios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionsRoute = SessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubscribeRoute = SubscribeRouteImport.update({
   id: '/subscribe',
   path: '/subscribe',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
+  '/sessions': typeof SessionsRoute
   '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
+  '/sessions': typeof SessionsRoute
   '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
@@ -221,6 +229,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sales': typeof SalesRoute
   '/scenarios': typeof ScenariosRoute
+  '/sessions': typeof SessionsRoute
   '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sales'
     | '/scenarios'
+    | '/sessions'
     | '/subscribe'
     | '/support'
     | '/teacher'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sales'
     | '/scenarios'
+    | '/sessions'
     | '/subscribe'
     | '/support'
     | '/teacher'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sales'
     | '/scenarios'
+    | '/sessions'
     | '/subscribe'
     | '/support'
     | '/teacher'
@@ -324,6 +336,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SalesRoute: typeof SalesRoute
   ScenariosRoute: typeof ScenariosRoute
+  SessionsRoute: typeof SessionsRoute
   SubscribeRoute: typeof SubscribeRoute
   SupportRoute: typeof SupportRoute
   TeacherRoute: typeof TeacherRoute
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScenariosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sessions': {
+      id: '/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof SessionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subscribe': {
       id: '/subscribe'
       path: '/subscribe'
@@ -516,6 +536,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SalesRoute: SalesRoute,
   ScenariosRoute: ScenariosRoute,
+  SessionsRoute: SessionsRoute,
   SubscribeRoute: SubscribeRoute,
   SupportRoute: SupportRoute,
   TeacherRoute: TeacherRoute,

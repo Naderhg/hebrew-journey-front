@@ -809,7 +809,7 @@ export function ProgressScreen() {
   );
 }
 
-export type TeacherSection = "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports";
+export type TeacherSection = "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions";
 
 const SKILL_LABELS: Record<string, string> = {
   listening: "الاستماع",
@@ -841,6 +841,16 @@ export function TeacherScreen() {
     fetchTeacherChatThreads,
     fetchTeacherChatThread,
     sendTeacherChatReply,
+    // session bookings
+    teacherAvailability,
+    teacherBookings,
+    fetchTeacherAvailability,
+    addTeacherAvailability,
+    toggleTeacherAvailability,
+    deleteTeacherAvailability,
+    fetchTeacherBookings,
+    setBookingStatus,
+    teacherCancelBooking,
   } = usePlatformStore();
   const [activeSection, setActiveSection] = useState<TeacherSection>("students");
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
@@ -887,10 +897,37 @@ export function TeacherScreen() {
   const [chatReply, setChatReply] = useState("");
   const [chatSending, setChatSending] = useState(false);
 
+  // Session availability form
+  const [avDay, setAvDay] = useState<number | null>(0);
+  const [avDate, setAvDate] = useState("");
+  const [avStart, setAvStart] = useState("18:00");
+  const [avEnd, setAvEnd] = useState("19:00");
+  const [avSaving, setAvSaving] = useState(false);
+
   useEffect(() => {
     if (activeSection === "attendance") fetchTeacherAttendance().catch(() => {});
     if (activeSection === "chat") fetchTeacherChatThreads().catch(() => {});
+    if (activeSection === "sessions") {
+      fetchTeacherAvailability().catch(() => {});
+      fetchTeacherBookings().catch(() => {});
+    }
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleAddAvailability(e: React.FormEvent) {
+    e.preventDefault();
+    setAvSaving(true);
+    try {
+      await addTeacherAvailability({
+        dayOfWeek: avDate ? null : avDay,
+        specificDate: avDate || null,
+        startTime: avStart,
+        endTime: avEnd,
+      });
+      setAvDate("");
+    } finally {
+      setAvSaving(false);
+    }
+  }
 
   const selectedStudent = teacherStudents.find((s) => s.id === selectedStudentId) ?? null;
   const groups = Array.from(new Set(teacherStudents.map((s) => s.groupName).filter(Boolean))) as string[];
@@ -1740,6 +1777,136 @@ export function TeacherScreen() {
           )}
         </div>
       )}
+
+      {activeSection === "sessions" && (
+        <div className="space-y-4">
+          {/* Availability form */}
+          <Card>
+            <h3 className="font-bold">إضافة موعد متاح للحجز</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              المواعيد الأسبوعية تتكرر كل أسبوع — أو حدد تاريخ محدد لموعد لمرة واحدة.
+            </p>
+            <form onSubmit={handleAddAvailability} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label>النوع</Label>
+                <select
+                  value={avDate ? "date" : "weekly"}
+                  onChange={(e) => { if (e.target.value === "date") { setAvDay(null); } else { setAvDate(""); setAvDay(0); } }}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="weekly">أسبوعي</option>
+                  <option value="date">تاريخ محدد</option>
+                </select>
+              </div>
+              {avDate ? (
+                <div className="space-y-1.5">
+                  <Label>التاريخ</Label>
+                  <Input type="date" value={avDate} onChange={(e) => setAvDate(e.target.value)} required />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>اليوم</Label>
+                  <select value={avDay ?? 0} onChange={(e) => setAvDay(Number(e.target.value))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    {["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"].map((d, i) => (
+                      <option key={i} value={i}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>من</Label>
+                <Input type="time" value={avStart} onChange={(e) => setAvStart(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>إلى</Label>
+                <Input type="time" value={avEnd} onChange={(e) => setAvEnd(e.target.value)} required />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Button type="submit" disabled={avSaving}>{avSaving ? "جاري..." : "إضافة الموعد"}</Button>
+              </div>
+            </form>
+          </Card>
+
+          {/* Availability list */}
+          <Card>
+            <h3 className="font-bold">مواعيدي المتاحة</h3>
+            <div className="mt-3 space-y-2">
+              {teacherAvailability.length === 0 ? (
+                <p className="text-sm text-muted-foreground">لا توجد مواعيد متاحة — أضف موعداً ليحجز الطلاب.</p>
+              ) : (
+                teacherAvailability.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between rounded-lg border border-[#eef2f9] bg-white px-4 py-3">
+                    <div className="text-sm">
+                      {a.specificDate ? (
+                        <span>📅 {new Date(a.specificDate).toLocaleDateString("ar-EG")} </span>
+                      ) : (
+                        <span>🔁 {["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][a.dayOfWeek ?? 0]} </span>
+                      )}
+                      <span className="text-muted-foreground"> {a.startTime} — {a.endTime}</span>
+                      {!a.isActive && <Badge tone="muted" className="mr-2">معطّل</Badge>}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => toggleTeacherAvailability(a.id)}>
+                        {a.isActive ? "تعطيل" : "تفعيل"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { if (confirm("حذف هذا الموعد؟")) deleteTeacherAvailability(a.id); }}>
+                        حذف
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Card>
+
+          {/* Bookings */}
+          <Card>
+            <h3 className="font-bold">حجوزات الطلاب</h3>
+            <div className="mt-3 space-y-2">
+              {teacherBookings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">لا توجد حجوزات بعد.</p>
+              ) : (
+                teacherBookings.map((b) => {
+                  const st: Record<string, { label: string; color: string }> = {
+                    booked: { label: "محجوزة", color: "#0b2f6e" },
+                    completed: { label: "مكتملة", color: "#2f9e4f" },
+                    cancelled: { label: "ملغاة", color: "#c0392b" },
+                    no_show: { label: "لم يحضر", color: "#e67e22" },
+                  };
+                  const s = st[b.status] ?? st.booked;
+                  return (
+                    <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#eef2f9] bg-white px-4 py-3">
+                      <div>
+                        <b className="text-sm text-[#0b2f6e]">{b.student?.fullName ?? "طالب"}</b>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                        {b.cancelReason && <p className="text-xs text-red-600">سبب الإلغاء: {b.cancelReason}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge style={{ background: s.color }}>{s.label}</Badge>
+                        {b.status === "booked" && (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("تأكيد حضور الطالب؟")) setBookingStatus(b.id, "completed"); }}>
+                              حضر
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("تأكيد غياب الطالب؟")) setBookingStatus(b.id, "no_show"); }}>
+                              غاب
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء الحصة؟ ستُرجع الحصة للطالب.")) teacherCancelBooking(b.id, "إلغاء من المدرس"); }}>
+                              إلغاء
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -1861,6 +2028,7 @@ export type AdminSection =
   | "placement"
   | "packages"
   | "bookings"
+  | "sessions"
   | "placement-results"
   | "sales-report"
   | "leads"
@@ -1920,6 +2088,12 @@ export function AdminScreen() {
     createAdminSchedule,
     updateAdminSchedule,
     deleteAdminSchedule,
+    // session bookings
+    adminBookings,
+    adminBookingsReport,
+    fetchAdminBookings,
+    fetchAdminBookingsReport,
+    adminUpdateBooking,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
@@ -1931,6 +2105,10 @@ export function AdminScreen() {
     if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
     if (activeSection === "lectures") fetchAdminLectures({ status: lectureFilter }).catch(() => {});
     if (activeSection === "schedules") fetchAdminSchedules().catch(() => {});
+    if (activeSection === "sessions") {
+      fetchAdminBookings().catch(() => {});
+      fetchAdminBookingsReport().catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, bookingFilter, lectureFilter]);
 
@@ -3742,6 +3920,118 @@ export function AdminScreen() {
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
         />
+      )}
+
+      {activeSection === "sessions" && (
+        <div className="space-y-4">
+          {/* Report summary */}
+          {adminBookingsReport && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card className="p-4">
+                <b className="text-2xl text-[#0b2f6e]">{adminBookingsReport.totals.totalBookings}</b>
+                <p className="text-xs text-muted-foreground">إجمالي الحجوزات</p>
+              </Card>
+              <Card className="p-4">
+                <b className="text-2xl text-[#2f9e4f]">{adminBookingsReport.totals.completed}</b>
+                <p className="text-xs text-muted-foreground">حصص مكتملة</p>
+              </Card>
+              <Card className="p-4">
+                <b className="text-2xl text-[#c0392b]">{adminBookingsReport.totals.cancelled}</b>
+                <p className="text-xs text-muted-foreground">حصص ملغاة</p>
+              </Card>
+              <Card className="p-4">
+                <b className="text-2xl text-[#e67e22]">{adminBookingsReport.totals.noShow}</b>
+                <p className="text-xs text-muted-foreground">لم يحضر</p>
+              </Card>
+            </div>
+          )}
+
+          {/* Students balance */}
+          {adminBookingsReport && adminBookingsReport.students.length > 0 && (
+            <Card>
+              <h3 className="font-bold">رصيد الطلاب</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-right text-xs text-muted-foreground">
+                      <th className="p-2">الطالب</th>
+                      <th className="p-2">الباقة</th>
+                      <th className="p-2">الإجمالي</th>
+                      <th className="p-2">المستخدم</th>
+                      <th className="p-2">المتبقي</th>
+                      <th className="p-2">تنتهي</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminBookingsReport.students.map((s: any) => (
+                      <tr key={s.studentId} className="border-b">
+                        <td className="p-2 font-semibold">{s.studentName}</td>
+                        <td className="p-2">{s.packageName}</td>
+                        <td className="p-2">{s.sessionsTotal}</td>
+                        <td className="p-2">{s.sessionsUsed}</td>
+                        <td className="p-2 font-bold text-[#2f9e4f]">{s.sessionsRemaining}</td>
+                        <td className="p-2 text-xs">{s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("ar-EG") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {/* All bookings */}
+          <Card>
+            <h3 className="font-bold">كل الحجوزات</h3>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-right text-xs text-muted-foreground">
+                    <th className="p-2">الطالب</th>
+                    <th className="p-2">المدرس</th>
+                    <th className="p-2">الموعد</th>
+                    <th className="p-2">الحالة</th>
+                    <th className="p-2">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminBookings.length === 0 ? (
+                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا توجد حجوزات.</td></tr>
+                  ) : (
+                    adminBookings.map((b) => {
+                      const st: Record<string, { label: string; color: string }> = {
+                        booked: { label: "محجوزة", color: "#0b2f6e" },
+                        completed: { label: "مكتملة", color: "#2f9e4f" },
+                        cancelled: { label: "ملغاة", color: "#c0392b" },
+                        no_show: { label: "لم يحضر", color: "#e67e22" },
+                      };
+                      const s = st[b.status] ?? st.booked;
+                      return (
+                        <tr key={b.id} className="border-b">
+                          <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
+                          <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
+                          <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                          <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
+                          <td className="p-2">
+                            {b.status === "booked" && (
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء إداري؟")) adminUpdateBooking(b.id, { status: "cancelled", reason: "إلغاء إداري" }); }}>
+                                  إلغاء
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => { const url = prompt("رابط الاجتماع:"); if (url) adminUpdateBooking(b.id, { meetingUrl: url }); }}>
+                                  رابط
+                                </Button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
       )}
     </AppShell>
   );

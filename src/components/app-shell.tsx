@@ -27,6 +27,7 @@ import {
   Upload,
   UserPlus,
   UsersRound,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -114,6 +115,7 @@ const adminNav: readonly NavEntry[] = [
       { to: "/admin", section: "packages", label: "الباقات والأسعار", icon: TicketCheck },
       { to: "/admin", section: "bookings", label: "الحجوزات والمدفوعات", icon: CreditCard },
       { to: "/admin", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
+      { to: "/admin", section: "groups", label: "المجموعات", icon: Users },
       { to: "/admin", section: "sales-report", label: "تقارير المبيعات", icon: BarChart3 },
       { to: "/admin", section: "leads", label: "توزيع العملاء", icon: BriefcaseBusiness },
     ],
@@ -185,6 +187,8 @@ export function AppShell({
     fetchNotifications,
     markNotificationRead,
     markAllNotificationsRead,
+    hasCallsPackage,
+    fetchHasCallsPackage,
   } = usePlatformStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -225,9 +229,15 @@ export function AppShell({
     setSidebarOpen(false);
   }, [path]);
 
+  // Fetch whether the student has a calls package (controls /sessions visibility)
+  useEffect(() => {
+    if (isStudent) fetchHasCallsPackage().catch(() => {});
+  }, [isStudent]); // eslint-disable-line react-hooks/exhaustive-deps
+
   let navItems = roleNavigationMap[role] ?? studentNav;
   if (needsPlacement) navItems = placementOnlyNav;
   else if (isLocked) navItems = lockedStudentNav;
+  else if (isStudent) navItems = studentNav.filter((item) => item.to !== "/sessions" || hasCallsPackage);
   const displayName = user ? user.fullName : "غير مسجل الدخول";
   const displaySubtitle = user ? `${ROLE_LABELS[currentUserRole]} · ${user.phone ?? user.email ?? ""}` : ROLE_LABELS[role];
 

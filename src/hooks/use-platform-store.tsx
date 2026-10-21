@@ -425,6 +425,8 @@ export interface AdminLectureItem {
   teacherId: string;
   teacher?: { id: string; fullName: string; specialty?: string | null };
   groupName?: string | null;
+  groupId?: string | null;
+  group?: { id: string; name: string } | null;
   level?: string | null;
   startsAt: string;
   endsAt?: string | null;
@@ -440,11 +442,32 @@ export interface CreateLectureInput {
   description?: string;
   teacherId: string;
   groupName?: string;
+  groupId?: string;
   level?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
   startsAt: string; // ISO datetime
   endsAt?: string;
   meetingUrl?: string;
   status?: "scheduled" | "live" | "completed" | "cancelled";
+}
+
+export interface GroupItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  teacherId?: string | null;
+  teacher?: { id: string; fullName: string } | null;
+  level?: string | null;
+  maxStudents?: number | null;
+  _count?: { members: number };
+  createdAt: string;
+}
+
+export interface GroupMemberItem {
+  id: string;
+  groupId: string;
+  studentId: string;
+  student: { id: string; fullName: string; phone?: string | null; email?: string | null };
+  addedAt: string;
 }
 
 export interface WeeklyScheduleItem {
@@ -895,6 +918,8 @@ interface PlatformStoreValue {
   fetchSupportLectures: () => Promise<void>;
   // ─── Session-package bookings ───
   fetchMySessions: () => Promise<void>;
+  fetchHasCallsPackage: () => Promise<void>;
+  hasCallsPackage: boolean;
   fetchAvailableSlots: () => Promise<void>;
   bookSession: (input: { availabilityId: string; startsAt: string }) => Promise<void>;
   rescheduleBooking: (id: string, input: { newAvailabilityId: string; newStartsAt: string }) => Promise<void>;
@@ -909,6 +934,19 @@ interface PlatformStoreValue {
   fetchAdminBookings: (filter?: { status?: string; teacherId?: string; studentId?: string }) => Promise<void>;
   fetchAdminBookingsReport: () => Promise<void>;
   adminUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
+  // groups
+  adminGroups: GroupItem[];
+  groupMembers: GroupMemberItem[];
+  fetchAdminGroups: () => Promise<void>;
+  createAdminGroup: (input: { name: string; description?: string; teacherId?: string; level?: string | null; maxStudents?: number | null }) => Promise<void>;
+  updateAdminGroup: (id: string, input: Partial<{ name: string; description: string; teacherId: string; level: string | null; maxStudents: number | null }>) => Promise<void>;
+  deleteAdminGroup: (id: string) => Promise<void>;
+  fetchGroupMembers: (groupId: string) => Promise<void>;
+  addGroupMembers: (groupId: string, studentIds: string[]) => Promise<void>;
+  removeGroupMember: (groupId: string, studentId: string) => Promise<void>;
+  // admin teacher availability
+  adminTeacherAvailability: any[];
+  fetchAdminTeacherAvailability: (teacherId?: string) => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -976,6 +1014,10 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [teacherBookings, setTeacherBookings] = useState<LessonBookingItem[]>([]);
   const [adminBookings, setAdminBookings] = useState<LessonBookingItem[]>([]);
   const [adminBookingsReport, setAdminBookingsReport] = useState<{ students: any[]; totals: any } | null>(null);
+  const [hasCallsPackage, setHasCallsPackage] = useState(false);
+  const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
+  const [groupMembers, setGroupMembers] = useState<GroupMemberItem[]>([]);
+  const [adminTeacherAvailability, setAdminTeacherAvailability] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -1787,6 +1829,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   // ─── Session-package booking functions ───
+  async function fetchHasCallsPackage() {
+    try {
+      const res = await apiFetch<{ hasCallsPackage: boolean }>("/api/student/has-calls-package");
+      if (res) setHasCallsPackage(res.hasCallsPackage);
+    } catch { /* ignore */ }
+  }
+
   async function fetchMySessions() {
     const res = await apiFetch<{ subscriptions: SessionSubscription[]; bookings: LessonBookingItem[] }>("/api/student/sessions");
     if (res) {
@@ -1893,6 +1942,51 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
       body: input,
     });
     await fetchAdminBookings();
+  }
+
+  // ─── Groups ───
+  async function fetchAdminGroups() {
+    const res = await apiFetch<{ groups: GroupItem[] }>("/api/admin/groups");
+    if (res) setAdminGroups(res.groups ?? []);
+  }
+
+  async function createAdminGroup(input: { name: string; description?: string; teacherId?: string; level?: string | null; maxStudents?: number | null }) {
+    await apiFetch("/api/admin/groups", { method: "POST", body: input });
+    await fetchAdminGroups();
+  }
+
+  async function updateAdminGroup(id: string, input: Partial<{ name: string; description: string; teacherId: string; level: string | null; maxStudents: number | null }>) {
+    await apiFetch(`/api/admin/groups/${id}`, { method: "PATCH", body: input });
+    await fetchAdminGroups();
+  }
+
+  async function deleteAdminGroup(id: string) {
+    await apiFetch(`/api/admin/groups/${id}`, { method: "DELETE" });
+    await fetchAdminGroups();
+  }
+
+  async function fetchGroupMembers(groupId: string) {
+    const res = await apiFetch<{ members: GroupMemberItem[] }>(`/api/admin/groups/${groupId}/members`);
+    if (res) setGroupMembers(res.members ?? []);
+  }
+
+  async function addGroupMembers(groupId: string, studentIds: string[]) {
+    await apiFetch(`/api/admin/groups/${groupId}/members`, { method: "POST", body: { studentIds } });
+    await fetchGroupMembers(groupId);
+    await fetchAdminGroups();
+  }
+
+  async function removeGroupMember(groupId: string, studentId: string) {
+    await apiFetch(`/api/admin/groups/${groupId}/members/${studentId}`, { method: "DELETE" });
+    await fetchGroupMembers(groupId);
+    await fetchAdminGroups();
+  }
+
+  // ─── Admin teacher availability (for creating lectures from slots) ───
+  async function fetchAdminTeacherAvailability(teacherId?: string) {
+    const qs = teacherId ? `?teacherId=${teacherId}` : "";
+    const res = await apiFetch<{ availability: any[] }>(`/api/admin/teacher-availability${qs}`);
+    if (res) setAdminTeacherAvailability(res.availability ?? []);
   }
 
   return (
@@ -2045,9 +2139,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         availableSlots,
         teacherAvailability,
         teacherBookings,
+        hasCallsPackage,
         adminBookings,
         adminBookingsReport,
         fetchMySessions,
+        fetchHasCallsPackage,
         fetchAvailableSlots,
         bookSession,
         rescheduleBooking,
@@ -2062,6 +2158,19 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchAdminBookings,
         fetchAdminBookingsReport,
         adminUpdateBooking,
+        // groups
+        adminGroups,
+        groupMembers,
+        fetchAdminGroups,
+        createAdminGroup,
+        updateAdminGroup,
+        deleteAdminGroup,
+        fetchGroupMembers,
+        addGroupMembers,
+        removeGroupMember,
+        // admin teacher availability
+        adminTeacherAvailability,
+        fetchAdminTeacherAvailability,
       }}
     >
       {children}

@@ -40,16 +40,26 @@ function StudentSessionsPage() {
     bookSession,
     rescheduleBooking: rescheduleBookingFn,
     cancelBooking,
+    hasCallsPackage,
+    fetchHasCallsPackage,
   } = usePlatformStore();
 
   const [loading, setLoading] = useState(false);
   const [bookingSlot, setBookingSlot] = useState<AvailableSlot | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<LessonBookingItem | null>(null);
   const [err, setErr] = useState("");
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    refresh();
+    (async () => {
+      await fetchHasCallsPackage();
+      setChecking(false);
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!checking && hasCallsPackage) refresh();
+  }, [checking, hasCallsPackage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function refresh() {
     setLoading(true);
@@ -58,6 +68,28 @@ function StudentSessionsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#f6f9fd] text-sm text-[#5a6b8c]">
+        جاري التحقق من اشتراكك...
+      </div>
+    );
+  }
+
+  if (!hasCallsPackage) {
+    return (
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#f6f9fd] px-6">
+        <div className="max-w-md rounded-2xl border border-[#e7edf7] bg-white p-8 text-center shadow-sm">
+          <h2 className="text-lg font-bold text-[#0b2f6e]">هذا القسم لباقات المكالمات فقط</h2>
+          <p className="mt-2 text-sm text-[#5a6b8c]">
+            حصص الحجز الفردي متاحة فقط للطلاب المشتركين في باقة نظام المكالمات.
+            إذا كنت تريد حجز حصص فردية، يرجى الاشتراك في باقة المكالمات.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   async function handleBook(slot: AvailableSlot) {

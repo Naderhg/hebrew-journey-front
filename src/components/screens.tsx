@@ -2029,6 +2029,7 @@ export type AdminSection =
   | "packages"
   | "bookings"
   | "sessions"
+  | "groups"
   | "placement-results"
   | "sales-report"
   | "leads"
@@ -2094,6 +2095,19 @@ export function AdminScreen() {
     fetchAdminBookings,
     fetchAdminBookingsReport,
     adminUpdateBooking,
+    // groups
+    adminGroups,
+    groupMembers,
+    fetchAdminGroups,
+    createAdminGroup,
+    updateAdminGroup,
+    deleteAdminGroup,
+    fetchGroupMembers,
+    addGroupMembers,
+    removeGroupMember,
+    // admin teacher availability
+    adminTeacherAvailability,
+    fetchAdminTeacherAvailability,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
@@ -2108,6 +2122,9 @@ export function AdminScreen() {
     if (activeSection === "sessions") {
       fetchAdminBookings().catch(() => {});
       fetchAdminBookingsReport().catch(() => {});
+    }
+    if (activeSection === "groups") {
+      fetchAdminGroups().catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, bookingFilter, lectureFilter]);
@@ -3904,11 +3921,14 @@ export function AdminScreen() {
         <AdminLecturesSection
           lectures={adminLectures}
           teachers={users.filter((u) => u.role === "TEACHER")}
+          groups={adminGroups}
+          adminTeacherAvailability={adminTeacherAvailability}
           filter={lectureFilter}
           onFilterChange={setLectureFilter}
           onCreate={createAdminLecture}
           onUpdate={updateAdminLecture}
           onDelete={deleteAdminLecture}
+          onFetchTeacherAvailability={fetchAdminTeacherAvailability}
         />
       )}
 
@@ -4032,6 +4052,21 @@ export function AdminScreen() {
             </div>
           </Card>
         </div>
+      )}
+
+      {activeSection === "groups" && (
+        <AdminGroupsSection
+          groups={adminGroups}
+          members={groupMembers}
+          students={users.filter((u) => u.role === "STUDENT")}
+          teachers={users.filter((u) => u.role === "TEACHER")}
+          onCreate={createAdminGroup}
+          onUpdate={updateAdminGroup}
+          onDelete={deleteAdminGroup}
+          onFetchMembers={fetchGroupMembers}
+          onAddMembers={addGroupMembers}
+          onRemoveMember={removeGroupMember}
+        />
       )}
     </AppShell>
   );
@@ -4229,31 +4264,43 @@ const LECTURE_STATUS_LABELS: Record<string, string> = {
 function AdminLecturesSection({
   lectures,
   teachers,
+  groups,
+  adminTeacherAvailability,
   filter,
   onFilterChange,
   onCreate,
   onUpdate,
   onDelete,
+  onFetchTeacherAvailability,
 }: {
   lectures: AdminLectureItem[];
   teachers: PlatformUser[];
+  groups: import("../hooks/use-platform-store").GroupItem[];
+  adminTeacherAvailability: any[];
   filter: string;
   onFilterChange: (f: string) => void;
   onCreate: (input: CreateLectureInput) => Promise<void>;
   onUpdate: (id: string, input: Partial<CreateLectureInput>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onFetchTeacherAvailability: (teacherId?: string) => Promise<void>;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [groupName, setGroupName] = useState("");
+  const [groupId, setGroupId] = useState("");
   const [level, setLevel] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+
+  // Fetch teacher availability when teacher changes
+  useEffect(() => {
+    if (teacherId) onFetchTeacherAvailability(teacherId);
+  }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -4269,12 +4316,13 @@ function AdminLecturesSection({
         ...(description ? { description } : {}),
         teacherId,
         ...(groupName ? { groupName } : {}),
+        ...(groupId ? { groupId } : {}),
         ...(level ? { level: level as "A1" | "A2" | "B1" | "B2" | "C1" | "C2" } : {}),
         startsAt: new Date(startsAt).toISOString(),
         ...(endsAt ? { endsAt: new Date(endsAt).toISOString() } : {}),
         ...(meetingUrl ? { meetingUrl } : {}),
       });
-      setTitle(""); setDescription(""); setTeacherId(""); setGroupName("");
+      setTitle(""); setDescription(""); setTeacherId(""); setGroupName(""); setGroupId("");
       setLevel(""); setStartsAt(""); setEndsAt(""); setMeetingUrl("");
       setShowForm(false);
     } catch (e2) {
@@ -4330,6 +4378,13 @@ function AdminLecturesSection({
               </div>
               <div className="space-y-1.5">
                 <Label>المجموعة (اختياري)</Label>
+                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون مجموعة —</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g._count?.members ?? 0} طالب)</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>اسم المجموعة (نص حر — اختياري)</Label>
                 <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="مثال: مجموعة المساء" />
               </div>
               <div className="space-y-1.5">
@@ -4347,6 +4402,55 @@ function AdminLecturesSection({
                 <Label>تاريخ ووقت النهاية (اختياري)</Label>
                 <Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
               </div>
+
+              {/* Teacher available slots — shown when a teacher is selected */}
+              {teacherId && adminTeacherAvailability.length > 0 && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>مواعيد المدرس المتاحة (اضغط لاختيار موعد)</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {adminTeacherAvailability.map((slot) => {
+                      const dayName = slot.specificDate
+                        ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+                        : ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][slot.dayOfWeek ?? 0];
+                      return (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          onClick={() => {
+                            // For weekly slots, pick the next occurrence
+                            const now = new Date();
+                            if (slot.specificDate) {
+                              const d = new Date(slot.specificDate);
+                              d.setHours(Number(slot.startTime.split(":")[0]), Number(slot.startTime.split(":")[1]), 0, 0);
+                              setStartsAt(d.toISOString().slice(0, 16));
+                              const end = new Date(d);
+                              const [eh, em] = slot.endTime.split(":").map(Number);
+                              end.setHours(eh, em, 0, 0);
+                              setEndsAt(end.toISOString().slice(0, 16));
+                            } else {
+                              const day = slot.dayOfWeek ?? 0;
+                              const diff = (day - now.getDay() + 7) % 7;
+                              const d = new Date(now);
+                              d.setDate(d.getDate() + diff);
+                              const [sh, sm] = slot.startTime.split(":").map(Number);
+                              d.setHours(sh, sm, 0, 0);
+                              setStartsAt(d.toISOString().slice(0, 16));
+                              const end = new Date(d);
+                              const [eh, em] = slot.endTime.split(":").map(Number);
+                              end.setHours(eh, em, 0, 0);
+                              setEndsAt(end.toISOString().slice(0, 16));
+                            }
+                          }}
+                          className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5"
+                        >
+                          {dayName} {slot.startTime}—{slot.endTime}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>رابط الاجتماع (Zoom/Meet — اختياري)</Label>
                 <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
@@ -5867,7 +5971,33 @@ export function SubscribeScreen() {
                 المبلغ المطلوب: <b className="text-brand">{selectedPkg.price} ج.م</b>
               </p>
 
-              
+              <div className="mt-4 space-y-1.5">
+                <Label>نظام الحضور</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStudyMode("online")}
+                    className={`rounded-md border p-3 text-sm font-semibold transition ${
+                      studyMode === "online"
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border hover:border-brand/50"
+                    }`}
+                  >
+                    أونلاين
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStudyMode("offline")}
+                    className={`rounded-md border p-3 text-sm font-semibold transition ${
+                      studyMode === "offline"
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border hover:border-brand/50"
+                    }`}
+                  >
+                    أوفلاين (حضوري)
+                  </button>
+                </div>
+              </div>
 
               {studyMode && (
                 <div className="mt-4 space-y-1.5">
@@ -7903,5 +8033,213 @@ export function SupportScreen() {
         </Card>
       )}
     </AppShell>
+  );
+}
+
+// ─── Admin Groups Section ───────────────────────────────────────────────────
+function AdminGroupsSection({
+  groups,
+  members,
+  students,
+  teachers,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onFetchMembers,
+  onAddMembers,
+  onRemoveMember,
+}: {
+  groups: import("../hooks/use-platform-store").GroupItem[];
+  members: import("../hooks/use-platform-store").GroupMemberItem[];
+  students: { id: string; fullName: string }[];
+  teachers: { id: string; fullName: string }[];
+  onCreate: (input: { name: string; description?: string; teacherId?: string; level?: string | null; maxStudents?: number | null }) => Promise<void>;
+  onUpdate: (id: string, input: Partial<{ name: string; description: string; teacherId: string; level: string | null; maxStudents: number | null }>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onFetchMembers: (groupId: string) => Promise<void>;
+  onAddMembers: (groupId: string, studentIds: string[]) => Promise<void>;
+  onRemoveMember: (groupId: string, studentId: string) => Promise<void>;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [gName, setGName] = useState("");
+  const [gDesc, setGDesc] = useState("");
+  const [gTeacherId, setGTeacherId] = useState("");
+  const [gLevel, setGLevel] = useState("");
+  const [gMax, setGMax] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setSaving(true);
+    try {
+      await onCreate({
+        name: gName,
+        ...(gDesc ? { description: gDesc } : {}),
+        ...(gTeacherId ? { teacherId: gTeacherId } : {}),
+        level: gLevel || null,
+        maxStudents: gMax ? Number(gMax) : null,
+      });
+      setGName(""); setGDesc(""); setGTeacherId(""); setGLevel(""); setGMax("");
+      setShowForm(false);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "فشل إنشاء المجموعة");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleToggleGroup(id: string) {
+    if (openGroupId === id) {
+      setOpenGroupId(null);
+    } else {
+      setOpenGroupId(id);
+      await onFetchMembers(id);
+      setSelectedStudentIds([]);
+    }
+  }
+
+  async function handleAddMembers(groupId: string) {
+    if (selectedStudentIds.length === 0) return;
+    await onAddMembers(groupId, selectedStudentIds);
+    setSelectedStudentIds([]);
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold">المجموعات ({groups.length})</h2>
+            <p className="text-xs text-muted-foreground">إنشاء مجموعات طلاب وإدارة أعضائها — تستخدم لاستهداف محاضرات لمجموعة محددة</p>
+          </div>
+          <Button variant="secondary" className="text-xs" onClick={() => setShowForm(!showForm)}>
+            {showForm ? "إلغاء" : "+ مجموعة جديدة"}
+          </Button>
+        </div>
+
+        {showForm && (
+          <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>اسم المجموعة</Label>
+                <Input value={gName} onChange={(e) => setGName(e.target.value)} required placeholder="مثال: مجموعة A1 مساء" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>المدرس المسؤول</Label>
+                <select value={gTeacherId} onChange={(e) => setGTeacherId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون مدرس —</option>
+                  {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المستوى</Label>
+                <select value={gLevel} onChange={(e) => setGLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون —</option>
+                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>الحد الأقصى للطلاب</Label>
+                <Input type="number" min={1} value={gMax} onChange={(e) => setGMax(e.target.value)} placeholder="مثال: 15" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>الوصف</Label>
+                <Input value={gDesc} onChange={(e) => setGDesc(e.target.value)} placeholder="وصف مختصر للمجموعة" />
+              </div>
+            </div>
+            {err && <p className="text-sm font-semibold text-danger">{err}</p>}
+            <Button type="submit" disabled={saving}>{saving ? "جاري الحفظ..." : "إنشاء المجموعة"}</Button>
+          </form>
+        )}
+      </Card>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {groups.length === 0 ? (
+          <Card className="col-span-full py-10 text-center text-sm text-muted-foreground">لا توجد مجموعات بعد.</Card>
+        ) : (
+          groups.map((g) => (
+            <Card key={g.id}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <b>{g.name}</b>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {g.level && <Badge tone="muted">{g.level}</Badge>}
+                    <Badge tone="brand">{g._count?.members ?? 0} طالب</Badge>
+                    {g.maxStudents && <Badge tone="gold">الحد: {g.maxStudents}</Badge>}
+                  </div>
+                  {g.teacher && <p className="mt-1 text-xs font-semibold text-brand2">المدرس: {g.teacher.fullName}</p>}
+                  {g.description && <p className="mt-1 text-xs text-muted-foreground">{g.description}</p>}
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" className="min-h-7 px-2 py-1 text-xs" onClick={() => handleToggleGroup(g.id)}>
+                    {openGroupId === g.id ? "إغلاق" : "الأعضاء"}
+                  </Button>
+                  <button
+                    onClick={() => { if (confirm(`حذف المجموعة "${g.name}"؟`)) onDelete(g.id); }}
+                    className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+
+              {openGroupId === g.id && (
+                <div className="mt-4 border-t border-border pt-3">
+                  {/* Members list */}
+                  <h4 className="text-xs font-bold text-muted-foreground">الأعضاء الحاليون</h4>
+                  <div className="mt-2 space-y-1.5">
+                    {members.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">لا يوجد أعضاء.</p>
+                    ) : (
+                      members.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between rounded-md bg-muted/60 px-2.5 py-1.5 text-sm">
+                          <span>{m.student.fullName}</span>
+                          <button
+                            onClick={() => onRemoveMember(g.id, m.studentId)}
+                            className="text-xs text-danger hover:underline"
+                          >
+                            إزالة
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Add members */}
+                  <h4 className="mt-4 text-xs font-bold text-muted-foreground">إضافة طلاب</h4>
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-input bg-background p-2">
+                    {students.map((s) => (
+                      <label key={s.id} className="flex items-center gap-2 py-1 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.includes(s.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedStudentIds([...selectedStudentIds, s.id]);
+                            else setSelectedStudentIds(selectedStudentIds.filter((id) => id !== s.id));
+                          }}
+                        />
+                        {s.fullName}
+                      </label>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    disabled={selectedStudentIds.length === 0}
+                    onClick={() => handleAddMembers(g.id)}
+                  >
+                    إضافة {selectedStudentIds.length > 0 ? `(${selectedStudentIds.length})` : ""}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
   );
 }

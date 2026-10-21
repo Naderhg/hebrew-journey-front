@@ -5867,33 +5867,7 @@ export function SubscribeScreen() {
                 المبلغ المطلوب: <b className="text-brand">{selectedPkg.price} ج.م</b>
               </p>
 
-              <div className="mt-4 space-y-1.5">
-                <Label>نظام الحضور</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStudyMode("online")}
-                    className={`rounded-md border p-3 text-sm font-semibold transition ${
-                      studyMode === "online"
-                        ? "border-brand bg-brand/10 text-brand"
-                        : "border-border hover:border-brand/50"
-                    }`}
-                  >
-                    أونلاين
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStudyMode("offline")}
-                    className={`rounded-md border p-3 text-sm font-semibold transition ${
-                      studyMode === "offline"
-                        ? "border-brand bg-brand/10 text-brand"
-                        : "border-border hover:border-brand/50"
-                    }`}
-                  >
-                    أوفلاين (حضوري)
-                  </button>
-                </div>
-              </div>
+              
 
               {studyMode && (
                 <div className="mt-4 space-y-1.5">

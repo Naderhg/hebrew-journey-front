@@ -240,6 +240,13 @@ export interface Package {
   durationMonths: number;
   features?: string[] | null;
   isActive: boolean;
+  packageType?: string;
+  sessionsTotal?: number | null;
+  validityDays?: number | null;
+  category?: string;
+  studyMode?: string;
+  level?: string | null;
+  durationUnit?: string;
 }
 
 export interface Subscription {
@@ -684,6 +691,13 @@ export interface PublicPackage {
   durationMonths: number;
   features?: string[] | null;
   teacher?: { fullName: string; specialty?: string | null } | null;
+  category?: string;
+  studyMode?: string;
+  level?: string | null;
+  durationUnit?: string;
+  packageType?: string;
+  sessionsTotal?: number | null;
+  validityDays?: number | null;
 }
 
 // ─── Session-package booking types ───
@@ -833,8 +847,8 @@ interface PlatformStoreValue {
   createStudentTicket: (input: { subject: string; description?: string; category: string }) => Promise<void>;
   // Admin extras
   fetchAdminOps: () => Promise<void>;
-  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string }) => Promise<void>;
-  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean }) => Promise<void>;
+  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
   deletePackage: (id: string) => Promise<void>;
   assignLead: (leadId: string, salesId: string | null) => Promise<void>;
   issueCertificate: (input: { studentId: string; title: string; level?: string; description?: string }) => Promise<void>;
@@ -843,7 +857,7 @@ interface PlatformStoreValue {
   createTeacherSchedule: (input: { title: string; groupName?: string; description?: string; dayOfWeek: number; startTime: string; endTime: string; location: string; meetingUrl?: string }) => Promise<void>;
   deleteTeacherSchedule: (id: string) => Promise<void>;
   // Chat
-  fetchPublicPackages: () => Promise<void>;
+  fetchPublicPackages: (category?: string) => Promise<void>;
   submitPublicLead: (input: { name: string; phone: string; email?: string; packageName?: string }) => Promise<void>;
   fetchMyChatTeachers: () => Promise<void>;
   fetchTeacherChat: (teacherId?: string) => Promise<void>;
@@ -1558,9 +1572,10 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   // ─── Chat & public packages ──────────────────────────────────────────────
 
-  async function fetchPublicPackages() {
+  async function fetchPublicPackages(category?: string) {
     try {
-      const res = await apiFetch<{ packages: PublicPackage[] }>("/api/public/packages", { skipAuth: true });
+      const qs = category ? `?category=${category}` : "";
+      const res = await apiFetch<{ packages: PublicPackage[] }>(`/api/public/packages${qs}`, { skipAuth: true });
       if (res?.packages) setPublicPackages(res.packages);
     } catch { /* ignore */ }
   }

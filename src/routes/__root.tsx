@@ -75,10 +75,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Fluent Hebrew — منصة تعلم العبرية" },
+      { title: "עברית שוטפת— منصة تعلم العبرية" },
       { name: "description", content: "منصة متكاملة لتعلم العبرية بخطة شخصية ومحادثات واقعية." },
-      { name: "author", content: "Fluent Hebrew" },
-      { property: "og:title", content: "Fluent Hebrew — منصة تعلم العبرية" },
+      { name: "author", content: "עברית שוטפת" },
+      { property: "og:title", content: "עברית שוטפת— منصة تعلم العبرية" },
       { property: "og:description", content: "تعلّم العبرية بخطة شخصية وممارسة واقعية." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

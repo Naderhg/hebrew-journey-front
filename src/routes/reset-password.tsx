@@ -4,7 +4,7 @@ import { apiFetch } from "../lib/api";
 import { Button, Card, Input, Label } from "../components/ui";
 
 export const Route = createFileRoute("/reset-password")({
-  head: () => ({ meta: [{ title: "Fluent Hebrew — تعيين كلمة مرور جديدة" }] }),
+  head: () => ({ meta: [{ title: "עברית שוטפת — تعيين كلمة مرور جديدة" }] }),
   validateSearch: (search: Record<string, unknown>): { token?: string } => ({
     token: typeof search.token === "string" ? search.token : undefined,
   }),

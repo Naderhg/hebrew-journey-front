@@ -65,9 +65,9 @@ import { SERVER_CONFIG, mediaSrc } from "../lib/api";
 
 const meta = (title: string, description: string) => ({
   meta: [
-    { title: `${title} — Fluent Hebrew` },
+    { title: `${title} — עברית שוטפת` },
     { name: "description", content: description },
-    { property: "og:title", content: `${title} — Fluent Hebrew` },
+    { property: "og:title", content: `${title} — עברית שוטפת` },
     { property: "og:description", content: description },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
@@ -2194,7 +2194,7 @@ export function AdminScreen() {
       await addStaffUser({
         fullName,
         phone,
-        password: password || "Fluent Hebrew@1234",
+        password: password || "עברית שוטפת@1234",
         role: newUserRole,
         ...(specialty ? { specialty } : {}),
       });
@@ -2832,7 +2832,7 @@ export function AdminScreen() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@Fluent Hebrew.com"
+                placeholder="staff@עברית שוטפת.com"
               />
             </div>
 
@@ -4620,8 +4620,8 @@ function AdminPackagesSection({
   packages: AdminPackage[];
   subscriptions: Subscription[];
   teachers: { id: string; fullName: string }[];
-  onCreate: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string }) => Promise<void>;
-  onUpdate: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean }) => Promise<void>;
+  onCreate: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  onUpdate: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -4631,6 +4631,13 @@ function AdminPackagesSection({
   const [pMonths, setPMonths] = useState("1");
   const [pFeatures, setPFeatures] = useState("");
   const [pTeacherId, setPTeacherId] = useState("");
+  const [pCategory, setPCategory] = useState<"basic" | "calls">("basic");
+  const [pStudyMode, setPStudyMode] = useState<"online" | "offline" | "both">("online");
+  const [pLevel, setPLevel] = useState("");
+  const [pDurationUnit, setPDurationUnit] = useState<"month" | "week">("month");
+  const [pPackageType, setPPackageType] = useState<"subscription" | "sessions">("subscription");
+  const [pSessionsTotal, setPSessionsTotal] = useState("");
+  const [pValidityDays, setPValidityDays] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -4643,11 +4650,20 @@ function AdminPackagesSection({
         nameAr: pName,
         price: Number(pPrice),
         durationMonths: Number(pMonths) || 1,
+        category: pCategory,
+        studyMode: pCategory === "calls" ? "online" : pStudyMode,
+        level: pLevel || null,
+        durationUnit: pDurationUnit,
+        packageType: pPackageType,
+        sessionsTotal: pPackageType === "sessions" && pSessionsTotal ? Number(pSessionsTotal) : null,
+        validityDays: pValidityDays ? Number(pValidityDays) : null,
         ...(pDesc ? { description: pDesc } : {}),
         ...(pFeatures.trim() ? { features: pFeatures.split("\n").map((f) => f.trim()).filter(Boolean) } : {}),
         ...(pTeacherId ? { teacherId: pTeacherId } : {}),
       });
       setPName(""); setPDesc(""); setPPrice(""); setPMonths("1"); setPFeatures(""); setPTeacherId("");
+      setPCategory("basic"); setPStudyMode("online"); setPLevel(""); setPDurationUnit("month");
+      setPPackageType("subscription"); setPSessionsTotal(""); setPValidityDays("");
       setShowForm(false);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "فشل إنشاء الباقة");
@@ -4671,6 +4687,21 @@ function AdminPackagesSection({
 
         {showForm && (
           <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+            {/* Category */}
+            <div className="space-y-1.5">
+              <Label>نظام الباقة</Label>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <input type="radio" name="category" checked={pCategory === "basic"} onChange={() => setPCategory("basic")} />
+                  باقة أساسية (أونلاين/حضوري)
+                </label>
+                <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <input type="radio" name="category" checked={pCategory === "calls"} onChange={() => { setPCategory("calls"); setPStudyMode("online"); }} />
+                  نظام المكالمات (أونلاين فقط)
+                </label>
+              </div>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>اسم الباقة</Label>
@@ -4681,9 +4712,56 @@ function AdminPackagesSection({
                 <Input type="number" min={0} step="0.01" value={pPrice} onChange={(e) => setPPrice(e.target.value)} required placeholder="500" />
               </div>
               <div className="space-y-1.5">
-                <Label>المدة (شهور)</Label>
-                <Input type="number" min={1} value={pMonths} onChange={(e) => setPMonths(e.target.value)} />
+                <Label>المدة</Label>
+                <div className="flex gap-2">
+                  <Input type="number" min={1} value={pMonths} onChange={(e) => setPMonths(e.target.value)} className="flex-1" />
+                  <select value={pDurationUnit} onChange={(e) => setPDurationUnit(e.target.value as "month" | "week")} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                    <option value="month">شهر</option>
+                    <option value="week">أسبوع</option>
+                  </select>
+                </div>
               </div>
+              <div className="space-y-1.5">
+                <Label>المستوى</Label>
+                <select value={pLevel} onChange={(e) => setPLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون مستوى محدد —</option>
+                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+
+              {/* Study mode — hidden for calls (online only) */}
+              {pCategory === "basic" && (
+                <div className="space-y-1.5">
+                  <Label>نظام الدراسة</Label>
+                  <select value={pStudyMode} onChange={(e) => setPStudyMode(e.target.value as "online" | "offline" | "both")} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    <option value="online">أونلاين</option>
+                    <option value="offline">حضوري</option>
+                    <option value="both">أونلاين + حضوري</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Session count — for calls / sessions packages */}
+              <div className="space-y-1.5">
+                <Label>نوع الباقة</Label>
+                <select value={pPackageType} onChange={(e) => setPPackageType(e.target.value as "subscription" | "sessions")} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="subscription">اشتراك زمني</option>
+                  <option value="sessions">باقة بعدد حصص</option>
+                </select>
+              </div>
+              {pPackageType === "sessions" && (
+                <div className="space-y-1.5">
+                  <Label>عدد الحصص</Label>
+                  <Input type="number" min={1} value={pSessionsTotal} onChange={(e) => setPSessionsTotal(e.target.value)} placeholder="12 / 20 / 28" />
+                </div>
+              )}
+              {pPackageType === "sessions" && (
+                <div className="space-y-1.5">
+                  <Label>صلاحية الباقة (أيام)</Label>
+                  <Input type="number" min={1} value={pValidityDays} onChange={(e) => setPValidityDays(e.target.value)} placeholder="90" />
+                </div>
+              )}
+
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>الوصف</Label>
                 <Input value={pDesc} onChange={(e) => setPDesc(e.target.value)} placeholder="وصف مختصر للباقة" />
@@ -4716,7 +4794,14 @@ function AdminPackagesSection({
               <div className="flex items-start justify-between">
                 <div>
                   <b>{p.nameAr}</b>
-                  <p className="mt-1 font-lat text-2xl font-bold text-brand">${p.price}<small className="text-xs text-muted-foreground"> / {p.durationMonths} شهر</small></p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <Badge tone={p.category === "calls" ? "gold" : "brand"}>{p.category === "calls" ? "مكالمات" : "أساسية"}</Badge>
+                    <Badge tone="muted">{p.durationMonths} {p.durationUnit === "week" ? "أسبوع" : "شهر"}</Badge>
+                    {p.level && <Badge tone="muted">{p.level}</Badge>}
+                    {p.studyMode && <Badge tone="muted">{p.studyMode === "online" ? "أونلاين" : p.studyMode === "offline" ? "حضوري" : "أونلاين+حضوري"}</Badge>}
+                    {p.sessionsTotal && <Badge tone="gold">{p.sessionsTotal} حصة</Badge>}
+                  </div>
+                  <p className="mt-1 font-lat text-2xl font-bold text-brand">${p.price}</p>
                 </div>
                 <Badge tone={p.isActive ? "sage" : "muted"}>{p.isActive ? "مفعلة" : "معطلة"}</Badge>
               </div>
@@ -5899,7 +5984,7 @@ export function SubscribeScreen() {
               تحتاج مساعدة في الحجز؟ تواصل معنا على واتساب
             </p>
             <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("أهلاً، محتاج مساعدة في حجز باقة على منصة Fluent Hebrew")}`}
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("أهلاً، محتاج مساعدة في حجز باقة على منصة עברית שוטפת")}`}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-2 rounded-md bg-sage px-4 py-2 text-sm font-bold text-white hover:bg-sage/90"

@@ -4,7 +4,7 @@ import { apiFetch } from "../lib/api";
 import { Button, Card, Input, Label } from "../components/ui";
 
 export const Route = createFileRoute("/forgot-password")({
-  head: () => ({ meta: [{ title: "Fluent Hebrew — استعادة كلمة المرور" }] }),
+  head: () => ({ meta: [{ title: "עברית שוטפת — استعادة كلمة المرور" }] }),
   component: ForgotPasswordPage,
 });
 

@@ -22,15 +22,15 @@ let accessToken: string | null = null;
 export function setAccessToken(token: string | null) {
   accessToken = token;
   if (token) {
-    localStorage.setItem("Fluent Hebrew_access_token", token);
+    localStorage.setItem("עברית שוטפת_access_token", token);
   } else {
-    localStorage.removeItem("Fluent Hebrew_access_token");
+    localStorage.removeItem("עברית שוטפת_access_token");
   }
 }
 
 export function getAccessToken(): string | null {
   if (!accessToken) {
-    accessToken = localStorage.getItem("Fluent Hebrew_access_token");
+    accessToken = localStorage.getItem("עברית שוטפת_access_token");
   }
   return accessToken;
 }
@@ -39,14 +39,14 @@ export function getAccessToken(): string | null {
 // /api/auth/refresh. We persist the refresh token and send it in the body.
 export function setRefreshToken(token: string | null) {
   if (token) {
-    localStorage.setItem("Fluent Hebrew_refresh_token", token);
+    localStorage.setItem("עברית שוטפת_refresh_token", token);
   } else {
-    localStorage.removeItem("Fluent Hebrew_refresh_token");
+    localStorage.removeItem("עברית שוטפת_refresh_token");
   }
 }
 
 export function getRefreshToken(): string | null {
-  return localStorage.getItem("Fluent Hebrew_refresh_token");
+  return localStorage.getItem("עברית שוטפת_refresh_token");
 }
 
 type FetchOptions = {

@@ -5,7 +5,7 @@ import { Button, Card, Input, Label, Badge } from "../components/ui";
 import { usePlatformStore, type AvailableSlot, type LessonBookingItem, type SessionSubscription } from "../hooks/use-platform-store";
 
 export const Route = createFileRoute("/sessions")({
-  head: () => ({ meta: [{ title: "Fluent Hebrew — حصصي" }] }),
+  head: () => ({ meta: [{ title: "עברית שוטפת — حصصي" }] }),
   component: StudentSessionsPage,
 });
 

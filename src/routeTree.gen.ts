@@ -33,6 +33,7 @@ import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeacherRouteImport } from './routes/teacher'
+import { Route as PackagesTypeRouteImport } from './routes/packages.$type'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -154,6 +155,11 @@ const TeacherRoute = TeacherRouteImport.update({
   path: '/teacher',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PackagesTypeRoute = PackagesTypeRouteImport.update({
+  id: '/packages/$type',
+  path: '/packages/$type',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
+  '/packages/$type': typeof PackagesTypeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
+  '/packages/$type': typeof PackagesTypeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -233,6 +241,7 @@ export interface FileRoutesById {
   '/subscribe': typeof SubscribeRoute
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
+  '/packages/$type': typeof PackagesTypeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/support'
     | '/teacher'
+    | '/packages/$type'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -287,6 +297,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/support'
     | '/teacher'
+    | '/packages/$type'
   id:
     | '__root__'
     | '/'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/subscribe'
     | '/support'
     | '/teacher'
+    | '/packages/$type'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -340,6 +352,7 @@ export interface RootRouteChildren {
   SubscribeRoute: typeof SubscribeRoute
   SupportRoute: typeof SupportRoute
   TeacherRoute: typeof TeacherRoute
+  PackagesTypeRoute: typeof PackagesTypeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -512,6 +525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeacherRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/packages/$type': {
+      id: '/packages/$type'
+      path: '/packages/$type'
+      fullPath: '/packages/$type'
+      preLoaderRoute: typeof PackagesTypeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -540,6 +560,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeRoute: SubscribeRoute,
   SupportRoute: SupportRoute,
   TeacherRoute: TeacherRoute,
+  PackagesTypeRoute: PackagesTypeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

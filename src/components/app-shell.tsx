@@ -316,7 +316,7 @@ export function AppShell({
             <span className="grid size-9 place-items-center rounded-md bg-brand font-lat font-bold text-primary-foreground">
               O
             </span>
-            <b>Fluent Hebrew</b>
+            <b>עברית שוטפת</b>
           </Link>
           <div className="flex items-center gap-1">
             {notifBell}
@@ -405,7 +405,7 @@ export function AppShell({
                 O
               </span>
               <span>
-                <strong className="block">Fluent Hebrew</strong>
+                <strong className="block">עברית שוטפת</strong>
                 <small className="font-he text-muted-foreground">עברית, בביטחון</small>
               </span>
             </Link>

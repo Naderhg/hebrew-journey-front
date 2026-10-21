@@ -23,13 +23,13 @@ import { getHomeRouteForRole } from "../lib/auth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Fluent Hebrew Academy — أكاديمية اللغات (عبري وإنجليزي) للناطقين بالعربية" },
+      { title: "עברית שוטפת — أكاديمية اللغات (عبري وإنجليزي) للناطقين بالعربية" },
       {
         name: "description",
         content:
-          "أكاديمية Fluent Hebrew لتعليم اللغتين العبرية والإنجليزية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
+          "أكاديمية עברית שוטפתلتعليم اللغتين العبرية والإنجليزية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
       },
-      { property: "og:title", content: "Fluent Hebrew Academy — أكاديمية اللغات" },
+      { property: "og:title", content: "עברית שוטפת — أكاديمية اللغات" },
       { property: "og:description", content: "تعلّم العبرية والإنجليزية مع مدرسين معتمدين وبرامج مصممة لأهدافك." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -242,7 +242,7 @@ function Landing() {
             <GraduationCap className="size-5" />
           </span>
           <span className="leading-tight">
-            <b className="block text-[15px] font-bold" style={{ color: NAVY }}>Fluent Hebrew Academy</b>
+            <b className="block text-[15px] font-bold" style={{ color: NAVY }}>עברית שוטפת</b>
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -278,10 +278,10 @@ function Landing() {
               <br />
               <span style={{ color: GREEN }}>العبرية والإنجليزية</span>
               <br />
-              <span style={{ color: NAVY }}>مع Fluent Hebrew</span>
+              <span style={{ color: NAVY }}>مع עברית שוטפת</span>
             </h1>
             <p className="mt-5 max-w-lg text-base leading-8 text-[#5a6b8c]">
-              انضم إلى أكاديمية أوهران وتعلّم اللغتين العبرية والإنجليزية على يد نخبة من الخبراء،
+              انضم إلى أكاديمية עברית שוטפתوتعلّم اللغتين العبرية والإنجليزية على يد نخبة من الخبراء،
               من خلال برامج تفاعلية ومنهجية مدروسة تضمن لك الإتقان والتواصل بثقة.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -355,12 +355,12 @@ function Landing() {
           </div>
         </section>
 
-        {/* ─── Why Fluent Hebrew ─── */}
+        {/* ─── Why עברית שוטפת─── */}
         <section id="about" className="mt-24 grid items-center gap-10 lg:grid-cols-2">
           <div>
             <h2 className="text-3xl font-bold leading-snug">
               <span style={{ color: GREEN }}>لماذا تختار</span>{" "}
-              <span style={{ color: NAVY }}>أكاديمية Fluent Hebrew؟</span>
+              <span style={{ color: NAVY }}>أكاديمية עברית שוטפת؟</span>
             </h2>
             <p className="mt-4 leading-8 text-[#5a6b8c]">
               نحن نجمع بين أحدث التقنيات التعليمية والأساليب التقليدية الفعالة لنخلق لك تجربة تعليمية
@@ -510,67 +510,55 @@ function Landing() {
           </div>
         </section>
 
-        {/* ─── Packages (live from API) ─── */}
+        {/* ─── Package categories ─── */}
         <section id="packages" className="mt-24">
           <div className="text-center">
             <h2 className="text-3xl font-bold" style={{ color: NAVY }}>الباقات والأسعار</h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-[#5a6b8c]">
-              اختر باقتك وسيتواصل معك فريقنا لتأكيد الحجز.
+              اختر نظام التعلم المناسب لك — باقات أساسية أو نظام المكالمات
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {publicPackages.length === 0 ? (
-              <div className="col-span-full rounded-2xl border border-[#e7edf7] bg-white py-12 text-center text-sm text-[#5a6b8c]">
-                الباقات تُعرض هنا فور تفعيلها من إدارة الأكاديمية.
-              </div>
-            ) : (
-              publicPackages.map((p) => (
-                <div key={p.id} className="tilt-hover flex flex-col rounded-2xl border border-[#e7edf7] bg-white p-7 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-lg font-bold" style={{ color: NAVY }}>{p.nameAr}</h3>
-                    <span className="rounded-full px-3 py-1 text-[11px] font-bold text-white" style={{ background: NAVY }}>
-                      {p.durationMonths} شهر
-                    </span>
-                  </div>
-                  <p className="mt-3 font-lat text-3xl font-bold" style={{ color: GREEN }}>
-                    {p.price} جنيه
-                    <small className="text-sm font-normal text-[#8a98b5]"> / للباقة</small>
-                  </p>
-                  {p.description && <p className="mt-2 text-sm leading-6 text-[#5a6b8c]">{p.description}</p>}
-                  {p.teacher && (
-                    <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-[#f2f6fd] p-3">
-                      <span className="grid size-9 shrink-0 place-items-center rounded-full font-bold text-white" style={{ background: NAVY }}>
-                        {p.teacher.fullName[0]}
-                      </span>
-                      <div className="min-w-0">
-                        <b className="block text-xs" style={{ color: NAVY }}>{p.teacher.fullName}</b>
-                        {p.teacher.specialty && (
-                          <small className="block truncate text-[#5a6b8c]">{p.teacher.specialty}</small>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {p.features && p.features.length > 0 && (
-                    <ul className="mt-4 flex-1 space-y-2 border-t border-[#eef2f9] pt-4">
-                      {p.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-[#5a6b8c]">
-                          <Check className="mt-0.5 size-3.5 shrink-0" style={{ color: "#4f9e1f" }} />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <button
-                    className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/25 transition-transform hover:-translate-y-0.5"
-                    style={{ background: NAVY }}
-                    onClick={() => setBookingPkg(p)}
-                  >
-                    احجز الآن
-                  </button>
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            <Link to="/packages/basic" className="group tilt-hover block rounded-2xl border border-[#e7edf7] bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
+              <div className="flex items-center gap-4">
+                <span className="grid size-16 place-items-center rounded-2xl text-white" style={{ background: `linear-gradient(135deg, ${NAVY}, ${NAVY_DEEP})` }}>
+                  <GraduationCap className="size-8" />
+                </span>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: NAVY }}>الباقات الأساسية</h3>
+                  <p className="mt-1 text-sm text-[#5a6b8c]">دروس أونلاين أو حضوري — لكل المستويات</p>
                 </div>
-              ))
-            )}
+              </div>
+              <ul className="mt-5 space-y-2 text-sm text-[#5a6b8c]">
+                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> أونلاين أو حضوري</li>
+                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> لكل المستويات A1 — C2</li>
+                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> مدرسون معتمدون</li>
+              </ul>
+              <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
+                تصفح الباقات <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" />
+              </span>
+            </Link>
+
+            <Link to="/packages/calls" className="group tilt-hover block rounded-2xl border border-[#e7edf7] bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
+              <div className="flex items-center gap-4">
+                <span className="grid size-16 place-items-center rounded-2xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
+                  <Phone className="size-8" />
+                </span>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: NAVY }}>نظام المكالمات</h3>
+                  <p className="mt-1 text-sm text-[#5a6b8c]">حصص فردية أونلاين — احجز بمرونة</p>
+                </div>
+              </div>
+              <ul className="mt-5 space-y-2 text-sm text-[#5a6b8c]">
+                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> حصص فردية (12/20/28)</li>
+                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> أونلاين فقط</li>
+                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> احجز وغيّر مواعيدك بنفسك</li>
+              </ul>
+              <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
+                تصفح الباقات <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" />
+              </span>
+            </Link>
           </div>
         </section>
 
@@ -647,7 +635,7 @@ function Landing() {
               <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
                 <GraduationCap className="size-5" />
               </span>
-              <b className="text-lg font-bold text-white">Fluent Hebrew Academy</b>
+              <b className="text-lg font-bold text-white">עברית שוטפת</b>
             </div>
             <p className="mt-4 text-xs leading-6 text-[#aebfdd]">
               نعمل على تمكين الأفراد من التواصل باللغتين العبرية والإنجليزية منذ عام 2015 بأحدث المناهج التعليمية.
@@ -665,7 +653,7 @@ function Landing() {
           <div>
             <b className="text-sm font-bold text-white">اتصل بنا</b>
             <ul className="mt-4 space-y-3 text-xs text-[#aebfdd]">
-              <li className="flex items-center gap-2"><Mail className="size-4" style={{ color: GREEN }} /> info@Fluent Hebrew.com</li>
+              <li className="flex items-center gap-2"><Mail className="size-4" style={{ color: GREEN }} /> info@עברית שוטפת.com</li>
               <li className="flex items-center gap-2"><Phone className="size-4" style={{ color: GREEN }} /> <span dir="ltr">+20 1270 869 510</span></li>
               <li className="flex items-center gap-2"><MapPin className="size-4" style={{ color: GREEN }} /> القاهرة، مصر</li>
             </ul>
@@ -689,7 +677,7 @@ function Landing() {
           </div>
         </div>
         <div className="border-t border-white/10 py-5 text-center text-[11px] text-[#7f94bd]">
-          Fluent Hebrew Academy · جميع الحقوق محفوظة {new Date().getFullYear()}
+          עברית שוטפת · جميع الحقوق محفوظة {new Date().getFullYear()}
         </div>
       </footer>
 

@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/use-auth";
 import { Badge, Button, Card, Input, Label } from "../components/ui";
 
 export const Route = createFileRoute("/register")({
-  head: () => ({ meta: [{ title: "Fluent Hebrew Academy — إنشاء حساب طالب" }] }),
+  head: () => ({ meta: [{ title: "עברית שוטפת  — إنشاء حساب طالب" }] }),
   component: RegisterPage,
 });
 

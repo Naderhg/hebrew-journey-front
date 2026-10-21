@@ -312,7 +312,7 @@ export function AppShell({
             <span className="grid size-9 place-items-center rounded-md bg-brand font-lat font-bold text-primary-foreground">
               O
             </span>
-            <b>Ohran</b>
+            <b>Fluent Hebrew</b>
           </Link>
           <div className="flex items-center gap-1">
             {notifBell}
@@ -401,7 +401,7 @@ export function AppShell({
                 O
               </span>
               <span>
-                <strong className="block">Ohran</strong>
+                <strong className="block">Fluent Hebrew</strong>
                 <small className="font-he text-muted-foreground">עברית, בביטחון</small>
               </span>
             </Link>

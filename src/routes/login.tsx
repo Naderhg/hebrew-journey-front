@@ -5,7 +5,7 @@ import { getHomeRouteForRole } from "../lib/auth";
 import { Button, Card, Input, Label } from "../components/ui";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Ohran — تسجيل الدخول" }] }),
+  head: () => ({ meta: [{ title: "Fluent Hebrew Academy — تسجيل الدخول" }] }),
   component: LoginPage,
 });
 
@@ -44,7 +44,7 @@ function LoginPage() {
             </Link>
             <h1 className="mt-4 text-2xl font-bold">تسجيل الدخول</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              أهلاً بعودتك إلى Ohran — سيتم توجيهك تلقائياً للوحة التحكم الخاصة بدورك
+              أهلاً بعودتك إلى Fluent Hebrew — أكاديمية اللغات (عبري وإنجليزي). سيتم توجيهك تلقائياً للوحة التحكم الخاصة بدورك
             </p>
           </div>
 

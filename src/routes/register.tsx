@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/use-auth";
 import { Badge, Button, Card, Input, Label } from "../components/ui";
 
 export const Route = createFileRoute("/register")({
-  head: () => ({ meta: [{ title: "Ohran — إنشاء حساب طالب" }] }),
+  head: () => ({ meta: [{ title: "Fluent Hebrew Academy — إنشاء حساب طالب" }] }),
   component: RegisterPage,
 });
 
@@ -46,7 +46,7 @@ function RegisterPage() {
             </div>
             <h1 className="mt-3 text-2xl font-bold">إنشاء حساب طالب</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              التسجيل المتاح عبر المنصة مخصص للطلاب فقط — يبدأ مسارك باختبار تحديد المستوى وخطة تعلم شخصية
+              التسجيل المتاح عبر المنصة مخصص للطلاب فقط — يبدأ مسارك باختبار تحديد المستوى وخطة تعلم شخصية في العبرية أو الإنجليزية
             </p>
           </div>
 
@@ -105,7 +105,7 @@ function RegisterPage() {
             </Link>
           </p>
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            حسابات المدرسين والمبيعات وخدمة العملاء يتم إنشاؤها بواسطة إدارة المنصة (Admin).
+            حسابات المدرسين والمبيعات وخدمة العملاء يتم إنشاؤها بواسطة إدارة الأكاديمية (Admin).
           </p>
         </Card>
       </div>

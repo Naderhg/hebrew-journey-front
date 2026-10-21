@@ -65,9 +65,9 @@ import { SERVER_CONFIG, mediaSrc } from "../lib/api";
 
 const meta = (title: string, description: string) => ({
   meta: [
-    { title: `${title} — Ohran` },
+    { title: `${title} — Fluent Hebrew` },
     { name: "description", content: description },
-    { property: "og:title", content: `${title} — Ohran` },
+    { property: "og:title", content: `${title} — Fluent Hebrew` },
     { property: "og:description", content: description },
     { property: "og:type", content: "website" },
     { name: "twitter:card", content: "summary_large_image" },
@@ -2016,7 +2016,7 @@ export function AdminScreen() {
       await addStaffUser({
         fullName,
         phone,
-        password: password || "Ohran@1234",
+        password: password || "Fluent Hebrew@1234",
         role: newUserRole,
         ...(specialty ? { specialty } : {}),
       });
@@ -2654,7 +2654,7 @@ export function AdminScreen() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@ohran.com"
+                placeholder="staff@Fluent Hebrew.com"
               />
             </div>
 
@@ -5609,7 +5609,7 @@ export function SubscribeScreen() {
               تحتاج مساعدة في الحجز؟ تواصل معنا على واتساب
             </p>
             <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("أهلاً، محتاج مساعدة في حجز باقة على منصة Ohran")}`}
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("أهلاً، محتاج مساعدة في حجز باقة على منصة Fluent Hebrew")}`}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-2 rounded-md bg-sage px-4 py-2 text-sm font-bold text-white hover:bg-sage/90"

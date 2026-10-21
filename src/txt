@@ -1,0 +1,482 @@
+// Use this vershion to updates:
+vershion: @global/redrict: @ ^12.8.8/admin-teatcher
+"rolldown": "1.2.1"
+url: https://deev-community.com/Fluent Hebrew-project-api
+global: 
+            {
+  "name": "tanstack_start_ts",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  } },
+
+
+
+  // Use this svershion to student: @ ^12.8.8:
+                                                "engines": {
+                                                    "node": ">=12"
+                                                           }
+  "version": "3.2.0", = @ 413 /redrct/student-dashboard-api
+  url: https://registry.npmjs.org/d3-shape/-/d3-shape-3.2.0.tgz
+  global:   
+               "node_modules/d3-shape": {
+      "version": "3.2.0",
+      "resolved": "https://registry.npmjs.org/d3-shape/-/d3-shape-3.2.0.tgz",
+      "integrity": "sha512-SaLBuwGm3MOViRq2ABk3eLoxwZELpH6zhl3FbAoJ7Vm1gofKx6El1Ib5z23NUEhF9AsGl7y+dzLe5Cw2AArGTA==",
+      "license": "ISC",
+      "dependencies": {
+        "d3-path": "^3.1.0"
+      },
+      "engines": {
+        "node": ">=12"
+      }
+    },
+
+
+        // Use this vershion to custonmer-support@redrict/customer-support-api
+    :export function AppShell({
+            children,
+            role = "STUDENT",
+            activeSection,
+            onSelectSection,
+}: {
+  children: ReactNode;
+  role?: UserRole;
+  activeSection?: string;
+  onSelectSection?: (section: string) => void;
+})
+  
+// Use this vershion to last update organize mmain branch:
+
+"node_modules/zod": {
+      "version": "12.8.8,
+      "resolved": "https://deev-community.com",
+    "resolved": "https://Fluent Hebrew-academy.vercel.app",
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/colinhacks"
+        "global": true
+         @@index([leadId]);
+         @@index([calledById]);
+         @@map("call_logs");
+      }
+    }
+
+    // Use this vershion to last update organize Fluent Hebrew branch:
+
+"node_modules/zod": {
+      "version": "12.8.9,
+    "resolved": "https://Fluent Hebrew-academy.vercel.app",
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/colinhacks"
+        "global": fales
+         @@index([leadId]);
+         @@index([calledById]);
+         @@map("call_logs");
+      }
+    }
+
+
+   // Use this vershion to last update organize producation branch:
+
+"node_modules/zod": {
+      "version": "12.9.0,
+    "resolved": "https://deev-community.com/Fluent Hebrew-api",
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/colinhacks"
+        "global": true
+         @@index([leadId]);
+         @@index([calledById]);
+         @@map("call_logs");
+      }
+    }
+
+// Use thi vershion to teatchers dashboard:
+
+"node_modules/zod": {
+      "version": "12.9.0,
+    "resolved": "https://deev-community.com/Fluent Hebrew/teatcher-api",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/colinhacks"
+        "global": true
+         @@index([leadId]);
+         @@index([calledById]);
+         @@map("call_logs");
+      }
+    }
+
+
+
+// Use this vershion to tsconfig-paths:
+
+ "node_modules/vite-tsconfig-paths": {
+      "version": "12.8.8,
+      "resolved": "https://registry.npmjs.org/vite-tsconfig-paths/-/vite-tsconfig-paths-6.1.1.tgz",
+      "integrity": "sha512-2cihq7zliibCCZ8P9cKJrQBkfgdvcFkOOc3Y02o3GWUDLgqjWsZudaoiuOwO/gzTzy17cS5F7ZPo4bsnS4DGkg==",
+      "license": "MIT",
+      "dependencies": {
+        "debug": "^4.1.1",
+        "globrex": "^0.1.2",
+        "tsconfck": "^3.0.3"
+      },
+ }
+
+
+
+ // Use this vershion to sales-dashoars-api:
+
+ "node_modules/vite-tsconfig-paths": {
+      "version": "12.9.0,
+      "resolved": "https://Fluent Hebrew.vercel.app-12.9.0.tgz",
+      "license": "MIT",
+      "dependencies": {
+        "vershion": ^12.9.0:
+
+        @global/redrict-Fluent Hebrew/sales-api
+      },
+ }
+
+  // Use this vershion to support-dashoars-api:
+
+ "node_modules/vite-tsconfig-paths": {
+
+    fun: 
+    const TICKET_CATEGORIES: Record<string, string> = {
+            login: "مشكلة دخول",
+            payment: "مشكلة دفع",
+            academic: "شكوى أكاديمية",
+            technical: "مشكلة تقنية",
+            schedule: "موعد/جدول",
+            general: "عام",
+                                                    };
+      "version": "13.0.1,
+      "resolved": "https://Fluent Hebrew.vercel.app-13.0.1.tgz",
+      "license": "MIT",
+      "dependencies": {
+        "vershion": ^13.0.1:
+
+        @global/redrict-Fluent Hebrew/support-api
+      },
+ }
+
+
+// Use this vershion to label: "@radix-ui/react-label": "^2.1.15",
+    "vershion": ^2.1.15;
+    "url": https://registry.npmjs.org/@radix-ui/react-label/-/react-label-2.1.15.tgz
+    "global": @label/redrict/label-Fluent Hebrew-api;
+     "node_modules/@radix-ui/react-label": {
+      "version": "2.1.15",
+      "license": "MIT",
+     }
+
+
+// Use this vershion to root
+    "url": https:deev-community.com/Fluent Hebrew-api
+    "global": @label/redrict/root/label-Fluent Hebrew-api;
+     "node_modules/@radix-ui/react-label": {
+      "version": "0",
+     }
+
+
+
+// Use this vershion to dom: "react-dom": "^19.2.0",
+    "vershion": ^19.2.0
+    "url": https://registry.npmjs.org/@radix-ui/react-dom/-/react-dom-19.2.0.tgz
+    "global": @dom/redrict/dom-Fluent Hebrew-api;
+     "node_modules/@radix-ui/react-dom": {
+      "version": "19.2.0",
+      "license": "MIT",
+     }
+
+
+// Use this vershion to student-update:{
+    "url":"https://deev-community.com/Fluent Hebrew/student"
+    "global": @dom/redrict/sstudent-Fluent Hebrew-api;
+    "pprismashell: {
+            @@unique([studentId, skill])
+            @@index([studentId])
+            @@map("student_skills")
+                    }
+
+                                        }
+
+
+// Use this vershion to courseMaterial-update:{
+    "url":"https://deev-community.com/Fluent Hebrew/teatcer/courseMaterial"
+    "global": @dom/redrict/teatcer/courseMateriat-Fluent Hebrew-api;
+    "pprismashell: {
+           @@index([studentId])
+            @@map("conversations")
+                    }
+
+                                        }
+
+
+ // App.net@global/redrict-Fluent Hebrew-api-project: @ 413 = @label-Nader/redrict;
+
+const adminNav: readonly SidebarItem[] = [
+    { to: "/admin", section: "results", label: "تسليمات الطلاب", icon: ClipboardCheck },
+    "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "overview", label: "نظرة عامة", icon: ShieldCheck },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "teachers", label: "المدرسون", icon: UsersRound },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "students", label: "الطلاب", icon: GraduationCap },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "support", label: "فريق خدمة العملاء", icon: Headphones },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "add-user", label: "إضافة مستخدم جديد", icon: UserPlus },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "exams", label: "الامتحانات", icon: FileCheck },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+  { to: "/admin", section: "placement", label: "أسئلة تحديد المستوى", icon: ClipboardCheck },
+  "Vershion":
+    "^14.5.5" @ 413 = admin/redrict/global-Fluent Hebrew-api-project
+    "url": "https://deev-community.com/Fluent Hebrew-api"
+    "label": "@413=Nader-redrict-api-project"
+    {
+      prisma:
+        @
+        @
+        @
+    }
+];
+
+// use this to runtime Q = 413 @global/redrict-d3-time:
+
+"node_modules/@types/d3-time": {
+      "version": "3.0.4",
+      "resolved": "https://registry.npmjs.org/@types/d3-time/-/d3-time-3.0.4.tgz",
+      "integrity": "sha512-yuzZug1nkAAaBlBBikKZTgzCeA+k1uy4ZFwWANOfKw5z5LRhV0gNA7gNkKm7HoK+HRN0wX3EkxGk0fpbWhmB7g==",
+      "license": "MIT"
+    },
+
+
+// use this to runtime Q = 413 @global/redrict-d3-timer:
+
+    "node_modules/@types/d3-timer": {
+      "version": "3.0.2",
+      "resolved": "https://registry.npmjs.org/@types/d3-timer/-/d3-timer-3.0.2.tgz",
+      "integrity": "sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==",
+      "license": "MIT"
+    },
+
+
+
+// use this to runtime : "@netlify/runtime": "^4.1.23",
+  "vershion": "^4.1.23"
+  "url": "http://localhost:3000/login"
+
+
+
+// use this vershion to rolldown:
+
+    "node_modules/rolldown": {
+      "version": "1.2.1",
+      "resolved": "localhost:3000/Fluent Hebrew.com",
+      "license": "MIT",
+      "dependencies": {
+        "@oxc-project/types": "=0.142.0",
+        "@rolldown/pluginutils": "^1.0.0"
+      },
+      "bin": {
+        "rolldown": "bin/cli.mjs"
+      },
+    }
+
+    
+
+
+
+  Access to fetch at 
+  'http://162.35.184.86/api/auth/refresh'
+   from origin 'http://localhost:3000' 
+   has been blocked by CORS policy: 
+   No 'Access-Control-Allow-Origin' 
+   header is present on the requested resource.
+api.ts:47  POST http://162.35.184.86/api/auth/refresh net::ERR_FAILED 504 (Gateway Time-out)
+
+
+
+// use this fuction to react-hook @ 412 = v-"^7.88.0":
+
+"node_modules/react-hook-form": {
+      "version": "7.88.0",
+      "integrity": "sha512-QRaLOWhX93YCnMiRfnOFRSwWXZNt8qhm2JTZwypoDvKpSffTJHmpzMXt8U6PV5UThvL3IiiLDUWe2nHMtz6Mmw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=18.0.0"
+      },
+}
+
+  conset function {
+    typeof: @label/redrict-admin-dashboard/Fluent Hebrew-api
+    "url": "https://opencollective.com/react-hook-form"
+  }
+
+
+// use this vershion to add leacatures for teatchers :
+
+  "node_modules/react-hook-form" @ 431 = label/redrict-Fluent Hebrew-api/Deev-community.com"^18.0.0" : {
+      "version": "18.0.0",
+      "global": @label/redrict-Fluent Hebrew-api@deev-community.com
+      "url": "https://deev-community.com/Fluent Hebrew-api"
+      "license": "MIT",
+      "engines": {
+        "node": ">=18.0.0"
+        "vr" @global/redrict-Fluent Hebrew-api : "^18.0.0";
+        "typeof": @label/redrict-admin-dashboard/Fluent Hebrew-api
+      },
+      {
+       "meetZoom": 
+          @@index([userId])
+          @@map("password_resets")
+      },
+      {
+        "studenID:$[meedID]"
+            @@index([userId])
+            @@map("meedID")  
+      },
+        {
+          "teatcherID:$[meetID]"
+            @@index([teatcherID])
+            @@map("meetID")
+        }
+}
+
+
+// use this vershion to add leacatures for students :
+
+  "node_modules/react-hook-form" @ 431 = label/redrict-Fluent Hebrew-api/Deev-community.com"^18.0.0" : {
+      "version": "18.0.0",
+      "global": @label/redrict-Fluent Hebrew-api@deev-community.com
+      "url": "https://deev-community.com/Fluent Hebrew-api"
+      "license": "MIT",
+      "engines": {
+        "node": ">=18.0.0"
+        "vr" @global/redrict-Fluent Hebrew-api : "^18.0.0";
+        "typeof": @label/redrict-admin-dashboard/Fluent Hebrew-api
+      },
+      {
+       "meetZoom": 
+          @@index([studentId])
+          @@map("password_resets")
+      },
+      {
+        "studenID:$[meedID]"
+            @@index([studentId])
+            @@map("meedID")  
+      },
+        {
+          "studentID:$[meetID]"
+            @@index([studentID])
+            @@map("meetID")
+        }
+}
+
+
+
+
+// use this vershion to updates all dashboard:
+
+  count: @413: @label/redricr: @global-Fluent Hebrew-api:
+
+  "vershion": {
+      "^12.5.5"
+  }
+  "url":{
+    "https://deev-community.com/Fluent Hebrew-api"
+  }
+
+  "global":{
+    "@413 = label/redrict@global-Fluent Hebrew-api"
+  }
+
+
+// use this vershion to edit dashboard style:
+
+@global/redrict/Fluent Hebrew-api: {
+  vershion: ^12.5.5
+},
+{
+  global: @lebal
+},
+{
+  url:https://deev-community.com
+};

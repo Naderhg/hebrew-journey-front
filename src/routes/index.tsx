@@ -23,14 +23,14 @@ import { getHomeRouteForRole } from "../lib/auth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Ohran Academy — أكاديمية العبرية للناطقين بالعربية" },
+      { title: "Fluent Hebrew Academy — أكاديمية اللغات (عبري وإنجليزي) للناطقين بالعربية" },
       {
         name: "description",
         content:
-          "الأكاديمية الأولى لتعليم العبرية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
+          "أكاديمية Fluent Hebrew لتعليم اللغتين العبرية والإنجليزية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
       },
-      { property: "og:title", content: "Ohran Academy — أكاديمية العبرية" },
-      { property: "og:description", content: "تعلّم العبرية مع مدرسين معتمدين وبرامج مصممة لأهدافك." },
+      { property: "og:title", content: "Fluent Hebrew Academy — أكاديمية اللغات" },
+      { property: "og:description", content: "تعلّم العبرية والإنجليزية مع مدرسين معتمدين وبرامج مصممة لأهدافك." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -110,10 +110,10 @@ function BookingModal({ pkg, onClose }: { pkg: PublicPackage; onClose: () => voi
   );
 }
 
-/* ─── 3D Hebrew cube for the hero ─── */
-function HebrewCube() {
+/* ─── 3D Language cube for the hero (Hebrew + English letters) ─── */
+function LanguageCube() {
   const size = 110;
-  const faces = ["א", "ל", "ף", "ש", "מ", "ד"];
+  const faces = ["א", "A", "ל", "B", "ש", "E"];
   const transforms = [
     `rotateY(0deg) translateZ(${size / 2}px)`,
     `rotateY(90deg) translateZ(${size / 2}px)`,
@@ -148,6 +148,7 @@ const FAQ_ITEMS = [
   "كم من الوقت أحتاج لأتحدث بطلاقة؟",
   "هل تقدمون دروساً عبر الإنترنت؟",
   "هل يمكنني تغيير المعلم إذا أردت؟",
+  "هل أستطيع دراسة لغتين في نفس الوقت؟",
 ];
 
 function FaqItem({ q }: { q: string }) {
@@ -159,6 +160,8 @@ function FaqItem({ q }: { q: string }) {
       "نعم، كل برامجنا متاحة أونلاين عبر جلسات مباشرة مع المدرس، إضافة إلى مكتبة فيديوهات وتسجيلات تفاعلية داخل المنصة.",
     "هل يمكنني تغيير المعلم إذا أردت؟":
       "بالتأكيد — يمكنك طلب تغيير المدرس في أي وقت من خلال خدمة العملاء، وسننقلك لمدرس آخر يناسب احتياجك دون أي تكلفة إضافية.",
+    "هل أستطيع دراسة لغتين في نفس الوقت؟":
+      "نعم، يمكنك الاشتراك في أكثر من برنامج — عبري وإنجليزي معاً — وسنرتب لك جدولاً متوازناً مع مدرسين متخصصين لكل لغة.",
   };
   return (
     <button
@@ -202,7 +205,7 @@ function Landing() {
         if (!t) return acc;
         acc[t.id] ??= {
           name: t.fullName,
-          badge: t.specialty ?? "مدرس لغة عبرية",
+          badge: t.specialty ?? "مدرس لغات",
           slots: [],
           online: s.location === "online",
         };
@@ -215,7 +218,7 @@ function Landing() {
   );
   const teachersToRender = liveTeachers.map((t, i) => ({
     ...t,
-    desc: "أونلاين وحضوري — مواعيد ثابتة كل أسبوع",
+    desc: "مدرس معتمد — أونلاين وحضوري، مواعيد ثابتة كل أسبوع",
     avatarBg: TEACHER_CARD_COLORS[i % TEACHER_CARD_COLORS.length],
     initials: t.name.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟",
   }));
@@ -239,7 +242,7 @@ function Landing() {
             <GraduationCap className="size-5" />
           </span>
           <span className="leading-tight">
-            <b className="block text-[15px] font-bold" style={{ color: NAVY }}>Ohran Academy</b>
+            <b className="block text-[15px] font-bold" style={{ color: NAVY }}>Fluent Hebrew Academy</b>
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -269,18 +272,17 @@ function Landing() {
         <section className="grid items-center gap-10 pt-10 lg:grid-cols-2 lg:pt-14">
           {/* text */}
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#dfe8f7] bg-white px-4 py-1.5 text-xs font-semibold text-[#33436b] shadow-sm">
-              الأكاديمية الأولى لتعليم العبرية باحترافية
-            </span>
+            
             <h1 className="mt-6 text-4xl font-bold leading-[1.25] lg:text-5xl">
               <span style={{ color: NAVY }}>اكتشف قوة</span>
               <br />
-              <span style={{ color: GREEN }}>اللغة العبرية</span>{" "}
-              <span style={{ color: NAVY }}>مع Ohran</span>
+              <span style={{ color: GREEN }}>العبرية والإنجليزية</span>
+              <br />
+              <span style={{ color: NAVY }}>مع Fluent Hebrew</span>
             </h1>
             <p className="mt-5 max-w-lg text-base leading-8 text-[#5a6b8c]">
-              انضم إلى أكاديمية أوهران وتعلم اللغة العبرية على يد نخبة من الخبراء، من خلال برامج
-              تفاعلية ومنهجية مدروسة تضمن لك الإتقان.
+              انضم إلى أكاديمية أوهران وتعلّم اللغتين العبرية والإنجليزية على يد نخبة من الخبراء،
+              من خلال برامج تفاعلية ومنهجية مدروسة تضمن لك الإتقان والتواصل بثقة.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a
@@ -309,28 +311,34 @@ function Landing() {
                 boxShadow: "0 40px 80px -24px rgba(7,31,77,.55), inset 0 1px 0 rgba(255,255,255,.08)",
               }}
             >
-              {/* floating letter shards */}
+              {/* floating letter shards — Hebrew + English */}
               <span className="he-cube-face animate-float absolute right-8 top-8 size-12 text-2xl" style={{ ["--fl-rot" as string]: "-12deg" }}>ב</span>
-              <span className="he-cube-face animate-float-slow absolute left-10 top-16 size-10 text-xl" style={{ ["--fl-rot" as string]: "10deg" }}>ח</span>
+              <span className="he-cube-face animate-float-slow absolute left-10 top-16 size-10 text-xl" style={{ ["--fl-rot" as string]: "10deg" }}>A</span>
               <span className="he-cube-face animate-float absolute bottom-24 right-12 size-8 text-lg" style={{ ["--fl-rot" as string]: "14deg", animationDelay: "1.2s" }}>ר</span>
-              <span className="he-cube-face animate-float-slow absolute left-16 bottom-32 size-7 text-base" style={{ ["--fl-rot" as string]: "-8deg", animationDelay: ".6s" }}>ט</span>
+              <span className="he-cube-face animate-float-slow absolute left-16 bottom-32 size-7 text-base" style={{ ["--fl-rot" as string]: "-8deg", animationDelay: ".6s" }}>E</span>
               <span className="he-cube-face animate-float absolute right-1/3 top-6 size-6 text-sm" style={{ animationDelay: "1.8s" }}>צ</span>
+              <span className="he-cube-face animate-float-slow absolute left-1/4 top-1/2 size-6 text-sm" style={{ animationDelay: "2.2s" }}>N</span>
               {/* orbs */}
               <span className="animate-float absolute left-6 top-24 size-3 rounded-full bg-[#7fc341] shadow-[0_0_18px_#7fc341]" style={{ animationDelay: ".9s" }} />
               <span className="animate-float-slow absolute right-1/4 bottom-40 size-2.5 rounded-full bg-[#54c7ec] shadow-[0_0_16px_#54c7ec]" style={{ animationDelay: "1.5s" }} />
               <span className="animate-float absolute right-10 top-1/2 size-2 rounded-full bg-[#a78bfa] shadow-[0_0_14px_#a78bfa]" />
 
-              {/* glow word */}
-              <p dir="ltr" className="animate-glow-pulse relative z-10 text-center font-he text-7xl font-bold text-[#8fd0f5] lg:text-8xl" style={{ letterSpacing: ".05em" }}>
-                עִבְרִית
-              </p>
+              {/* glow words — both languages */}
+              <div dir="ltr" className="animate-glow-pulse relative z-10 flex items-center justify-center gap-4 text-center">
+                <span className="font-he text-6xl font-bold text-[#8fd0f5] lg:text-7xl" style={{ letterSpacing: ".05em" }}>
+                  עִבְרִית
+                </span>
+                <span className="font-lat text-5xl font-bold text-[#7fc341] lg:text-6xl">
+                  English
+                </span>
+              </div>
               <p className="relative z-10 mt-4 text-center text-sm font-medium tracking-widest text-[#9db8e8]">
-                اللغة العبرية · Hebrew
+                العبرية والإنجليزية · Hebrew & English
               </p>
 
               {/* 3D cube */}
               <div className="relative z-10 mt-10 flex justify-center">
-                <HebrewCube />
+                <LanguageCube />
               </div>
             </div>
 
@@ -341,15 +349,18 @@ function Landing() {
             <div className="animate-float-slow absolute -left-4 bottom-12 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: GREEN, animationDelay: "1.1s" }}>
               98% نسبة رضا الطلاب
             </div>
+            <div className="animate-float absolute -left-6 top-1/3 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: NAVY, animationDelay: "1.6s" }}>
+              عبري + إنجليزي
+            </div>
           </div>
         </section>
 
-        {/* ─── Why Ohran ─── */}
+        {/* ─── Why Fluent Hebrew ─── */}
         <section id="about" className="mt-24 grid items-center gap-10 lg:grid-cols-2">
           <div>
             <h2 className="text-3xl font-bold leading-snug">
               <span style={{ color: GREEN }}>لماذا تختار</span>{" "}
-              <span style={{ color: NAVY }}>أكاديمية Ohran؟</span>
+              <span style={{ color: NAVY }}>أكاديمية Fluent Hebrew؟</span>
             </h2>
             <p className="mt-4 leading-8 text-[#5a6b8c]">
               نحن نجمع بين أحدث التقنيات التعليمية والأساليب التقليدية الفعالة لنخلق لك تجربة تعليمية
@@ -357,9 +368,10 @@ function Landing() {
             </p>
             <ul className="mt-7 space-y-4">
               {[
-                "معلمون ناطقون باللغة ومعتمدون دولياً",
+                "معلمون ناطقون أصليون ومعتمدون دولياً — عبري وإنجليزي",
                 "جداول زمنية مرنة (أونلاين وحضوري)",
-                "منهاج مخصص لكل مستويات الإتقان",
+                "منهاج مخصص لكل مستويات الإتقان في اللغتين",
+                "إمكانية دراسة لغتين معاً بجدول متوازن",
               ].map((x) => (
                 <li key={x} className="flex items-center gap-3 text-sm font-semibold text-[#2d3f63]">
                   <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ background: `${GREEN}26`, color: "#4f9e1f" }}>
@@ -411,10 +423,11 @@ function Landing() {
 
       {/* ─── Stats bar ─── */}
       <section style={{ background: `linear-gradient(90deg, ${NAVY_DEEP}, ${NAVY})` }}>
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-8 px-5 py-12 sm:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-8 px-5 py-12 sm:grid-cols-3 lg:grid-cols-5">
           {[
             { v: "50k+", l: "ساعة تعليمية" },
             { v: "15+", l: "معلم خبير" },
+            { v: "2", l: "لغات — عبري وإنجليزي" },
             { v: "98%", l: "نسبة الرضا" },
             { v: "2,500+", l: "خريج ناجح" },
           ].map((s) => (
@@ -442,21 +455,39 @@ function Landing() {
             {[
               {
                 icon: Sprout, iconBg: "#2f6fed",
-                title: "مسار المبتدئين (A1-A2)",
-                desc: "إتقان الأبجدية، القواعد الأساسية، وإجراء محادثات يومية بسيطة بثقة تامة.",
+                title: "عبري — المبتدئين (A1-A2)",
+                desc: "إتقان الأبجدية العبرية، القواعد الأساسية، وإجراء محادثات يومية بسيطة بثقة تامة.",
                 link: "ابدأ الآن", linkC: GREEN,
               },
               {
                 icon: Rocket, iconBg: "#0d3a86",
-                title: "المستوى المتوسط (B1-B2)",
+                title: "عبري — المتوسط (B1-B2)",
                 desc: "توسيع المفردات، فهم الوسائل الإعلامية، والتعبير عن أفكار معقدة بطلاقة أكبر.",
                 link: "ارتقِ بمستواك", linkC: GREEN,
               },
               {
                 icon: Crown, iconBg: "#1647a8",
-                title: "المستوى المتقدم (C1)",
+                title: "عبري — المتقدم (C1)",
                 desc: "إتقان اللهجة، فهم المصطلحات المعقدة، والتعامل باحترافية في بيئات العمل العبرية.",
-                link: "كن محترفاً", linkC: "#0b2f6e",
+                link: "كن محترفاً", linkC: NAVY,
+              },
+              {
+                icon: Sprout, iconBg: "#2f9e4f",
+                title: "إنجليزي — المبتدئين (A1-A2)",
+                desc: "أساسيات اللغة الإنجليزية، القواعد والمفردات، والتمكن من المحادثات اليومية البسيطة.",
+                link: "ابدأ الآن", linkC: GREEN,
+              },
+              {
+                icon: Rocket, iconBg: "#1a7a3d",
+                title: "إنجليزي — المتوسط (B1-B2)",
+                desc: "تطوير المهارات الأربع، فهم النصوص المعقدة، والتواصل الفعّال في البيئات المهنية.",
+                link: "ارتقِ بمستواك", linkC: GREEN,
+              },
+              {
+                icon: Crown, iconBg: "#0b5a2e",
+                title: "إنجليزي — المتقدم (C1-C2)",
+                desc: "إتقان النطق والطلاقة، الكتابة الأكاديمية، والاستعداد لامتحانات IELTS وTOEFL.",
+                link: "كن محترفاً", linkC: NAVY,
               },
             ].map((p) => (
               <div
@@ -616,10 +647,10 @@ function Landing() {
               <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
                 <GraduationCap className="size-5" />
               </span>
-              <b className="text-lg font-bold text-white">Ohran Academy</b>
+              <b className="text-lg font-bold text-white">Fluent Hebrew Academy</b>
             </div>
             <p className="mt-4 text-xs leading-6 text-[#aebfdd]">
-              نعمل على تمكين الأفراد من التواصل باللغة العبرية منذ عام 2015 بأحدث المناهج التعليمية.
+              نعمل على تمكين الأفراد من التواصل باللغتين العبرية والإنجليزية منذ عام 2015 بأحدث المناهج التعليمية.
             </p>
           </div>
           <div>
@@ -634,7 +665,7 @@ function Landing() {
           <div>
             <b className="text-sm font-bold text-white">اتصل بنا</b>
             <ul className="mt-4 space-y-3 text-xs text-[#aebfdd]">
-              <li className="flex items-center gap-2"><Mail className="size-4" style={{ color: GREEN }} /> info@ohran.com</li>
+              <li className="flex items-center gap-2"><Mail className="size-4" style={{ color: GREEN }} /> info@Fluent Hebrew.com</li>
               <li className="flex items-center gap-2"><Phone className="size-4" style={{ color: GREEN }} /> <span dir="ltr">+20 1270 869 510</span></li>
               <li className="flex items-center gap-2"><MapPin className="size-4" style={{ color: GREEN }} /> القاهرة، مصر</li>
             </ul>
@@ -658,7 +689,7 @@ function Landing() {
           </div>
         </div>
         <div className="border-t border-white/10 py-5 text-center text-[11px] text-[#7f94bd]">
-          Ohran Academy · جميع الحقوق محفوظة {new Date().getFullYear()}
+          Fluent Hebrew Academy · جميع الحقوق محفوظة {new Date().getFullYear()}
         </div>
       </footer>
 

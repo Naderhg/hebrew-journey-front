@@ -80,14 +80,26 @@ const studentNav: readonly SidebarItem[] = [
   { to: "/progress", label: "التقدم والمهارات", icon: BarChart3 },
 ];
 
-const teacherNav: readonly SidebarItem[] = [
+const teacherNav: readonly NavEntry[] = [
   { to: "/teacher", section: "students", label: "طلابي وتقدمهم", icon: UsersRound },
-  { to: "/teacher", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
-  { to: "/teacher", section: "materials", label: "الكورسات والماتيريال", icon: Film },
-  { to: "/teacher", section: "exams", label: "الامتحانات والنتائج", icon: FileCheck },
-  { to: "/teacher", section: "schedule", label: "جدولي", icon: CalendarDays },
-  { to: "/teacher", section: "homework", label: "الواجبات", icon: ClipboardList },
-  { to: "/teacher", section: "attendance", label: "الحضور والغياب", icon: TicketCheck },
+  {
+    group: "المواعيد والحضور",
+    icon: CalendarDays,
+    items: [
+      { to: "/teacher", section: "sessions", label: "مواعيدي المتاحة", icon: CalendarCheck },
+      { to: "/teacher", section: "schedule", label: "جدولي", icon: CalendarDays },
+      { to: "/teacher", section: "attendance", label: "الحضور والغياب", icon: TicketCheck },
+    ],
+  },
+  {
+    group: "المحتوى التعليمي",
+    icon: BookOpen,
+    items: [
+      { to: "/teacher", section: "materials", label: "الكورسات والماتيريال", icon: Film },
+      { to: "/teacher", section: "exams", label: "الامتحانات والنتائج", icon: FileCheck },
+      { to: "/teacher", section: "homework", label: "الواجبات", icon: ClipboardList },
+    ],
+  },
   { to: "/teacher", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
   { to: "/teacher", section: "reports", label: "تقارير الطلاب", icon: BarChart3 },
   { to: "/teacher", section: "analytics", label: "التحليلات", icon: LineChart },
@@ -122,9 +134,6 @@ const adminNav: readonly NavEntry[] = [
     items: [
       { to: "/admin", section: "packages", label: "الباقات والأسعار", icon: TicketCheck },
       { to: "/admin", section: "bookings", label: "الحجوزات والمدفوعات", icon: CreditCard },
-      { to: "/admin", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
-      { to: "/admin", section: "groups", label: "المجموعات", icon: Users },
-      { to: "/admin", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
       { to: "/admin", section: "sales-report", label: "تقارير المبيعات", icon: BarChart3 },
       { to: "/admin", section: "leads", label: "توزيع العملاء", icon: BriefcaseBusiness },
     ],
@@ -143,6 +152,9 @@ const adminNav: readonly NavEntry[] = [
     items: [
       { to: "/admin", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
       { to: "/admin", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
+      { to: "/admin", section: "sessions", label: "نظام المكالمات", icon: CalendarCheck },
+      { to: "/admin", section: "groups", label: "المجموعات", icon: Users },
+      { to: "/admin", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
     ],
   },
   { to: "/admin", section: "analytics", label: "التحليلات", icon: LineChart },
@@ -173,7 +185,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
     { to: "/support", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
     { to: "/support", section: "schedules", label: "جداول المدرسين", icon: ClipboardCheck },
     { to: "/support", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
-    { to: "/support", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
+    { to: "/support", section: "sessions", label: "نظام المكالمات", icon: CalendarCheck },
     { to: "/support", section: "groups", label: "المجموعات", icon: Users },
     { to: "/support", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
     { to: "/support", section: "attendance", label: "الحضور والغياب", icon: UsersRound },

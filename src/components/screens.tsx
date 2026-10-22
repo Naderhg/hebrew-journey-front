@@ -859,6 +859,8 @@ export function TeacherScreen() {
     teacherCancelBooking,
     teacherAnalytics,
     fetchTeacherAnalytics,
+    fetchTeacherSchedules,
+    fetchTeacherLectures,
     updateTeacherLectureStatus,
     lectureStudents,
     fetchLectureStudents,
@@ -885,6 +887,7 @@ export function TeacherScreen() {
   const [attLectureId, setAttLectureId] = useState("");
   const [lectureAttDraft, setLectureAttDraft] = useState<Record<string, "present" | "absent">>({});
   const [attLectureSaving, setAttLectureSaving] = useState(false);
+  const [attErr, setAttErr] = useState("");
   const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Reports
@@ -927,6 +930,7 @@ export function TeacherScreen() {
   useEffect(() => {
     if (activeSection === "attendance") {
       fetchTeacherAttendance().catch(() => {});
+      fetchTeacherSchedules().catch(() => {});
       fetchTeacherLectures(true).catch(() => {});
     }
     if (activeSection === "chat") fetchTeacherChatThreads().catch(() => {});
@@ -1285,18 +1289,18 @@ export function TeacherScreen() {
         <div className="space-y-4">
           <Card>
             <div>
-              <h2 className="text-lg font-bold">المحاضرات المباشرة ({teacherLectures.length})</h2>
+              <h2 className="text-lg font-bold">المحاضرات المباشرة ({teacherLectures.filter((l) => l.status === "scheduled" || l.status === "live").length})</h2>
               <p className="text-xs text-muted-foreground">
                 المحاضرات التي يحددها لك الأدمن — يمكنك المشاركة عبر رابط الاجتماع
               </p>
             </div>
             <div className="mt-4 space-y-2">
-              {teacherLectures.length === 0 ? (
+              {teacherLectures.filter((l) => l.status === "scheduled" || l.status === "live").length === 0 ? (
                 <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
                   لا توجد محاضرات مجدولة لك حالياً.
                 </div>
               ) : (
-                teacherLectures.map((l) => (
+                teacherLectures.filter((l) => l.status === "scheduled" || l.status === "live").map((l) => (
                   <div key={l.id} className="rounded-md border border-border bg-background/60 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1601,6 +1605,7 @@ export function TeacherScreen() {
 
       {activeSection === "attendance" && (
         <div className="space-y-4">
+          {attErr && <Card className="border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{attErr}</Card>}
           <Card>
             <h3 className="font-bold">حضور محاضرة</h3>
             <p className="mt-1 text-xs text-muted-foreground">اختر المحاضرة وسجّل حضور أو غياب كل طالب — بيتحسب في التحليلات</p>
@@ -1612,10 +1617,9 @@ export function TeacherScreen() {
                   const id = e.target.value;
                   setAttLectureId(id);
                   setLectureAttDraft({});
+                  setAttErr("");
                   if (id) {
-                    fetchLectureStudents(id)
-                      .then(() => {})
-                      .catch(() => {});
+                    fetchLectureStudents(id).catch(() => setAttErr("فشل تحميل طلاب المحاضرة"));
                   }
                 }}
                 className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -1664,6 +1668,7 @@ export function TeacherScreen() {
                       disabled={attLectureSaving || Object.keys(lectureAttDraft).length === 0}
                       onClick={async () => {
                         setAttLectureSaving(true);
+                        setAttErr("");
                         try {
                           const records = lectureStudents.map((s) => ({
                             studentId: s.id,
@@ -1672,6 +1677,8 @@ export function TeacherScreen() {
                           await saveLectureAttendance(attLectureId, records);
                           await fetchLectureStudents(attLectureId);
                           setLectureAttDraft({});
+                        } catch {
+                          setAttErr("فشل حفظ الحضور — حاول مرة أخرى");
                         } finally {
                           setAttLectureSaving(false);
                         }
@@ -1723,7 +1730,7 @@ export function TeacherScreen() {
                             <button
                               key={st}
                               onClick={() =>
-                                recordTeacherAttendance({ scheduleId: attScheduleId, studentId: s.id, status: st, date: attDate }).catch(() => {})
+                                recordTeacherAttendance({ scheduleId: attScheduleId, studentId: s.id, status: st, date: attDate }).catch(() => setAttErr("فشل تسجيل الحضور"))
                               }
                               className={`rounded-md px-2.5 py-1 text-xs transition ${
                                 existing?.status === st
@@ -7825,6 +7832,7 @@ export function SupportScreen() {
       fetchCallsStudents().catch(() => {});
     }
     if (activeSection === "groups") fetchAdminGroups().catch(() => {});
+    if (activeSection === "attendance") fetchSupportData().catch(() => {});
     if (activeSection === "free-lectures") {
       fetchFreeStudents().catch(() => {});
       fetchFreeLectures().catch(() => {});

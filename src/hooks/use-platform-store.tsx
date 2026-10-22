@@ -1663,6 +1663,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function fetchLectureStudents(lectureId: string) {
+    setLectureStudents([]);
     const res = await apiFetch<{ lecture: { id: string; title: string; startsAt: string; groupName: string | null }; students: LectureStudent[] }>(`/api/teacher/lectures/${lectureId}/students`);
     setLectureStudents(res?.students ?? []);
   }

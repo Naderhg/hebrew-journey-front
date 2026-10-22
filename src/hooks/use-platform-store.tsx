@@ -1003,6 +1003,13 @@ interface PlatformStoreValue {
   fetchPublicSchedules: () => Promise<void>;
   fetchSupportLectures: () => Promise<void>;
   // ─── Session-package bookings ───
+  mySessions: SessionSubscription[];
+  myBookings: LessonBookingItem[];
+  availableSlots: AvailableSlot[];
+  teacherAvailability: TeacherAvailabilitySlot[];
+  teacherBookings: LessonBookingItem[];
+  adminBookings: LessonBookingItem[];
+  adminBookingsReport: { students: any[]; totals: any } | null;
   fetchMySessions: () => Promise<void>;
   fetchHasCallsPackage: () => Promise<void>;
   hasCallsPackage: boolean;
@@ -1056,7 +1063,7 @@ interface PlatformStoreValue {
   fetchStudentFreeLectures: () => Promise<void>;
   // teacher analytics + student wallet
   teacherAnalytics: TeacherAnalytics | null;
-  fetchTeacherAnalytics: (filters?: { from?: string; to?: string; studentId?: string }) => Promise<void>;
+  fetchTeacherAnalytics: (filters?: { from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) => Promise<void>;
   studentWallet: WalletItem[];
   studentWalletBookings: WalletBooking[];
   fetchStudentWallet: () => Promise<void>;
@@ -2181,7 +2188,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   // ─── Teacher analytics ───
-  async function fetchTeacherAnalytics(filters?: { from?: string; to?: string; studentId?: string }) {
+  async function fetchTeacherAnalytics(filters?: { from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) {
     const qs = new URLSearchParams();
     if (filters?.from) qs.set("from", filters.from);
     if (filters?.to) qs.set("to", filters.to);

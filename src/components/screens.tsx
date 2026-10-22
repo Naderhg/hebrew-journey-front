@@ -833,6 +833,7 @@ export function TeacherScreen() {
     teacherLectures,
     teacherHomework,
     teacherAttendance,
+    createTeacherSchedule,
     fetchExamResults,
     gradeExamResult,
     fetchTeacherAttendance,
@@ -9236,7 +9237,7 @@ function TeacherAnalyticsSection({
             <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حصص في هذه الفترة.</p>
           ) : (
             data.bookings.map((b) => {
-              const st = STATUS[b.status] ?? STATUS.booked;
+              const st = STATUS[b.status] ?? { label: b.status, tone: "muted" as const };
               return (
                 <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3">
                   <div className="min-w-0">

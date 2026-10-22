@@ -75,7 +75,7 @@ function StudentWalletPage() {
 
             {/* Packages */}
             {studentWallet.map((w) => {
-              const st = SUB_LABELS[w.status] ?? SUB_LABELS.ACTIVE;
+              const st = SUB_LABELS[w.status] ?? { label: w.status, tone: "muted" as const };
               const usedPct = w.sessionsTotal > 0 ? (w.sessionsUsed / w.sessionsTotal) * 100 : 0;
               return (
                 <Card key={w.id}>
@@ -126,7 +126,7 @@ function StudentWalletPage() {
                   <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حصص مسجلة بعد.</p>
                 ) : (
                   studentWalletBookings.map((b) => {
-                    const st = STATUS_LABELS[b.status] ?? STATUS_LABELS.booked;
+                    const st = STATUS_LABELS[b.status] ?? { label: b.status, tone: "muted" as const };
                     return (
                       <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3">
                         <div>

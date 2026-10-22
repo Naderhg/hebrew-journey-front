@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AreaChart, Area, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Award,
   CalendarDays,
   Check,
   Circle,
+  Clock,
+  PlusCircle,
+  Video,
   ClipboardCheck,
   ExternalLink,
   FileCheck,
@@ -2224,6 +2227,25 @@ export function AdminScreen() {
     support: users.filter((u) => u.role === "SUPPORT").length,
   };
 
+  const roleData = [
+    { name: "طلاب", value: counts.students, color: "var(--brand)" },
+    { name: "مدرسون", value: counts.teachers, color: "var(--sage)" },
+    { name: "مبيعات", value: counts.sales, color: "var(--gold)" },
+    { name: "دعم", value: counts.support, color: "var(--brand2)" },
+  ].filter((r) => r.value > 0);
+
+  const growthData = (() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      return {
+        label: d.toLocaleDateString("ar-EG", { month: "short" }),
+        total: users.filter((u) => new Date(u.createdAt) < end).length,
+      };
+    });
+  })();
+
   async function handleCreateStaff(e: React.FormEvent) {
     e.preventDefault();
     setUserError("");
@@ -2529,8 +2551,8 @@ export function AdminScreen() {
       onSelectSection={(s) => setActiveSection(s as AdminSection)}
     >
       <PageHeader
-        title="لوحة تحكم الإدارة (Admin Dashboard)"
-        subtitle="جميع صفحات الإدارة متاحة في القائمة الجانبية (Sidebar) ومربوطة بقاعدة البيانات مباشرة"
+        title="لوحة تحكم الإدارة"
+        subtitle="إدارة المستخدمين والمحتوى والمحاضرات والجدول الأكاديمي"
       />
 
       {activeSection === "overview" && (
@@ -2555,6 +2577,52 @@ export function AdminScreen() {
                 </div>
               </Card>
             ))}
+          </div>
+
+          <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_320px]">
+            <Card>
+              <h2 className="mb-3 text-base font-bold">نمو المستخدمين (آخر 6 أشهر)</h2>
+              <div dir="ltr" className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={growthData}>
+                    <defs>
+                      <linearGradient id="adminGrowth" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={32} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="total" name="المستخدمون" stroke="var(--brand)" strokeWidth={3} fill="url(#adminGrowth)" dot={{ r: 3, fill: "var(--sage)", stroke: "var(--sage)" }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+            <Card>
+              <h2 className="mb-3 text-base font-bold">توزيع الأدوار</h2>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={roleData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={80} paddingAngle={2} strokeWidth={0}>
+                      {roleData.map((r) => (
+                        <Cell key={r.name} fill={r.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+                {roleData.map((r) => (
+                  <span key={r.name} className="flex items-center gap-1.5">
+                    <i className="size-2.5 rounded-sm" style={{ background: r.color }} />
+                    {r.name} ({r.value})
+                  </span>
+                ))}
+              </div>
+            </Card>
           </div>
 
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
@@ -4383,32 +4451,59 @@ function AdminLecturesSection({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-12 place-items-center rounded-2xl bg-sage/15 text-sage">
+            <Video className="size-5" />
+          </span>
           <div>
-            <h2 className="text-lg font-bold">المحاضرات المباشرة ({lectures.length})</h2>
+            <h2 className="text-xl font-extrabold">المحاضرات المباشرة</h2>
             <p className="text-xs text-muted-foreground">
-              أنشئ مواعيد المحاضرات وحررها — خدمة العملاء يقدر يطّلع عليها فقط
+              لديك <b>{lectures.length}</b> محاضرة مجدولة في النظام
             </p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {["", "scheduled", "live", "completed", "cancelled"].map((f) => (
-              <button
-                key={f}
-                onClick={() => onFilterChange(f)}
-                className={`rounded-md px-3 py-1 text-xs ${filter === f ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}
-              >
-                {f === "" ? "الكل" : LECTURE_STATUS_LABELS[f]}
-              </button>
-            ))}
-            <Button variant="secondary" className="text-xs" onClick={() => setShowForm(!showForm)}>
-              {showForm ? "إلغاء" : "+ محاضرة جديدة"}
-            </Button>
+        </div>
+        <Button className="me-auto min-h-11 px-5" onClick={() => setShowForm(!showForm)}>
+          <PlusCircle className="size-4" />
+          {showForm ? "إلغاء" : "إضافة محاضرة جديدة"}
+        </Button>
+      </div>
+
+      <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
+        <div className="flex flex-wrap gap-2">
+          {["", "scheduled", "live", "completed", "cancelled"].map((f) => (
+            <button
+              key={f}
+              onClick={() => onFilterChange(f)}
+              className={`rounded-xl px-5 py-2 text-[13px] font-bold transition-colors ${
+                filter === f
+                  ? "bg-brand text-white shadow-[0_8px_20px_-10px] shadow-brand"
+                  : f === "live"
+                    ? "bg-sage/12 text-sage"
+                    : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {f === "live" && <span className="me-1.5 inline-block size-1.5 rounded-full bg-sage align-middle" />}
+              {f === "" ? "الكل" : LECTURE_STATUS_LABELS[f]}
+            </button>
+          ))}
+        </div>
+        <div className="me-auto flex items-center gap-5 text-center">
+          <div>
+            <small className="block text-[11px] text-muted-foreground">قيد الانتظار</small>
+            <b className="font-lat text-lg">{lectures.filter((l) => l.status === "scheduled").length}</b>
+          </div>
+          <span className="h-8 w-px bg-border" />
+          <div>
+            <small className="block text-[11px] text-muted-foreground">تمت بنجاح</small>
+            <b className="font-lat text-lg">{lectures.filter((l) => l.status === "completed").length}</b>
           </div>
         </div>
+      </Card>
 
-        {showForm && (
-          <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+      {showForm && (
+        <Card>
+          <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>عنوان المحاضرة</Label>
@@ -4510,45 +4605,62 @@ function AdminLecturesSection({
             {err && <p className="text-sm font-semibold text-danger">{err}</p>}
             <Button type="submit" disabled={saving}>{saving ? "جاري الحفظ..." : "إنشاء المحاضرة"}</Button>
           </form>
-        )}
-      </Card>
+        </Card>
+      )}
 
-      <div className="space-y-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {filtered.length === 0 ? (
-          <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد محاضرات بهذا الفلتر.</Card>
+          <Card className="py-10 text-center text-sm text-muted-foreground xl:col-span-2">لا توجد محاضرات بهذا الفلتر.</Card>
         ) : (
-          filtered.map((l) => (
-            <Card key={l.id}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <b className="text-sm">{l.title}</b>
-                    <Badge tone={l.status === "live" ? "sage" : l.status === "cancelled" ? "danger" : l.status === "completed" ? "muted" : "brand"}>
-                      {LECTURE_STATUS_LABELS[l.status] ?? l.status}
-                    </Badge>
-                    {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
-                    {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+          filtered.map((l) => {
+            const isLive = l.status === "live";
+            const start = new Date(l.startsAt);
+            return (
+              <Card key={l.id} className="space-y-4 p-6">
+                <div className="flex items-start gap-3">
+                  <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${isLive ? "bg-sage/15 text-sage" : "bg-brand/10 text-brand"}`}>
+                    {isLive ? <Video className="size-5" /> : <CalendarDays className="size-5" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <b className="block truncate text-base">{l.title}</b>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <Badge tone={isLive ? "sage" : l.status === "cancelled" ? "danger" : l.status === "completed" ? "muted" : "brand"}>
+                        {LECTURE_STATUS_LABELS[l.status] ?? l.status}
+                      </Badge>
+                      {l.level && <Badge tone="sage">مستوى {l.level}</Badge>}
+                      {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+                    </div>
                   </div>
-                  <small className="mt-1 block text-muted-foreground">
-                    المدرس: {l.teacher?.fullName ?? "—"}
-                    {l.teacher?.specialty ? ` — ${l.teacher.specialty}` : ""}
-                  </small>
-                  {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
-                  <small className="mt-1 block text-muted-foreground">
-                    {new Date(l.startsAt).toLocaleString("ar-EG")}
-                    {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
-                  </small>
-                  {l.meetingUrl && (
-                    <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
-                      رابط الاجتماع ↗
-                    </a>
-                  )}
+                  <button onClick={() => onDelete(l.id).catch(() => {})} className="grid size-9 place-items-center rounded-xl bg-muted/70 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="حذف">
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
+
+                {l.description && <p className="text-xs text-muted-foreground">{l.description}</p>}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-border bg-muted/40 p-4">
+                    <small className="block text-[11px] text-muted-foreground">المعلم المسؤول</small>
+                    <b className="mt-2 flex items-center gap-2 text-[13px]">
+                      <span className="grid size-6 place-items-center rounded-full bg-brand/10 text-[11px] text-brand">{(l.teacher?.fullName ?? "—")[0]}</span>
+                      {l.teacher?.fullName ?? "—"}
+                    </b>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-muted/40 p-4">
+                    <small className="block text-[11px] text-muted-foreground">توقيت المحاضرة</small>
+                    <b className="mt-2 flex items-center gap-2 text-[13px]">
+                      <Clock className="size-3.5 text-muted-foreground" />
+                      {start.toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" })}
+                      {l.endsAt ? ` – ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { timeStyle: "short" })}` : ""}
+                    </b>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
                   <select
                     value={l.status}
                     onChange={(e) => onUpdate(l.id, { status: e.target.value as CreateLectureInput["status"] }).catch(() => {})}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    className="h-11 shrink-0 rounded-xl border border-border bg-muted/40 px-3 text-xs font-semibold text-muted-foreground"
                     title="تغيير الحالة"
                   >
                     <option value="scheduled">مجدولة</option>
@@ -4556,13 +4668,26 @@ function AdminLecturesSection({
                     <option value="completed">منتهية</option>
                     <option value="cancelled">ملغاة</option>
                   </select>
-                  <button onClick={() => onDelete(l.id).catch(() => {})} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
-                    <Trash2 className="size-4" />
-                  </button>
+                  {l.meetingUrl ? (
+                    <a
+                      href={l.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="dash-btn-primary inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand text-[13px] font-bold text-white hover:bg-brand/90"
+                    >
+                      <Video className="size-4" />
+                      {isLive ? "الدخول للاجتماع الآن" : "رابط الاجتماع"}
+                    </a>
+                  ) : (
+                    <span className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-muted text-[13px] font-bold text-muted-foreground/70">
+                      <Video className="size-4" />
+                      لا يوجد رابط اجتماع
+                    </span>
+                  )}
                 </div>
-              </div>
-            </Card>
-          ))
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

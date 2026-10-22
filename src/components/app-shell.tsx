@@ -12,6 +12,8 @@ import {
   ClipboardCheck,
   ClipboardList,
   CreditCard,
+  LineChart,
+  Wallet,
   FileCheck,
   Film,
   GraduationCap,
@@ -62,6 +64,7 @@ function isGroup(entry: NavEntry): entry is SidebarGroup {
 const studentNav: readonly SidebarItem[] = [
   { to: "/dashboard", label: "لوحة الطالب", icon: LayoutDashboard },
   { to: "/sessions", label: "حصصي الفردية", icon: CalendarCheck },
+  { to: "/wallet", label: "محفظتي", icon: Wallet },
   { to: "/free-lectures", label: "المحاضرة المجانية", icon: Gift },
   { to: "/courses", label: "كورساتي", icon: Film },
   { to: "/lectures", label: "المحاضرات والمواعيد", icon: CalendarDays },
@@ -87,6 +90,7 @@ const teacherNav: readonly SidebarItem[] = [
   { to: "/teacher", section: "attendance", label: "الحضور والغياب", icon: TicketCheck },
   { to: "/teacher", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
   { to: "/teacher", section: "reports", label: "تقارير الطلاب", icon: BarChart3 },
+  { to: "/teacher", section: "analytics", label: "التحليلات", icon: LineChart },
 ];
 
 const adminNav: readonly NavEntry[] = [

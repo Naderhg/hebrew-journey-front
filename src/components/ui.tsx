@@ -17,3 +17,16 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
 export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
   return <label className={cn("text-[13px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)} {...props} />;
 }
+export function SectionHeader({ icon: Icon, title, subtitle, actions, tone = "brand" }: { icon: React.ComponentType<{ className?: string }>; title: string; subtitle?: ReactNode; actions?: ReactNode; tone?: "brand" | "sage" | "gold" }) {
+  const tones = { brand: "bg-brand/10 text-brand", sage: "bg-sage/15 text-sage", gold: "bg-gold/15 text-gold" };
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-3">
+      <span className={cn("grid size-12 place-items-center rounded-2xl", tones[tone])}><Icon className="size-5" /></span>
+      <div className="min-w-0">
+        <h2 className="text-xl font-extrabold">{title}</h2>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
+      {actions && <div className="me-auto flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}

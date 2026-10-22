@@ -3,6 +3,8 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { AreaChart, Area, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Award,
+  Banknote,
+  BarChart3,
   CalendarDays,
   Check,
   Circle,
@@ -33,7 +35,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { AppShell, PageHeader } from "./app-shell";
-import { Badge, Button, Card, Input, Label, ProgressBar } from "./ui";
+import { Badge, Button, Card, Input, Label, ProgressBar, SectionHeader } from "./ui";
 import {
   usePlatformStore,
   uploadFile,
@@ -812,7 +814,7 @@ export function ProgressScreen() {
   );
 }
 
-export type TeacherSection = "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions";
+export type TeacherSection = "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
 
 const SKILL_LABELS: Record<string, string> = {
   listening: "الاستماع",
@@ -854,6 +856,8 @@ export function TeacherScreen() {
     fetchTeacherBookings,
     setBookingStatus,
     teacherCancelBooking,
+    teacherAnalytics,
+    fetchTeacherAnalytics,
   } = usePlatformStore();
   const [activeSection, setActiveSection] = useState<TeacherSection>("students");
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
@@ -900,6 +904,11 @@ export function TeacherScreen() {
   const [chatReply, setChatReply] = useState("");
   const [chatSending, setChatSending] = useState(false);
 
+  // Analytics filters
+  const [anFrom, setAnFrom] = useState("");
+  const [anTo, setAnTo] = useState("");
+  const [anStudentId, setAnStudentId] = useState("");
+
   // Session availability form
   const [avDay, setAvDay] = useState<number | null>(0);
   const [avDate, setAvDate] = useState("");
@@ -914,7 +923,10 @@ export function TeacherScreen() {
       fetchTeacherAvailability().catch(() => {});
       fetchTeacherBookings().catch(() => {});
     }
-  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (activeSection === "analytics") {
+      fetchTeacherAnalytics({ from: anFrom || undefined, to: anTo || undefined, studentId: anStudentId || undefined }).catch(() => {});
+    }
+  }, [activeSection, anFrom, anTo, anStudentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleAddAvailability(e: React.FormEvent) {
     e.preventDefault();
@@ -1909,6 +1921,19 @@ export function TeacherScreen() {
             </div>
           </Card>
         </div>
+      )}
+
+      {activeSection === "analytics" && (
+        <TeacherAnalyticsSection
+          data={teacherAnalytics}
+          students={teacherStudents}
+          from={anFrom}
+          to={anTo}
+          studentId={anStudentId}
+          onFromChange={setAnFrom}
+          onToChange={setAnTo}
+          onStudentChange={setAnStudentId}
+        />
       )}
     </AppShell>
   );
@@ -2951,19 +2976,15 @@ export function AdminScreen() {
       )}
 
       {activeSection === "courses" && (
+        <>
+        <SectionHeader
+          icon={Film}
+          title="الكورسات والماتيريال"
+          subtitle={<>لديك <b>{materials.length}</b> ملف مرفوع ومربوط بالمدرسين</>}
+        />
         <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
           <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold">الكورسات والملفات المرفوعة للمدرسين</h2>
-                <p className="text-xs text-muted-foreground">
-                  مخزنة على KVM Storage ({SERVER_CONFIG.storageServerIp}) ومربوطة بكل مدرس
-                </p>
-              </div>
-              <Badge tone="brand">{materials.length} ملفات</Badge>
-            </div>
-
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               {materials.length === 0 ? (
                 <div className="py-12 text-center text-sm text-muted-foreground">
                   لا توجد كورسات مرفوعة في قاعدة البيانات حالياً.
@@ -2972,11 +2993,11 @@ export function AdminScreen() {
                 materials.map((m) => (
                   <div
                     key={m.id}
-                    className="rounded-md border border-border bg-background/60 p-4"
+                    className="rounded-2xl border border-border bg-muted/30 p-5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="flex items-start gap-3">
-                        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-brand/10 text-brand">
+                        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/10 text-brand">
                           {m.type === "VIDEO" ? (
                             <Film className="size-5" />
                           ) : m.type === "AUDIO" ? (
@@ -3183,22 +3204,20 @@ export function AdminScreen() {
             </form>
           </Card>
         </div>
+        </>
       )}
 
       {activeSection === "exams" && (
+        <>
+        <SectionHeader
+          icon={FileCheck}
+          tone="gold"
+          title="الامتحانات"
+          subtitle={<>لديك <b>{exams.length}</b> امتحان — المنشور يظهر للمدرس المعيّن وطلابه</>}
+        />
         <div className="grid gap-4 xl:grid-cols-[1fr_440px]">
           <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold">الامتحانات المخصصة للمدرسين</h2>
-                <p className="text-xs text-muted-foreground">
-                  الامتحان المنشور يظهر للمدرس المعيّن وللطلاب المربوطين به
-                </p>
-              </div>
-              <Badge tone="brand">{exams.length} امتحان</Badge>
-            </div>
-
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               {exams.length === 0 ? (
                 <div className="py-12 text-center text-sm text-muted-foreground">
                   لا توجد امتحانات في قاعدة البيانات حالياً.
@@ -3207,11 +3226,11 @@ export function AdminScreen() {
                 exams.map((exam) => (
                   <div
                     key={exam.id}
-                    className="rounded-md border border-border bg-background/60 p-4"
+                    className="rounded-2xl border border-border bg-muted/30 p-5"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-start gap-3">
-                        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-brand/10 text-brand">
+                        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gold/15 text-gold">
                           <FileCheck className="size-5" />
                         </span>
                         <div>
@@ -3680,6 +3699,7 @@ export function AdminScreen() {
             </form>
           </Card>
         </div>
+        </>
       )}
 
       {activeSection === "results" && (
@@ -5336,19 +5356,21 @@ function AdminCertificatesSection({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold">الشهادات الصادرة ({certificates.length})</h2>
-            <p className="text-xs text-muted-foreground">تصدر فقط من الإدارة عند استيفاء شروط النجاح</p>
-          </div>
-          <Button variant="secondary" className="text-xs" onClick={() => setShowForm(!showForm)}>
-            {showForm ? "إلغاء" : "+ إصدار شهادة"}
+      <SectionHeader
+        icon={Award}
+        tone="gold"
+        title="الشهادات"
+        subtitle={<>تم إصدار <b>{certificates.length}</b> شهادة — تصدر فقط من الإدارة عند استيفاء شروط النجاح</>}
+        actions={
+          <Button className="min-h-11 px-5" onClick={() => setShowForm(!showForm)}>
+            <PlusCircle className="size-4" />
+            {showForm ? "إلغاء" : "إصدار شهادة"}
           </Button>
-        </div>
-
-        {showForm && (
-          <form onSubmit={handleIssue} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+        }
+      />
+      {showForm && (
+        <Card>
+          <form onSubmit={handleIssue} className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>الطالب</Label>
@@ -5380,18 +5402,18 @@ function AdminCertificatesSection({
             {err && <p className="text-sm font-semibold text-danger">{err}</p>}
             <Button type="submit" disabled={saving}>{saving ? "جاري الإصدار..." : "إصدار الشهادة"}</Button>
           </form>
-        )}
-      </Card>
+        </Card>
+      )}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {certificates.length === 0 ? (
           <Card className="col-span-full py-10 text-center text-sm text-muted-foreground">لم تصدر أي شهادات بعد.</Card>
         ) : (
           certificates.map((c) => (
-            <Card key={c.id}>
+            <Card key={c.id} className="p-6">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-3">
-                  <span className="grid size-10 place-items-center rounded-md bg-gold/15 text-gold">
+                  <span className="grid size-12 place-items-center rounded-2xl bg-gold/15 text-gold">
                     <Award className="size-5" />
                   </span>
                   <div>
@@ -5407,7 +5429,7 @@ function AdminCertificatesSection({
                 </div>
                 <div className="flex items-center gap-1.5">
                   {c.level && <Badge tone="gold">{c.level}</Badge>}
-                  <button onClick={() => onDelete(c.id).catch(() => {})} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
+                  <button onClick={() => onDelete(c.id).catch(() => {})} className="grid size-9 place-items-center rounded-xl bg-muted/70 text-muted-foreground hover:bg-danger/10 hover:text-danger">
                     <Trash2 className="size-4" />
                   </button>
                 </div>
@@ -6741,27 +6763,23 @@ function AdminResultsSection({
   const [drafts, setDrafts] = useState<Record<string, { score: string; feedback: string }>>({});
 
   return (
+    <>
+    <SectionHeader
+      icon={ClipboardCheck}
+      tone="sage"
+      title="تسليمات الطلاب"
+      subtitle={<>لديك <b>{results.length}</b> تسليم — يمكنك تعديل الدرجة وإرسال ملاحظة للطالب</>}
+      actions={<Button variant="secondary" onClick={() => onRefresh()}>تحديث القائمة</Button>}
+    />
     <Card>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold">تسليمات الطلاب — كل الامتحانات</h2>
-          <p className="text-xs text-muted-foreground">
-            عرض كل تسليمات الطلاب مع درجاتهم وملاحظات المدرسين — يمكنك تعديل الدرجة وإرسال ملاحظة للطالب
-          </p>
-        </div>
-        <Button variant="secondary" className="text-xs" onClick={() => onRefresh()}>
-          تحديث القائمة
-        </Button>
-      </div>
-
-      <div className="mt-4 space-y-3">
+      <div className="space-y-3">
         {results.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
             لا توجد تسليمات من الطلاب حالياً.
           </div>
         ) : (
           results.map((r) => (
-            <div key={r.id} className="rounded-md border border-border bg-background/60 p-4">
+            <div key={r.id} className="rounded-2xl border border-border bg-muted/30 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <b className="text-sm">{r.student?.fullName ?? "طالب"}</b>
@@ -6845,6 +6863,7 @@ function AdminResultsSection({
         )}
       </div>
     </Card>
+    </>
   );
 }
 
@@ -9048,6 +9067,194 @@ function OpsFreeLecturesSection({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Teacher Analytics Section (new dashboard style) ────────────────────────
+// Earnings rule: session price = package price / package sessions.
+// A session earns when attended OR not attended without timely cancellation.
+function TeacherAnalyticsSection({
+  data,
+  students,
+  from,
+  to,
+  studentId,
+  onFromChange,
+  onToChange,
+  onStudentChange,
+}: {
+  data: import("../hooks/use-platform-store").TeacherAnalytics | null;
+  students: { id: string; fullName: string }[];
+  from: string;
+  to: string;
+  studentId: string;
+  onFromChange: (v: string) => void;
+  onToChange: (v: string) => void;
+  onStudentChange: (v: string) => void;
+}) {
+  const STATUS: Record<string, { label: string; tone: "sage" | "danger" | "muted" | "gold" | "brand" }> = {
+    booked: { label: "قادمة", tone: "brand" },
+    completed: { label: "حضرها", tone: "sage" },
+    no_show: { label: "لم يحضر (مخصومة)", tone: "danger" },
+    late_cancel: { label: "إلغاء متأخر (مخصومة)", tone: "danger" },
+    cancelled: { label: "ملغاة", tone: "muted" },
+  };
+
+  const stats = data?.totals;
+  const cards = [
+    { label: "حصص تم شرحها", value: stats?.sessionsCompleted ?? 0, icon: Video, tone: "text-brand bg-brand/10" },
+    { label: "حصص مخصومة", value: stats?.sessionsDeducted ?? 0, icon: Clock, tone: "text-gold bg-gold/15" },
+    { label: "طلاب حضروا", value: stats?.studentsAttended ?? 0, icon: UsersRound, tone: "text-sage bg-sage/15" },
+    { label: "إجمالي الأرباح", value: `${(stats?.earnings ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م`, icon: Banknote, tone: "text-brand2 bg-brand2/10" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        icon={BarChart3}
+        tone="sage"
+        title="التحليلات"
+        subtitle="حصصك المكتملة والحضور وأرباحك — سعر الحصة = سعر الباقة ÷ عدد حصصها"
+      />
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label>من تاريخ</Label>
+            <Input type="date" value={from} onChange={(e) => onFromChange(e.target.value)} className="w-40" />
+          </div>
+          <div className="space-y-1">
+            <Label>إلى تاريخ</Label>
+            <Input type="date" value={to} onChange={(e) => onToChange(e.target.value)} className="w-40" />
+          </div>
+          <div className="space-y-1">
+            <Label>الطالب</Label>
+            <select
+              value={studentId}
+              onChange={(e) => onStudentChange(e.target.value)}
+              className="flex h-10 w-48 rounded-xl border border-input bg-background px-3 text-sm"
+            >
+              <option value="">كل الطلاب</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>{s.fullName}</option>
+              ))}
+            </select>
+          </div>
+          {(from || to || studentId) && (
+            <Button variant="ghost" onClick={() => { onFromChange(""); onToChange(""); onStudentChange(""); }}>
+              مسح الفلاتر
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Stat cards */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((c) => (
+          <Card key={c.label} className="flex items-center gap-3 p-4">
+            <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${c.tone}`}>
+              <c.icon className="size-5" />
+            </span>
+            <div className="min-w-0">
+              <b className="block text-xl leading-tight">{c.value}</b>
+              <p className="text-[11px] text-muted-foreground">{c.label}</p>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {/* Completed lectures with attendance */}
+        <Card>
+          <h3 className="font-bold">المحاضرات المنتهية ({data?.lectures.length ?? 0})</h3>
+          <div className="mt-3 space-y-2">
+            {!data || data.lectures.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">لا توجد محاضرات منتهية في هذه الفترة.</p>
+            ) : (
+              data.lectures.map((l) => (
+                <div key={l.id} className="flex items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                  <div className="min-w-0">
+                    <b className="block truncate text-sm">{l.title}</b>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(l.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {l.groupName && ` · ${l.groupName}`}
+                    </p>
+                  </div>
+                  <Badge tone="sage">{l.attended} حضور{l.groupSize ? ` / ${l.groupSize}` : ""}</Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        {/* Per-student breakdown */}
+        <Card>
+          <h3 className="font-bold">الطلاب — الحصص والأرباح</h3>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-right text-[11px] text-muted-foreground">
+                  <th className="p-2">الطالب</th>
+                  <th className="p-2">حضر</th>
+                  <th className="p-2">لم يحضر</th>
+                  <th className="p-2">قادمة</th>
+                  <th className="p-2">متبقي</th>
+                  <th className="p-2">أرباحي</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!data || data.students.length === 0 ? (
+                  <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">لا توجد حصص في هذه الفترة.</td></tr>
+                ) : (
+                  data.students.map((s) => (
+                    <tr key={s.studentId} className="border-b border-border/50">
+                      <td className="p-2 font-semibold">{s.studentName}</td>
+                      <td className="p-2"><Badge tone="sage">{s.attended}</Badge></td>
+                      <td className="p-2"><Badge tone="danger">{s.noShow + s.lateCancel}</Badge></td>
+                      <td className="p-2"><Badge tone="muted">{s.upcoming}</Badge></td>
+                      <td className="p-2">{s.remaining ?? "—"}</td>
+                      <td className="p-2 font-bold text-brand2">{s.earned.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
+      {/* Sessions log */}
+      <Card>
+        <h3 className="font-bold">سجل الحصص</h3>
+        <div className="mt-3 space-y-2">
+          {!data || data.bookings.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حصص في هذه الفترة.</p>
+          ) : (
+            data.bookings.map((b) => {
+              const st = STATUS[b.status] ?? STATUS.booked;
+              return (
+                <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3">
+                  <div className="min-w-0">
+                    <b className="block text-sm">{b.studentName}</b>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {b.packageName && ` · ${b.packageName}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {b.deducted && (
+                      <span className="text-xs font-bold text-brand2">+{b.earned.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م</span>
+                    )}
+                    <Badge tone={st.tone}>{st.label}</Badge>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

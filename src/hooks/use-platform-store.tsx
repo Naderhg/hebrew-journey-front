@@ -511,6 +511,47 @@ export interface CallsStudentItem {
   expiresAt?: string | null;
 }
 
+export interface TeacherAnalytics {
+  totals: {
+    sessionsCompleted: number;
+    sessionsDeducted: number;
+    studentsAttended: number;
+    earnings: number;
+    lecturesCompleted: number;
+  };
+  lectures: { id: string; title: string; startsAt: string; groupName: string | null; groupSize: number | null; attended: number }[];
+  bookings: { id: string; studentId: string; studentName: string; packageName: string | null; startsAt: string; status: string; attended: boolean; deducted: boolean; earned: number; sessionPrice: number }[];
+  students: { studentId: string; studentName: string; attended: number; noShow: number; lateCancel: number; remaining: number | null; earned: number; upcoming: number }[];
+}
+
+export interface WalletItem {
+  id: string;
+  packageName: string;
+  price: number;
+  status: string;
+  sessionsTotal: number;
+  sessionsUsed: number;
+  sessionsRemaining?: number | null;
+  expiresAt?: string | null;
+  startDate: string;
+  attended: number;
+  noShow: number;
+  lateCancel: number;
+  deductedNotAttended: number;
+  sessionPrice: number;
+  spent: number;
+}
+
+export interface WalletBooking {
+  id: string;
+  subscriptionId?: string | null;
+  teacherName: string;
+  startsAt: string;
+  status: string;
+  cancelledBy?: string | null;
+  cancelReason?: string | null;
+}
+
 export interface WeeklyScheduleItem {
   id: string;
   teacherId: string;
@@ -1009,6 +1050,12 @@ interface PlatformStoreValue {
   // student view of free lectures
   studentFreeLectures: FreeLecture[];
   fetchStudentFreeLectures: () => Promise<void>;
+  // teacher analytics + student wallet
+  teacherAnalytics: TeacherAnalytics | null;
+  fetchTeacherAnalytics: (filters?: { from?: string; to?: string; studentId?: string }) => Promise<void>;
+  studentWallet: WalletItem[];
+  studentWalletBookings: WalletBooking[];
+  fetchStudentWallet: () => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -1085,6 +1132,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [freeStudents, setFreeStudents] = useState<FreeLectureStudent[]>([]);
   const [freeLectures, setFreeLectures] = useState<FreeLecture[]>([]);
   const [studentFreeLectures, setStudentFreeLectures] = useState<FreeLecture[]>([]);
+  const [teacherAnalytics, setTeacherAnalytics] = useState<TeacherAnalytics | null>(null);
+  const [studentWallet, setStudentWallet] = useState<WalletItem[]>([]);
+  const [studentWalletBookings, setStudentWalletBookings] = useState<WalletBooking[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -2126,6 +2176,25 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
+  // ─── Teacher analytics ───
+  async function fetchTeacherAnalytics(filters?: { from?: string; to?: string; studentId?: string }) {
+    const qs = new URLSearchParams();
+    if (filters?.from) qs.set("from", filters.from);
+    if (filters?.to) qs.set("to", filters.to);
+    if (filters?.studentId) qs.set("studentId", filters.studentId);
+    const res = await apiFetch<TeacherAnalytics>(`/api/teacher/analytics${qs.size ? `?${qs}` : ""}`);
+    if (res) setTeacherAnalytics(res);
+  }
+
+  // ─── Student wallet ───
+  async function fetchStudentWallet() {
+    const res = await apiFetch<{ wallet: WalletItem[]; bookings: WalletBooking[] }>("/api/student/wallet");
+    if (res) {
+      setStudentWallet(res.wallet ?? []);
+      setStudentWalletBookings(res.bookings ?? []);
+    }
+  }
+
   return (
     <PlatformStoreContext.Provider
       value={{
@@ -2326,6 +2395,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         removeFreeLectureFile,
         studentFreeLectures,
         fetchStudentFreeLectures,
+        teacherAnalytics,
+        fetchTeacherAnalytics,
+        studentWallet,
+        studentWalletBookings,
+        fetchStudentWallet,
       }}
     >
       {children}

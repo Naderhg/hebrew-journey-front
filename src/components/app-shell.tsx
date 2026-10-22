@@ -15,6 +15,7 @@ import {
   FileCheck,
   Film,
   GraduationCap,
+  Gift,
   Headphones,
   LayoutDashboard,
   Library,
@@ -59,6 +60,7 @@ function isGroup(entry: NavEntry): entry is SidebarGroup {
 const studentNav: readonly SidebarItem[] = [
   { to: "/dashboard", label: "لوحة الطالب", icon: LayoutDashboard },
   { to: "/sessions", label: "حصصي الفردية", icon: CalendarCheck },
+  { to: "/free-lectures", label: "المحاضرة المجانية", icon: Gift },
   { to: "/courses", label: "كورساتي", icon: Film },
   { to: "/lectures", label: "المحاضرات والمواعيد", icon: CalendarDays },
   { to: "/homework", label: "الواجبات", icon: ClipboardList },
@@ -116,6 +118,7 @@ const adminNav: readonly NavEntry[] = [
       { to: "/admin", section: "bookings", label: "الحجوزات والمدفوعات", icon: CreditCard },
       { to: "/admin", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
       { to: "/admin", section: "groups", label: "المجموعات", icon: Users },
+      { to: "/admin", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
       { to: "/admin", section: "sales-report", label: "تقارير المبيعات", icon: BarChart3 },
       { to: "/admin", section: "leads", label: "توزيع العملاء", icon: BriefcaseBusiness },
     ],
@@ -144,6 +147,7 @@ const placementOnlyNav: readonly SidebarItem[] = [
 
 const lockedStudentNav: readonly SidebarItem[] = [
   { to: "/subscribe", label: "الباقات والاشتراك", icon: CreditCard },
+  { to: "/free-lectures", label: "المحاضرة المجانية", icon: Gift },
 ];
 
 const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
@@ -162,6 +166,9 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
     { to: "/support", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
     { to: "/support", section: "schedules", label: "جداول المدرسين", icon: ClipboardCheck },
     { to: "/support", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
+    { to: "/support", section: "sessions", label: "الحصص الفردية", icon: CalendarCheck },
+    { to: "/support", section: "groups", label: "المجموعات", icon: Users },
+    { to: "/support", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
     { to: "/support", section: "attendance", label: "الحضور والغياب", icon: UsersRound },
     { to: "/support", section: "irregular", label: "متابعة الطلاب", icon: BarChart3 },
   ],
@@ -217,7 +224,8 @@ export function AppShell({
         user.placementCompletedAt &&
         !user.hasActiveSubscription &&
         path !== "/subscribe" &&
-        path !== "/placement"
+        path !== "/placement" &&
+        path !== "/free-lectures"
       ) {
         navigate({ to: "/subscribe" });
       }

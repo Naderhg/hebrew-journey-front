@@ -470,6 +470,47 @@ export interface GroupMemberItem {
   addedAt: string;
 }
 
+export interface FreeLectureStudent {
+  id: string;
+  name: string;
+  phone: string;
+  level?: string | null;
+  groupId?: string | null;
+  group?: { id: string; name: string } | null;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface FreeLecture {
+  id: string;
+  title: string;
+  description?: string | null;
+  teacherId?: string | null;
+  teacher?: { id: string; fullName: string } | null;
+  groupId?: string | null;
+  group?: { id: string; name: string } | null;
+  level?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+  meetingUrl?: string | null;
+  files?: { name: string; url: string }[] | null;
+  status: string;
+  createdBy?: { id: string; fullName: string };
+  createdAt: string;
+}
+
+export interface CallsStudentItem {
+  id: string; // subscription id
+  studentId: string;
+  studentName: string;
+  studentPhone?: string | null;
+  packageName: string;
+  sessionsTotal?: number | null;
+  sessionsUsed?: number | null;
+  sessionsRemaining?: number | null;
+  expiresAt?: string | null;
+}
+
 export interface WeeklyScheduleItem {
   id: string;
   teacherId: string;
@@ -947,6 +988,27 @@ interface PlatformStoreValue {
   // admin teacher availability
   adminTeacherAvailability: any[];
   fetchAdminTeacherAvailability: (teacherId?: string) => Promise<void>;
+  // ops: individual-session booking + calls students
+  callsStudents: CallsStudentItem[];
+  fetchCallsStudents: () => Promise<void>;
+  opsCreateBooking: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
+  opsBookings: LessonBookingItem[];
+  fetchOpsBookings: () => Promise<void>;
+  // free lectures
+  freeStudents: FreeLectureStudent[];
+  freeLectures: FreeLecture[];
+  fetchFreeStudents: () => Promise<void>;
+  createFreeStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;
+  deleteFreeStudent: (id: string) => Promise<void>;
+  fetchFreeLectures: () => Promise<void>;
+  createFreeLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
+  updateFreeLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
+  deleteFreeLecture: (id: string) => Promise<void>;
+  addFreeLectureFile: (id: string, file: { name: string; url: string }) => Promise<void>;
+  removeFreeLectureFile: (id: string, index: number) => Promise<void>;
+  // student view of free lectures
+  studentFreeLectures: FreeLecture[];
+  fetchStudentFreeLectures: () => Promise<void>;
 }
 
 const PlatformStoreContext = createContext<PlatformStoreValue | undefined>(undefined);
@@ -1018,6 +1080,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMemberItem[]>([]);
   const [adminTeacherAvailability, setAdminTeacherAvailability] = useState<any[]>([]);
+  const [callsStudents, setCallsStudents] = useState<CallsStudentItem[]>([]);
+  const [opsBookings, setOpsBookings] = useState<LessonBookingItem[]>([]);
+  const [freeStudents, setFreeStudents] = useState<FreeLectureStudent[]>([]);
+  const [freeLectures, setFreeLectures] = useState<FreeLecture[]>([]);
+  const [studentFreeLectures, setStudentFreeLectures] = useState<FreeLecture[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   async function refreshAll() {
@@ -1946,38 +2013,38 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   // ─── Groups ───
   async function fetchAdminGroups() {
-    const res = await apiFetch<{ groups: GroupItem[] }>("/api/admin/groups");
+    const res = await apiFetch<{ groups: GroupItem[] }>("/api/ops/groups");
     if (res) setAdminGroups(res.groups ?? []);
   }
 
   async function createAdminGroup(input: { name: string; description?: string; teacherId?: string; level?: string | null; maxStudents?: number | null }) {
-    await apiFetch("/api/admin/groups", { method: "POST", body: input });
+    await apiFetch("/api/ops/groups", { method: "POST", body: input });
     await fetchAdminGroups();
   }
 
   async function updateAdminGroup(id: string, input: Partial<{ name: string; description: string; teacherId: string; level: string | null; maxStudents: number | null }>) {
-    await apiFetch(`/api/admin/groups/${id}`, { method: "PATCH", body: input });
+    await apiFetch(`/api/ops/groups/${id}`, { method: "PATCH", body: input });
     await fetchAdminGroups();
   }
 
   async function deleteAdminGroup(id: string) {
-    await apiFetch(`/api/admin/groups/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/ops/groups/${id}`, { method: "DELETE" });
     await fetchAdminGroups();
   }
 
   async function fetchGroupMembers(groupId: string) {
-    const res = await apiFetch<{ members: GroupMemberItem[] }>(`/api/admin/groups/${groupId}/members`);
+    const res = await apiFetch<{ members: GroupMemberItem[] }>(`/api/ops/groups/${groupId}/members`);
     if (res) setGroupMembers(res.members ?? []);
   }
 
   async function addGroupMembers(groupId: string, studentIds: string[]) {
-    await apiFetch(`/api/admin/groups/${groupId}/members`, { method: "POST", body: { studentIds } });
+    await apiFetch(`/api/ops/groups/${groupId}/members`, { method: "POST", body: { studentIds } });
     await fetchGroupMembers(groupId);
     await fetchAdminGroups();
   }
 
   async function removeGroupMember(groupId: string, studentId: string) {
-    await apiFetch(`/api/admin/groups/${groupId}/members/${studentId}`, { method: "DELETE" });
+    await apiFetch(`/api/ops/groups/${groupId}/members/${studentId}`, { method: "DELETE" });
     await fetchGroupMembers(groupId);
     await fetchAdminGroups();
   }
@@ -1985,8 +2052,78 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   // ─── Admin teacher availability (for creating lectures from slots) ───
   async function fetchAdminTeacherAvailability(teacherId?: string) {
     const qs = teacherId ? `?teacherId=${teacherId}` : "";
-    const res = await apiFetch<{ availability: any[] }>(`/api/admin/teacher-availability${qs}`);
+    const res = await apiFetch<{ availability: any[] }>(`/api/ops/teacher-availability${qs}`);
     if (res) setAdminTeacherAvailability(res.availability ?? []);
+  }
+
+  // ─── Ops: calls students + booking creation ───
+  async function fetchCallsStudents() {
+    const res = await apiFetch<{ students: CallsStudentItem[] }>("/api/ops/calls-students");
+    if (res) setCallsStudents(res.students ?? []);
+  }
+
+  async function fetchOpsBookings() {
+    const res = await apiFetch<{ bookings: LessonBookingItem[] }>("/api/ops/bookings");
+    if (res) setOpsBookings(res.bookings ?? []);
+  }
+
+  async function opsCreateBooking(input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) {
+    await apiFetch("/api/ops/bookings", { method: "POST", body: input });
+    await Promise.all([fetchOpsBookings(), fetchCallsStudents()]);
+  }
+
+  // ─── Free lectures management (admin/support) ───
+  async function fetchFreeStudents() {
+    const res = await apiFetch<{ students: FreeLectureStudent[] }>("/api/ops/free-students");
+    if (res) setFreeStudents(res.students ?? []);
+  }
+
+  async function createFreeStudent(input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) {
+    await apiFetch("/api/ops/free-students", { method: "POST", body: input });
+    await fetchFreeStudents();
+  }
+
+  async function deleteFreeStudent(id: string) {
+    await apiFetch(`/api/ops/free-students/${id}`, { method: "DELETE" });
+    await fetchFreeStudents();
+  }
+
+  async function fetchFreeLectures() {
+    const res = await apiFetch<{ lectures: FreeLecture[] }>("/api/ops/free-lectures");
+    if (res) setFreeLectures(res.lectures ?? []);
+  }
+
+  async function createFreeLecture(input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) {
+    await apiFetch("/api/ops/free-lectures", { method: "POST", body: input });
+    await fetchFreeLectures();
+  }
+
+  async function updateFreeLecture(id: string, input: Record<string, unknown>) {
+    await apiFetch(`/api/ops/free-lectures/${id}`, { method: "PATCH", body: input });
+    await fetchFreeLectures();
+  }
+
+  async function deleteFreeLecture(id: string) {
+    await apiFetch(`/api/ops/free-lectures/${id}`, { method: "DELETE" });
+    await fetchFreeLectures();
+  }
+
+  async function addFreeLectureFile(id: string, file: { name: string; url: string }) {
+    await apiFetch(`/api/ops/free-lectures/${id}/files`, { method: "POST", body: file });
+    await fetchFreeLectures();
+  }
+
+  async function removeFreeLectureFile(id: string, index: number) {
+    await apiFetch(`/api/ops/free-lectures/${id}/files`, { method: "DELETE", body: { index } });
+    await fetchFreeLectures();
+  }
+
+  // ─── Student: free lectures view ───
+  async function fetchStudentFreeLectures() {
+    try {
+      const res = await apiFetch<{ lectures: FreeLecture[] }>("/api/student/free-lectures");
+      if (res) setStudentFreeLectures(res.lectures ?? []);
+    } catch { /* ignore */ }
   }
 
   return (
@@ -2171,6 +2308,24 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         // admin teacher availability
         adminTeacherAvailability,
         fetchAdminTeacherAvailability,
+        callsStudents,
+        fetchCallsStudents,
+        opsCreateBooking,
+        opsBookings,
+        fetchOpsBookings,
+        freeStudents,
+        freeLectures,
+        fetchFreeStudents,
+        createFreeStudent,
+        deleteFreeStudent,
+        fetchFreeLectures,
+        createFreeLecture,
+        updateFreeLecture,
+        deleteFreeLecture,
+        addFreeLectureFile,
+        removeFreeLectureFile,
+        studentFreeLectures,
+        fetchStudentFreeLectures,
       }}
     >
       {children}

@@ -2030,6 +2030,7 @@ export type AdminSection =
   | "bookings"
   | "sessions"
   | "groups"
+  | "free-lectures"
   | "placement-results"
   | "sales-report"
   | "leads"
@@ -2108,6 +2109,20 @@ export function AdminScreen() {
     // admin teacher availability
     adminTeacherAvailability,
     fetchAdminTeacherAvailability,
+    callsStudents,
+    fetchCallsStudents,
+    opsCreateBooking,
+    freeStudents,
+    freeLectures,
+    fetchFreeStudents,
+    createFreeStudent,
+    deleteFreeStudent,
+    fetchFreeLectures,
+    createFreeLecture,
+    updateFreeLecture,
+    deleteFreeLecture,
+    addFreeLectureFile,
+    removeFreeLectureFile,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
@@ -2122,8 +2137,14 @@ export function AdminScreen() {
     if (activeSection === "sessions") {
       fetchAdminBookings().catch(() => {});
       fetchAdminBookingsReport().catch(() => {});
+      fetchCallsStudents().catch(() => {});
     }
     if (activeSection === "groups") {
+      fetchAdminGroups().catch(() => {});
+    }
+    if (activeSection === "free-lectures") {
+      fetchFreeStudents().catch(() => {});
+      fetchFreeLectures().catch(() => {});
       fetchAdminGroups().catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3944,6 +3965,14 @@ export function AdminScreen() {
 
       {activeSection === "sessions" && (
         <div className="space-y-4">
+          <OpsCreateSessionCard
+            callsStudents={callsStudents}
+            teachers={users.filter((u) => u.role === "TEACHER")}
+            availability={adminTeacherAvailability}
+            onFetchAvailability={fetchAdminTeacherAvailability}
+            onCreate={opsCreateBooking}
+            onFetchCallsStudents={fetchCallsStudents}
+          />
           {/* Report summary */}
           {adminBookingsReport && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -4066,6 +4095,24 @@ export function AdminScreen() {
           onFetchMembers={fetchGroupMembers}
           onAddMembers={addGroupMembers}
           onRemoveMember={removeGroupMember}
+        />
+      )}
+
+      {activeSection === "free-lectures" && (
+        <OpsFreeLecturesSection
+          freeStudents={freeStudents}
+          freeLectures={freeLectures}
+          groups={adminGroups}
+          teachers={users.filter((u) => u.role === "TEACHER")}
+          availability={adminTeacherAvailability}
+          onFetchAvailability={fetchAdminTeacherAvailability}
+          onCreateStudent={createFreeStudent}
+          onDeleteStudent={deleteFreeStudent}
+          onCreateLecture={createFreeLecture}
+          onUpdateLecture={updateFreeLecture}
+          onDeleteLecture={deleteFreeLecture}
+          onAddFile={addFreeLectureFile}
+          onRemoveFile={removeFreeLectureFile}
         />
       )}
     </AppShell>
@@ -7376,7 +7423,7 @@ export function SalesScreen() {
   );
 }
 
-type SupportSection = "students" | "tickets" | "chat" | "schedules" | "lectures" | "attendance" | "irregular";
+type SupportSection = "students" | "tickets" | "chat" | "schedules" | "lectures" | "sessions" | "groups" | "free-lectures" | "attendance" | "irregular";
 
 const TICKET_CATEGORIES: Record<string, string> = {
   login: "مشكلة دخول",
@@ -7426,6 +7473,34 @@ export function SupportScreen() {
     sendSupportChatReply,
     supportLectures,
     fetchSupportLectures,
+    // ops (shared with admin)
+    adminGroups,
+    groupMembers,
+    fetchAdminGroups,
+    createAdminGroup,
+    updateAdminGroup,
+    deleteAdminGroup,
+    fetchGroupMembers,
+    addGroupMembers,
+    removeGroupMember,
+    adminTeacherAvailability,
+    fetchAdminTeacherAvailability,
+    callsStudents,
+    fetchCallsStudents,
+    opsCreateBooking,
+    opsBookings,
+    fetchOpsBookings,
+    freeStudents,
+    freeLectures,
+    fetchFreeStudents,
+    createFreeStudent,
+    deleteFreeStudent,
+    fetchFreeLectures,
+    createFreeLecture,
+    updateFreeLecture,
+    deleteFreeLecture,
+    addFreeLectureFile,
+    removeFreeLectureFile,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<SupportSection>("students");
@@ -7462,6 +7537,16 @@ export function SupportScreen() {
 
   useEffect(() => {
     if (activeSection === "lectures") fetchSupportLectures().catch(() => {});
+    if (activeSection === "sessions") {
+      fetchOpsBookings().catch(() => {});
+      fetchCallsStudents().catch(() => {});
+    }
+    if (activeSection === "groups") fetchAdminGroups().catch(() => {});
+    if (activeSection === "free-lectures") {
+      fetchFreeStudents().catch(() => {});
+      fetchFreeLectures().catch(() => {});
+      fetchAdminGroups().catch(() => {});
+    }
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openChat(studentId: string) {
@@ -8032,6 +8117,90 @@ export function SupportScreen() {
           </div>
         </Card>
       )}
+
+      {activeSection === "sessions" && (
+        <div className="space-y-4">
+          <OpsCreateSessionCard
+            callsStudents={callsStudents}
+            teachers={teachers}
+            availability={adminTeacherAvailability}
+            onFetchAvailability={fetchAdminTeacherAvailability}
+            onCreate={opsCreateBooking}
+            onFetchCallsStudents={fetchCallsStudents}
+          />
+          <Card>
+            <h3 className="font-bold">الحجوزات الحديثة</h3>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-right text-xs text-muted-foreground">
+                    <th className="p-2">الطالب</th>
+                    <th className="p-2">المدرس</th>
+                    <th className="p-2">الموعد</th>
+                    <th className="p-2">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {opsBookings.length === 0 ? (
+                    <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">لا توجد حجوزات.</td></tr>
+                  ) : (
+                    opsBookings.slice(0, 30).map((b) => {
+                      const st: Record<string, { label: string; color: string }> = {
+                        booked: { label: "محجوزة", color: "#0b2f6e" },
+                        completed: { label: "مكتملة", color: "#2f9e4f" },
+                        cancelled: { label: "ملغاة", color: "#c0392b" },
+                        no_show: { label: "لم يحضر", color: "#e67e22" },
+                      };
+                      const s = st[b.status] ?? st.booked;
+                      return (
+                        <tr key={b.id} className="border-b">
+                          <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
+                          <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
+                          <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                          <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {activeSection === "groups" && (
+        <AdminGroupsSection
+          groups={adminGroups}
+          members={groupMembers}
+          students={supportStudents.map((s) => ({ id: s.id, fullName: s.fullName }))}
+          teachers={teachers.map((t) => ({ id: t.id, fullName: t.fullName }))}
+          onCreate={createAdminGroup}
+          onUpdate={updateAdminGroup}
+          onDelete={deleteAdminGroup}
+          onFetchMembers={fetchGroupMembers}
+          onAddMembers={addGroupMembers}
+          onRemoveMember={removeGroupMember}
+        />
+      )}
+
+      {activeSection === "free-lectures" && (
+        <OpsFreeLecturesSection
+          freeStudents={freeStudents}
+          freeLectures={freeLectures}
+          groups={adminGroups}
+          teachers={teachers}
+          availability={adminTeacherAvailability}
+          onFetchAvailability={fetchAdminTeacherAvailability}
+          onCreateStudent={createFreeStudent}
+          onDeleteStudent={deleteFreeStudent}
+          onCreateLecture={createFreeLecture}
+          onUpdateLecture={updateFreeLecture}
+          onDeleteLecture={deleteFreeLecture}
+          onAddFile={addFreeLectureFile}
+          onRemoveFile={removeFreeLectureFile}
+        />
+      )}
     </AppShell>
   );
 }
@@ -8240,6 +8409,520 @@ function AdminGroupsSection({
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Ops: create an individual session (admin/support) ──────────────────────
+// Teacher availability slots fill the datetime; then pick a calls-package
+// student and create the booking.
+function OpsCreateSessionCard({
+  callsStudents,
+  teachers,
+  availability,
+  onFetchAvailability,
+  onCreate,
+  onFetchCallsStudents,
+}: {
+  callsStudents: import("../hooks/use-platform-store").CallsStudentItem[];
+  teachers: PlatformUser[];
+  availability: any[];
+  onFetchAvailability: (teacherId?: string) => Promise<void>;
+  onCreate: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
+  onFetchCallsStudents: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [teacherId, setTeacherId] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  useEffect(() => {
+    if (open) onFetchCallsStudents().catch(() => {});
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (teacherId) onFetchAvailability(teacherId).catch(() => {});
+  }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pickSlot(slot: any) {
+    const [sh, sm] = slot.startTime.split(":").map(Number);
+    const [eh, em] = slot.endTime.split(":").map(Number);
+    const d = new Date();
+    if (slot.specificDate) {
+      const sd = new Date(slot.specificDate);
+      d.setFullYear(sd.getFullYear(), sd.getMonth(), sd.getDate());
+    } else {
+      const diff = ((slot.dayOfWeek ?? 0) - d.getDay() + 7) % 7;
+      d.setDate(d.getDate() + diff);
+    }
+    d.setHours(sh, sm, 0, 0);
+    setStartsAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
+    const e = new Date(d);
+    e.setHours(eh, em, 0, 0);
+    setEndsAt(`${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(""); setOk("");
+    if (!teacherId || !studentId || !startsAt) { setErr("اختر المدرس والطالب والموعد"); return; }
+    setSaving(true);
+    try {
+      await onCreate({
+        studentId,
+        teacherId,
+        startsAt: new Date(startsAt).toISOString(),
+        ...(endsAt ? { endsAt: new Date(endsAt).toISOString() } : {}),
+        ...(meetingUrl ? { meetingUrl } : {}),
+        ...(notes ? { notes } : {}),
+      });
+      setOk("تم إنشاء الحصة وخصمها من رصيد الطالب");
+      setStartsAt(""); setEndsAt(""); setMeetingUrl(""); setNotes(""); setStudentId("");
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "فشل إنشاء الحصة");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-bold">إنشاء حصة فردية</h3>
+          <p className="text-xs text-muted-foreground">اختر المدرس ← موعد متاح ← طالب لديه باقة مكالمات</p>
+        </div>
+        <Button variant="secondary" className="text-xs" onClick={() => setOpen(!open)}>
+          {open ? "إخفاء" : "+ حصة جديدة"}
+        </Button>
+      </div>
+      {open && (
+        <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>المدرس</Label>
+              <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">— اختر المدرس —</option>
+                {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>الطالب (باقة مكالمات برصيد متبقٍ)</Label>
+              <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <option value="">— اختر الطالب —</option>
+                {callsStudents.map((s) => (
+                  <option key={s.id} value={s.studentId}>
+                    {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {teacherId && availability.length > 0 && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>مواعيد المدرس المتاحة (اضغط لملء الوقت)</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {availability.map((slot) => {
+                    const dayName = slot.specificDate
+                      ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+                      : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][slot.dayOfWeek ?? 0];
+                    return (
+                      <button key={slot.id} type="button" onClick={() => pickSlot(slot)}
+                        className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5">
+                        {dayName} {slot.startTime}—{slot.endTime}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {teacherId && availability.length === 0 && (
+              <p className="text-xs text-muted-foreground sm:col-span-2">هذا المدرس لم يضف مواعيد متاحة بعد.</p>
+            )}
+            <div className="space-y-1.5">
+              <Label>البداية</Label>
+              <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>النهاية</Label>
+              <Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>رابط الاجتماع</Label>
+              <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ملاحظات</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+          </div>
+          {err && <p className="text-sm font-semibold text-danger">{err}</p>}
+          {ok && <p className="text-sm font-semibold text-[#2f9e4f]">{ok}</p>}
+          <Button type="submit" disabled={saving}>{saving ? "جاري الإنشاء..." : "إنشاء الحصة"}</Button>
+        </form>
+      )}
+    </Card>
+  );
+}
+
+// ─── Ops: free lecture management (admin/support) ───────────────────────────
+// Two halves: trial students (name/phone/level/group) and the free lectures
+// themselves (with group targeting + file attachments).
+function OpsFreeLecturesSection({
+  freeStudents,
+  freeLectures,
+  groups,
+  teachers,
+  availability,
+  onFetchAvailability,
+  onCreateStudent,
+  onDeleteStudent,
+  onCreateLecture,
+  onUpdateLecture,
+  onDeleteLecture,
+  onAddFile,
+  onRemoveFile,
+}: {
+  freeStudents: import("../hooks/use-platform-store").FreeLectureStudent[];
+  freeLectures: import("../hooks/use-platform-store").FreeLecture[];
+  groups: import("../hooks/use-platform-store").GroupItem[];
+  teachers: PlatformUser[];
+  availability: any[];
+  onFetchAvailability: (teacherId?: string) => Promise<void>;
+  onCreateStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;
+  onDeleteStudent: (id: string) => Promise<void>;
+  onCreateLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
+  onUpdateLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
+  onDeleteLecture: (id: string) => Promise<void>;
+  onAddFile: (id: string, file: { name: string; url: string }) => Promise<void>;
+  onRemoveFile: (id: string, index: number) => Promise<void>;
+}) {
+  const [tab, setTab] = useState<"lectures" | "students">("lectures");
+  // student form
+  const [sName, setSName] = useState("");
+  const [sPhone, setSPhone] = useState("");
+  const [sLevel, setSLevel] = useState("");
+  const [sGroupId, setSGroupId] = useState("");
+  const [sNotes, setSNotes] = useState("");
+  // lecture form
+  const [showLecForm, setShowLecForm] = useState(false);
+  const [lTitle, setLTitle] = useState("");
+  const [lDesc, setLDesc] = useState("");
+  const [lTeacherId, setLTeacherId] = useState("");
+  const [lGroupId, setLGroupId] = useState("");
+  const [lLevel, setLLevel] = useState("");
+  const [lStarts, setLStarts] = useState("");
+  const [lEnds, setLEnds] = useState("");
+  const [lUrl, setLUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (lTeacherId) onFetchAvailability(lTeacherId).catch(() => {});
+  }, [lTeacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pickSlot(slot: any) {
+    const [sh, sm] = slot.startTime.split(":").map(Number);
+    const [eh, em] = slot.endTime.split(":").map(Number);
+    const d = new Date();
+    if (slot.specificDate) {
+      const sd = new Date(slot.specificDate);
+      d.setFullYear(sd.getFullYear(), sd.getMonth(), sd.getDate());
+    } else {
+      const diff = ((slot.dayOfWeek ?? 0) - d.getDay() + 7) % 7;
+      d.setDate(d.getDate() + diff);
+    }
+    d.setHours(sh, sm, 0, 0);
+    setLStarts(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
+    const e = new Date(d);
+    e.setHours(eh, em, 0, 0);
+    setLEnds(`${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+  }
+
+  async function handleCreateStudent(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setSaving(true);
+    try {
+      await onCreateStudent({ name: sName, phone: sPhone, level: sLevel || null, groupId: sGroupId || null, ...(sNotes ? { notes: sNotes } : {}) });
+      setSName(""); setSPhone(""); setSLevel(""); setSGroupId(""); setSNotes("");
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : "فشل إضافة الطالب"); } finally { setSaving(false); }
+  }
+
+  async function handleCreateLecture(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!lTitle || !lStarts) { setErr("العنوان والموعد مطلوبان"); return; }
+    setSaving(true);
+    try {
+      await onCreateLecture({
+        title: lTitle,
+        ...(lDesc ? { description: lDesc } : {}),
+        ...(lTeacherId ? { teacherId: lTeacherId } : {}),
+        ...(lGroupId ? { groupId: lGroupId } : {}),
+        level: lLevel || null,
+        startsAt: new Date(lStarts).toISOString(),
+        ...(lEnds ? { endsAt: new Date(lEnds).toISOString() } : {}),
+        ...(lUrl ? { meetingUrl: lUrl } : {}),
+      });
+      setLTitle(""); setLDesc(""); setLTeacherId(""); setLGroupId(""); setLLevel(""); setLStarts(""); setLEnds(""); setLUrl("");
+      setShowLecForm(false);
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : "فشل إنشاء المحاضرة"); } finally { setSaving(false); }
+  }
+
+  async function handleUpload(lectureId: string, file: File) {
+    setErr("");
+    setUploadingFor(lectureId);
+    try {
+      const uploaded = await uploadFile(file, "courses");
+      await onAddFile(lectureId, { name: file.name, url: uploaded.url });
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : "فشل رفع الملف"); } finally { setUploadingFor(null); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold">المحاضرة المجانية</h2>
+            <p className="text-xs text-muted-foreground">طلاب تجريبيون (من حجز واتساب) + محاضرات مجانية مجدولة + ملفات</p>
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={() => setTab("lectures")} className={`rounded-md px-3 py-1 text-xs ${tab === "lectures" ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}>
+              المحاضرات ({freeLectures.length})
+            </button>
+            <button onClick={() => setTab("students")} className={`rounded-md px-3 py-1 text-xs ${tab === "students" ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}>
+              طلاب التجربة ({freeStudents.length})
+            </button>
+          </div>
+        </div>
+        {err && <p className="mt-2 text-sm font-semibold text-danger">{err}</p>}
+      </Card>
+
+      {tab === "students" && (
+        <>
+          <Card>
+            <h3 className="font-bold">إضافة طالب تجريبي</h3>
+            <form onSubmit={handleCreateStudent} className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>الاسم</Label>
+                <Input value={sName} onChange={(e) => setSName(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>رقم الهاتف / واتساب</Label>
+                <Input value={sPhone} onChange={(e) => setSPhone(e.target.value)} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>المستوى</Label>
+                <select value={sLevel} onChange={(e) => setSLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون —</option>
+                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المجموعة</Label>
+                <select value={sGroupId} onChange={(e) => setSGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون مجموعة —</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>ملاحظات</Label>
+                <Input value={sNotes} onChange={(e) => setSNotes(e.target.value)} />
+              </div>
+              <Button type="submit" disabled={saving}>{saving ? "جاري الإضافة..." : "إضافة الطالب"}</Button>
+            </form>
+          </Card>
+
+          <Card>
+            <h3 className="font-bold">قائمة طلاب التجربة</h3>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-right text-xs text-muted-foreground">
+                    <th className="p-2">الاسم</th>
+                    <th className="p-2">الهاتف</th>
+                    <th className="p-2">المستوى</th>
+                    <th className="p-2">المجموعة</th>
+                    <th className="p-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {freeStudents.length === 0 ? (
+                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا يوجد طلاب تجريبيون بعد.</td></tr>
+                  ) : (
+                    freeStudents.map((s) => (
+                      <tr key={s.id} className="border-b">
+                        <td className="p-2 font-semibold">{s.name}</td>
+                        <td className="p-2">{s.phone}</td>
+                        <td className="p-2">{s.level ?? "—"}</td>
+                        <td className="p-2">{s.group?.name ?? "—"}</td>
+                        <td className="p-2">
+                          <button onClick={() => { if (confirm(`حذف "${s.name}"؟`)) onDeleteStudent(s.id); }} className="text-xs text-danger hover:underline">حذف</button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {tab === "lectures" && (
+        <>
+          <Card>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold">إنشاء محاضرة مجانية</h3>
+              <Button variant="secondary" className="text-xs" onClick={() => setShowLecForm(!showLecForm)}>
+                {showLecForm ? "إلغاء" : "+ محاضرة مجانية"}
+              </Button>
+            </div>
+            {showLecForm && (
+              <form onSubmit={handleCreateLecture} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>عنوان المحاضرة</Label>
+                    <Input value={lTitle} onChange={(e) => setLTitle(e.target.value)} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>المدرس</Label>
+                    <select value={lTeacherId} onChange={(e) => setLTeacherId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— بدون مدرس —</option>
+                      {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>المجموعة المستهدفة</Label>
+                    <select value={lGroupId} onChange={(e) => setLGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— عامة (كل الطلاب) —</option>
+                      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>المستوى</Label>
+                    <select value={lLevel} onChange={(e) => setLLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— بدون —</option>
+                      {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>رابط الاجتماع</Label>
+                    <Input value={lUrl} onChange={(e) => setLUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
+                  </div>
+                  {lTeacherId && availability.length > 0 && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>مواعيد المدرس المتاحة</Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availability.map((slot) => {
+                          const dayName = slot.specificDate
+                            ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+                            : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][slot.dayOfWeek ?? 0];
+                          return (
+                            <button key={slot.id} type="button" onClick={() => pickSlot(slot)}
+                              className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5">
+                              {dayName} {slot.startTime}—{slot.endTime}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label>البداية</Label>
+                    <Input type="datetime-local" value={lStarts} onChange={(e) => setLStarts(e.target.value)} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>النهاية</Label>
+                    <Input type="datetime-local" value={lEnds} onChange={(e) => setLEnds(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>الوصف</Label>
+                    <textarea value={lDesc} onChange={(e) => setLDesc(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                <Button type="submit" disabled={saving}>{saving ? "جاري الإنشاء..." : "إنشاء المحاضرة"}</Button>
+              </form>
+            )}
+          </Card>
+
+          <div className="space-y-2">
+            {freeLectures.length === 0 ? (
+              <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد محاضرات مجانية بعد.</Card>
+            ) : (
+              freeLectures.map((l) => (
+                <Card key={l.id}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <b>{l.title}</b>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <Badge tone="muted">{l.status === "scheduled" ? "مجدولة" : l.status === "live" ? "مباشرة" : l.status === "completed" ? "مكتملة" : "ملغاة"}</Badge>
+                        {l.group && <Badge tone="brand">{l.group.name}</Badge>}
+                        {l.level && <Badge tone="gold">{l.level}</Badge>}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+                        {l.teacher && ` · ${l.teacher.fullName}`}
+                      </p>
+                      {l.meetingUrl && (
+                        <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand2 underline">رابط الاجتماع</a>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={l.status}
+                        onChange={(e) => onUpdateLecture(l.id, { status: e.target.value })}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      >
+                        <option value="scheduled">مجدولة</option>
+                        <option value="live">مباشرة</option>
+                        <option value="completed">مكتملة</option>
+                        <option value="cancelled">ملغاة</option>
+                      </select>
+                      <button onClick={() => { if (confirm(`حذف "${l.title}"؟`)) onDeleteLecture(l.id); }} className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Files */}
+                  <div className="mt-3 border-t border-border pt-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-muted-foreground">الملفات ({l.files?.length ?? 0})</h4>
+                      <label className="cursor-pointer text-xs font-semibold text-brand2 hover:underline">
+                        {uploadingFor === l.id ? "جاري الرفع..." : "+ رفع ملف"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          disabled={uploadingFor === l.id}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(l.id, f); e.target.value = ""; }}
+                        />
+                      </label>
+                    </div>
+                    {(l.files ?? []).length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {(l.files ?? []).map((f, i) => (
+                          <div key={i} className="flex items-center justify-between rounded-md bg-muted/60 px-2.5 py-1.5 text-sm">
+                            <a href={f.url} target="_blank" rel="noreferrer" className="text-brand2 underline">{f.name}</a>
+                            <button onClick={() => onRemoveFile(l.id, i)} className="text-xs text-danger hover:underline">إزالة</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

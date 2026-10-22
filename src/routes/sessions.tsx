@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Calendar, CalendarCheck, Clock, Plus, X, AlertTriangle, Check, RotateCcw } from "lucide-react";
-import { Button, Card, Input, Label, Badge } from "../components/ui";
-import { usePlatformStore, type AvailableSlot, type LessonBookingItem, type SessionSubscription } from "../hooks/use-platform-store";
+import { Calendar, CalendarCheck, Clock, Plus, X, AlertTriangle } from "lucide-react";
+import { Button, Card, Badge } from "../components/ui";
+import { usePlatformStore, type SessionSubscription } from "../hooks/use-platform-store";
 
 export const Route = createFileRoute("/sessions")({
   head: () => ({ meta: [{ title: "עברית שוטפת — حصصي" }] }),
@@ -34,19 +34,13 @@ function StudentSessionsPage() {
   const {
     mySessions,
     myBookings,
-    availableSlots,
     fetchMySessions,
-    fetchAvailableSlots,
-    bookSession,
-    rescheduleBooking: rescheduleBookingFn,
     cancelBooking,
     hasCallsPackage,
     fetchHasCallsPackage,
   } = usePlatformStore();
 
   const [loading, setLoading] = useState(false);
-  const [bookingSlot, setBookingSlot] = useState<AvailableSlot | null>(null);
-  const [rescheduleTarget, setRescheduleTarget] = useState<LessonBookingItem | null>(null);
   const [err, setErr] = useState("");
   const [checking, setChecking] = useState(true);
 
@@ -64,7 +58,7 @@ function StudentSessionsPage() {
   async function refresh() {
     setLoading(true);
     try {
-      await Promise.all([fetchMySessions(), fetchAvailableSlots()]);
+      await fetchMySessions();
     } finally {
       setLoading(false);
     }
@@ -92,16 +86,6 @@ function StudentSessionsPage() {
     );
   }
 
-  async function handleBook(slot: AvailableSlot) {
-    setErr("");
-    try {
-      await bookSession({ availabilityId: slot.availabilityId, startsAt: slot.startsAt });
-      setBookingSlot(null);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "فشل الحجز");
-    }
-  }
-
   async function handleCancel(id: string) {
     if (!confirm("هل تريد إلغاء هذه الحصة؟ إذا تبقى أقل من 12 ساعة على موعدها ستُخصم من رصيدك.")) return;
     setErr("");
@@ -110,16 +94,6 @@ function StudentSessionsPage() {
       alert(res.refunded ? "تم إلغاء الحصة وأُرجعت لرصيدك" : "تم إلغاء الحصة (خصمت من رصيدك لعدم الالتزام بـ12 ساعة)");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "فشل الإلغاء");
-    }
-  }
-
-  async function handleReschedule(id: string, newSlot: AvailableSlot) {
-    setErr("");
-    try {
-      await rescheduleBookingFn(id, { newAvailabilityId: newSlot.availabilityId, newStartsAt: newSlot.startsAt });
-      setRescheduleTarget(null);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "فشل تغيير الموعد");
     }
   }
 
@@ -157,37 +131,11 @@ function StudentSessionsPage() {
       <Card className="p-5">
         <div className="mb-4 flex items-center gap-2">
           <Plus className="size-5 text-[#0b2f6e]" />
-          <h2 className="text-lg font-bold">احجز حصة جديدة</h2>
+          <h2 className="text-lg font-bold">حجز حصة جديدة</h2>
         </div>
-        {availableSlots.length === 0 ? (
-          <p className="text-sm text-muted-foreground">لا توجد مواعيد متاحة حالياً — راجع مدرسك لفتح مواعيد.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {availableSlots.map((slot) => (
-              <div
-                key={slot.availabilityId + slot.startsAt}
-                className="rounded-xl border border-[#e7edf7] bg-white p-4"
-              >
-                <div className="flex items-center gap-2 text-sm font-bold text-[#0b2f6e]">
-                  <Calendar className="size-4" />
-                  {slot.teacherName}
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">{fmtDate(slot.startsAt)}</p>
-                <Button
-                  className="mt-3 w-full"
-                  size="sm"
-                  onClick={() => setBookingSlot(slot)}
-                  disabled={mySessions.length === 0}
-                >
-                  حجز هذه الحصة
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-        {mySessions.length === 0 && availableSlots.length > 0 && (
-          <p className="mt-3 text-xs text-amber-600">⚠ يجب أن يكون لديك رصيد حصص نشط للحجز.</p>
-        )}
+        <p className="text-sm text-muted-foreground">
+          حجز الحصص الفردية يتم من خلال فريق الدعم — تواصل معنا على واتساب وسنحدد لك موعداً ضمن أوقات المدرس المتاحة.
+        </p>
       </Card>
 
       {/* ─── Upcoming bookings ─── */}
@@ -221,20 +169,12 @@ function StudentSessionsPage() {
                     <Badge style={{ background: STATUS_LABELS.booked.color }}>{STATUS_LABELS.booked.label}</Badge>
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setRescheduleTarget(b)}
-                      disabled={!canReschedule}
-                    >
-                      <RotateCcw className="size-4" /> تغيير الموعد
-                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => handleCancel(b.id)}>
                       <X className="size-4" /> إلغاء
                     </Button>
                     {!canReschedule && (
                       <span className="flex items-center gap-1 text-xs text-amber-600">
-                        <AlertTriangle className="size-3" /> لا يمكن التغيير (أقل من 12 ساعة)
+                        <AlertTriangle className="size-3" /> لا يمكن الإلغاء بدون خصم (أقل من 12 ساعة)
                       </span>
                     )}
                   </div>
@@ -268,34 +208,6 @@ function StudentSessionsPage() {
             })}
           </div>
         </Card>
-      )}
-
-      {/* ─── Booking modal ─── */}
-      {bookingSlot && (
-        <ConfirmModal
-          title="تأكيد حجز الحصة"
-          onClose={() => setBookingSlot(null)}
-          onConfirm={() => handleBook(bookingSlot)}
-        >
-          <p className="text-sm text-muted-foreground">
-            <b className="text-[#0b2f6e]">{bookingSlot.teacherName}</b>
-            <br />
-            {fmtDate(bookingSlot.startsAt)}
-          </p>
-          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
-            <AlertTriangle className="mb-1 inline size-4" /> سياسة الإلغاء: يمكنك الإلغاء أو التغيير قبل 12 ساعة على الأقل لاسترجاع الحصة. أقل من 12 ساعة تُخصم الحصة.
-          </div>
-        </ConfirmModal>
-      )}
-
-      {/* ─── Reschedule modal ─── */}
-      {rescheduleTarget && (
-        <RescheduleModal
-          booking={rescheduleTarget}
-          slots={availableSlots}
-          onClose={() => setRescheduleTarget(null)}
-          onConfirm={(slot) => handleReschedule(rescheduleTarget.id, slot)}
-        />
       )}
     </div>
   );
@@ -332,79 +244,3 @@ function BalanceCard({ sub }: { sub: SessionSubscription }) {
   );
 }
 
-function ConfirmModal({
-  title,
-  children,
-  onClose,
-  onConfirm,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4" onClick={onClose}>
-      <Card className="w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-bold">{title}</h3>
-        <div className="mt-3">{children}</div>
-        <div className="mt-5 flex gap-2">
-          <Button className="flex-1" onClick={onConfirm}>
-            <Check className="size-4" /> تأكيد
-          </Button>
-          <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function RescheduleModal({
-  booking,
-  slots,
-  onClose,
-  onConfirm,
-}: {
-  booking: LessonBookingItem;
-  slots: AvailableSlot[];
-  onClose: () => void;
-  onConfirm: (slot: AvailableSlot) => void;
-}) {
-  // only slots for the same teacher, in the future, excluding the current booking's time
-  const teacherId = booking.teacher?.id;
-  const valid = slots.filter(
-    (s) => s.teacherId === teacherId && new Date(s.startsAt) > new Date() && s.startsAt !== booking.startsAt,
-  );
-  const [selected, setSelected] = useState<AvailableSlot | null>(null);
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4" onClick={onClose}>
-      <Card className="max-h-[80vh] w-full max-w-lg overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-bold">تغيير موعد الحصة</h3>
-        <p className="mt-1 text-sm text-muted-foreground">الحصة الحالية: {fmtDate(booking.startsAt)}</p>
-        <div className="mt-4 space-y-2">
-          {valid.length === 0 ? (
-            <p className="text-sm text-muted-foreground">لا توجد مواعيد بديلة متاحة لنفس المدرس.</p>
-          ) : (
-            valid.map((s) => (
-              <button
-                key={s.availabilityId + s.startsAt}
-                onClick={() => setSelected(s)}
-                className={`w-full rounded-xl border p-3 text-right transition-colors ${
-                  selected?.startsAt === s.startsAt ? "border-[#2f9e4f] bg-[#2f9e4f]/10" : "border-[#e7edf7] bg-white"
-                }`}
-              >
-                <span className="text-sm font-semibold text-[#0b2f6e]">{fmtDate(s.startsAt)}</span>
-              </button>
-            ))
-          )}
-        </div>
-        <div className="mt-5 flex gap-2">
-          <Button className="flex-1" disabled={!selected} onClick={() => selected && onConfirm(selected)}>
-            <RotateCcw className="size-4" /> تأكيد التغيير
-          </Button>
-          <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}

@@ -18,6 +18,7 @@ import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ExamsRouteImport } from './routes/exams'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as FreeLecturesRouteImport } from './routes/free-lectures'
 import { Route as HomeworkRouteImport } from './routes/homework'
 import { Route as LecturesRouteImport } from './routes/lectures'
 import { Route as LoginRouteImport } from './routes/login'
@@ -78,6 +79,11 @@ const ExamsRoute = ExamsRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FreeLecturesRoute = FreeLecturesRouteImport.update({
+  id: '/free-lectures',
+  path: '/free-lectures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeworkRoute = HomeworkRouteImport.update({
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/free-lectures': typeof FreeLecturesRoute
   '/homework': typeof HomeworkRoute
   '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
@@ -198,6 +205,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/free-lectures': typeof FreeLecturesRoute
   '/homework': typeof HomeworkRoute
   '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/exams': typeof ExamsRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/free-lectures': typeof FreeLecturesRoute
   '/homework': typeof HomeworkRoute
   '/lectures': typeof LecturesRoute
   '/login': typeof LoginRoute
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/exams'
     | '/forgot-password'
+    | '/free-lectures'
     | '/homework'
     | '/lectures'
     | '/login'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/exams'
     | '/forgot-password'
+    | '/free-lectures'
     | '/homework'
     | '/lectures'
     | '/login'
@@ -309,6 +320,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/exams'
     | '/forgot-password'
+    | '/free-lectures'
     | '/homework'
     | '/lectures'
     | '/login'
@@ -337,6 +349,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ExamsRoute: typeof ExamsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  FreeLecturesRoute: typeof FreeLecturesRoute
   HomeworkRoute: typeof HomeworkRoute
   LecturesRoute: typeof LecturesRoute
   LoginRoute: typeof LoginRoute
@@ -418,6 +431,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/free-lectures': {
+      id: '/free-lectures'
+      path: '/free-lectures'
+      fullPath: '/free-lectures'
+      preLoaderRoute: typeof FreeLecturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/homework': {
@@ -545,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ExamsRoute: ExamsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  FreeLecturesRoute: FreeLecturesRoute,
   HomeworkRoute: HomeworkRoute,
   LecturesRoute: LecturesRoute,
   LoginRoute: LoginRoute,

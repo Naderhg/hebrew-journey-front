@@ -523,9 +523,33 @@ export interface TeacherAnalytics {
     lectureRate: number;
     sessionRate: number;
   };
-  lectures: { id: string; title: string; startsAt: string; groupName: string | null; groupSize: number | null; attended: number; earned: number }[];
+  lectures: { id: string; title: string; startsAt: string; status?: string; groupName: string | null; groupSize: number | null; attended: number; absent?: number; earned: number }[];
   bookings: { id: string; studentId: string; studentName: string; packageName: string | null; startsAt: string; status: string; attended: boolean; deducted: boolean; earned: number; sessionPrice: number }[];
   students: { studentId: string; studentName: string; attended: number; noShow: number; lateCancel: number; remaining: number | null; earned: number; upcoming: number }[];
+}
+
+export interface LectureStudent {
+  id: string;
+  fullName: string;
+  status: "present" | "absent" | null;
+}
+
+export interface AdminAnalytics {
+  teacherName?: string | null;
+  totals?: TeacherAnalytics["totals"];
+  lectures?: TeacherAnalytics["lectures"];
+  bookings?: TeacherAnalytics["bookings"];
+  students?: TeacherAnalytics["students"];
+  teachers?: {
+    teacherId: string;
+    teacherName: string;
+    lecturesCompleted: number;
+    sessionsDeducted: number;
+    studentsAttended: number;
+    lectureEarnings: number;
+    sessionEarnings: number;
+    earnings: number;
+  }[];
 }
 
 export interface WalletItem {
@@ -944,7 +968,7 @@ interface PlatformStoreValue {
   recordAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
   // Teacher extras
   fetchTeacherSchedules: () => Promise<void>;
-  fetchTeacherLectures: () => Promise<void>;
+  fetchTeacherLectures: (all?: boolean) => Promise<void>;
   fetchTeacherAttendance: () => Promise<void>;
   recordTeacherAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
   createHomework: (input: { title: string; description?: string; hebrewText?: string; studentId?: string; groupName?: string; dueDate?: string }) => Promise<void>;
@@ -1061,6 +1085,14 @@ interface PlatformStoreValue {
   // student view of free lectures
   studentFreeLectures: FreeLecture[];
   fetchStudentFreeLectures: () => Promise<void>;
+  // teacher lectures lifecycle + per-lecture attendance
+  updateTeacherLectureStatus: (id: string, status: "live" | "completed") => Promise<void>;
+  lectureStudents: LectureStudent[];
+  fetchLectureStudents: (lectureId: string) => Promise<void>;
+  saveLectureAttendance: (lectureId: string, records: { studentId: string; status: "present" | "absent" }[]) => Promise<void>;
+  // admin analytics
+  adminAnalytics: AdminAnalytics | null;
+  fetchAdminAnalytics: (filters?: { teacherId?: string | undefined; from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) => Promise<void>;
   // teacher analytics + student wallet
   teacherAnalytics: TeacherAnalytics | null;
   fetchTeacherAnalytics: (filters?: { from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) => Promise<void>;
@@ -1144,6 +1176,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [freeLectures, setFreeLectures] = useState<FreeLecture[]>([]);
   const [studentFreeLectures, setStudentFreeLectures] = useState<FreeLecture[]>([]);
   const [teacherAnalytics, setTeacherAnalytics] = useState<TeacherAnalytics | null>(null);
+  const [lectureStudents, setLectureStudents] = useState<LectureStudent[]>([]);
+  const [adminAnalytics, setAdminAnalytics] = useState<AdminAnalytics | null>(null);
   const [studentWallet, setStudentWallet] = useState<WalletItem[]>([]);
   const [studentWalletBookings, setStudentWalletBookings] = useState<WalletBooking[]>([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -1616,11 +1650,35 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
-  async function fetchTeacherLectures() {
+  async function fetchTeacherLectures(all = false) {
     try {
-      const res = await apiFetch<{ lectures: LectureItem[] }>("/api/teacher/lectures");
+      const res = await apiFetch<{ lectures: LectureItem[] }>(`/api/teacher/lectures${all ? "?status=all" : ""}`);
       if (res?.lectures) setTeacherLectures(res.lectures);
     } catch { /* ignore */ }
+  }
+
+  async function updateTeacherLectureStatus(id: string, status: "live" | "completed") {
+    await apiFetch(`/api/teacher/lectures/${id}/status`, { method: "PATCH", body: { status } });
+    await fetchTeacherLectures();
+  }
+
+  async function fetchLectureStudents(lectureId: string) {
+    const res = await apiFetch<{ lecture: { id: string; title: string; startsAt: string; groupName: string | null }; students: LectureStudent[] }>(`/api/teacher/lectures/${lectureId}/students`);
+    setLectureStudents(res?.students ?? []);
+  }
+
+  async function saveLectureAttendance(lectureId: string, records: { studentId: string; status: "present" | "absent" }[]) {
+    await apiFetch(`/api/teacher/lectures/${lectureId}/attendance`, { method: "POST", body: { records } });
+  }
+
+  async function fetchAdminAnalytics(filters?: { teacherId?: string | undefined; from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) {
+    const qs = new URLSearchParams();
+    if (filters?.teacherId) qs.set("teacherId", filters.teacherId);
+    if (filters?.from) qs.set("from", filters.from);
+    if (filters?.to) qs.set("to", filters.to);
+    if (filters?.studentId) qs.set("studentId", filters.studentId);
+    const res = await apiFetch<AdminAnalytics>(`/api/admin/analytics${qs.size ? `?${qs}` : ""}`);
+    if (res) setAdminAnalytics(res);
   }
 
   async function fetchTeacherAttendance() {
@@ -2408,6 +2466,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchStudentFreeLectures,
         teacherAnalytics,
         fetchTeacherAnalytics,
+        updateTeacherLectureStatus,
+        lectureStudents,
+        fetchLectureStudents,
+        saveLectureAttendance,
+        adminAnalytics,
+        fetchAdminAnalytics,
         studentWallet,
         studentWalletBookings,
         fetchStudentWallet,

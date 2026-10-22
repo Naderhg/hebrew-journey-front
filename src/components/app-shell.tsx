@@ -145,6 +145,7 @@ const adminNav: readonly NavEntry[] = [
       { to: "/admin", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
     ],
   },
+  { to: "/admin", section: "analytics", label: "التحليلات", icon: LineChart },
 ];
 
 const placementOnlyNav: readonly SidebarItem[] = [

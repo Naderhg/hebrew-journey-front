@@ -859,6 +859,10 @@ export function TeacherScreen() {
     teacherCancelBooking,
     teacherAnalytics,
     fetchTeacherAnalytics,
+    updateTeacherLectureStatus,
+    lectureStudents,
+    fetchLectureStudents,
+    saveLectureAttendance,
   } = usePlatformStore();
   const [activeSection, setActiveSection] = useState<TeacherSection>("students");
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
@@ -878,6 +882,9 @@ export function TeacherScreen() {
 
   // Attendance
   const [attScheduleId, setAttScheduleId] = useState("");
+  const [attLectureId, setAttLectureId] = useState("");
+  const [lectureAttDraft, setLectureAttDraft] = useState<Record<string, "present" | "absent">>({});
+  const [attLectureSaving, setAttLectureSaving] = useState(false);
   const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Reports
@@ -918,7 +925,10 @@ export function TeacherScreen() {
   const [avSaving, setAvSaving] = useState(false);
 
   useEffect(() => {
-    if (activeSection === "attendance") fetchTeacherAttendance().catch(() => {});
+    if (activeSection === "attendance") {
+      fetchTeacherAttendance().catch(() => {});
+      fetchTeacherLectures(true).catch(() => {});
+    }
     if (activeSection === "chat") fetchTeacherChatThreads().catch(() => {});
     if (activeSection === "sessions") {
       fetchTeacherAvailability().catch(() => {});
@@ -1304,16 +1314,34 @@ export function TeacherScreen() {
                         </small>
                         {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
                       </div>
-                      {l.meetingUrl && (
-                        <a
-                          href={l.meetingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
-                        >
-                          دخول الاجتماع ↗
-                        </a>
-                      )}
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        {l.status === "scheduled" && (
+                          <Button
+                            variant="primary"
+                            onClick={() => updateTeacherLectureStatus(l.id, "live").then(() => fetchTeacherAnalytics({})).catch(() => {})}
+                          >
+                            بدء المحاضرة
+                          </Button>
+                        )}
+                        {l.status === "live" && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => updateTeacherLectureStatus(l.id, "completed").then(() => fetchTeacherAnalytics({})).catch(() => {})}
+                          >
+                            إنهاء المحاضرة
+                          </Button>
+                        )}
+                        {l.meetingUrl && (
+                          <a
+                            href={l.meetingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
+                          >
+                            دخول الاجتماع ↗
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -1574,7 +1602,91 @@ export function TeacherScreen() {
       {activeSection === "attendance" && (
         <div className="space-y-4">
           <Card>
-            <h3 className="font-bold">تسجيل حضور المحاضرة</h3>
+            <h3 className="font-bold">حضور محاضرة</h3>
+            <p className="mt-1 text-xs text-muted-foreground">اختر المحاضرة وسجّل حضور أو غياب كل طالب — بيتحسب في التحليلات</p>
+            <div className="mt-3">
+              <Label>المحاضرة</Label>
+              <select
+                value={attLectureId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setAttLectureId(id);
+                  setLectureAttDraft({});
+                  if (id) {
+                    fetchLectureStudents(id)
+                      .then(() => {})
+                      .catch(() => {});
+                  }
+                }}
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">— اختر المحاضرة —</option>
+                {teacherLectures.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {new Date(l.startsAt).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })} — {l.title}
+                    {l.groupName ? ` (${l.groupName})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {attLectureId && (
+              <div className="mt-4 space-y-2">
+                {lectureStudents.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">لا يوجد طلاب لهذه المحاضرة.</div>
+                ) : (
+                  <>
+                    {lectureStudents.map((s) => {
+                      const cur = lectureAttDraft[s.id] ?? s.status ?? null;
+                      return (
+                        <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 p-3">
+                          <b className="text-sm">{s.fullName}</b>
+                          <div className="flex gap-1.5">
+                            {(["present", "absent"] as const).map((st) => (
+                              <button
+                                key={st}
+                                onClick={() => setLectureAttDraft((d) => ({ ...d, [s.id]: st }))}
+                                className={`rounded-md px-3 py-1 text-xs transition ${
+                                  cur === st
+                                    ? st === "present" ? "bg-sage text-white" : "bg-danger text-white"
+                                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                                }`}
+                              >
+                                {st === "present" ? "حاضر" : "غائب"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="primary"
+                      disabled={attLectureSaving || Object.keys(lectureAttDraft).length === 0}
+                      onClick={async () => {
+                        setAttLectureSaving(true);
+                        try {
+                          const records = lectureStudents.map((s) => ({
+                            studentId: s.id,
+                            status: (lectureAttDraft[s.id] ?? s.status ?? "present") as "present" | "absent",
+                          }));
+                          await saveLectureAttendance(attLectureId, records);
+                          await fetchLectureStudents(attLectureId);
+                          setLectureAttDraft({});
+                        } finally {
+                          setAttLectureSaving(false);
+                        }
+                      }}
+                    >
+                      {attLectureSaving ? "جاري الحفظ..." : "حفظ الحضور"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <h3 className="font-bold">تسجيل حضور الموعد الأسبوعي</h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>الموعد / المحاضرة</Label>
@@ -2065,7 +2177,8 @@ export type AdminSection =
   | "leads"
   | "certificates"
   | "lectures"
-  | "schedules";
+  | "schedules"
+  | "analytics";
 
 export function AdminScreen() {
   const {
@@ -2152,11 +2265,16 @@ export function AdminScreen() {
     deleteFreeLecture,
     addFreeLectureFile,
     removeFreeLectureFile,
+    adminAnalytics,
+    fetchAdminAnalytics,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
   const [bookingFilter, setBookingFilter] = useState<string>("");
   const [lectureFilter, setLectureFilter] = useState<string>("");
+  const [anTeacherId, setAnTeacherId] = useState("");
+  const [anFrom, setAnFrom] = useState("");
+  const [anTo, setAnTo] = useState("");
 
   useEffect(() => {
     if (activeSection === "bookings") fetchAdminPaymentRequests(bookingFilter).catch(() => {});
@@ -2176,8 +2294,15 @@ export function AdminScreen() {
       fetchFreeLectures().catch(() => {});
       fetchAdminGroups().catch(() => {});
     }
+    if (activeSection === "analytics") {
+      fetchAdminAnalytics({
+        teacherId: anTeacherId || undefined,
+        from: anFrom || undefined,
+        to: anTo || undefined,
+      }).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, bookingFilter, lectureFilter]);
+  }, [activeSection, bookingFilter, lectureFilter, anTeacherId, anFrom, anTo]);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -4202,6 +4327,19 @@ export function AdminScreen() {
           onDeleteLecture={deleteFreeLecture}
           onAddFile={addFreeLectureFile}
           onRemoveFile={removeFreeLectureFile}
+        />
+      )}
+
+      {activeSection === "analytics" && (
+        <AdminAnalyticsSection
+          data={adminAnalytics}
+          teachers={teachers}
+          teacherId={anTeacherId}
+          from={anFrom}
+          to={anTo}
+          onTeacherChange={setAnTeacherId}
+          onFromChange={setAnFrom}
+          onToChange={setAnTo}
         />
       )}
     </AppShell>
@@ -9073,7 +9211,7 @@ function OpsFreeLecturesSection({
 }
 
 // ─── Teacher Analytics Section (new dashboard style) ────────────────────────
-// Earnings rule: session price = package price / package sessions.
+// Earnings rule: 300 per lecture, 50 per counted calls session.
 // A session earns when attended OR not attended without timely cancellation.
 function TeacherAnalyticsSection({
   data,
@@ -9084,6 +9222,7 @@ function TeacherAnalyticsSection({
   onFromChange,
   onToChange,
   onStudentChange,
+  hideFilters,
 }: {
   data: import("../hooks/use-platform-store").TeacherAnalytics | null;
   students: { id: string; fullName: string }[];
@@ -9093,6 +9232,7 @@ function TeacherAnalyticsSection({
   onFromChange: (v: string) => void;
   onToChange: (v: string) => void;
   onStudentChange: (v: string) => void;
+  hideFilters?: boolean;
 }) {
   const STATUS: Record<string, { label: string; tone: "sage" | "danger" | "muted" | "gold" | "brand" }> = {
     booked: { label: "قادمة", tone: "brand" },
@@ -9120,36 +9260,38 @@ function TeacherAnalyticsSection({
       />
 
       {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <Label>من تاريخ</Label>
-            <Input type="date" value={from} onChange={(e) => onFromChange(e.target.value)} className="w-40" />
+      {!hideFilters && (
+        <Card className="p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label>من تاريخ</Label>
+              <Input type="date" value={from} onChange={(e) => onFromChange(e.target.value)} className="w-40" />
+            </div>
+            <div className="space-y-1">
+              <Label>إلى تاريخ</Label>
+              <Input type="date" value={to} onChange={(e) => onToChange(e.target.value)} className="w-40" />
+            </div>
+            <div className="space-y-1">
+              <Label>الطالب</Label>
+              <select
+                value={studentId}
+                onChange={(e) => onStudentChange(e.target.value)}
+                className="flex h-10 w-48 rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                <option value="">كل الطلاب</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>{s.fullName}</option>
+                ))}
+              </select>
+            </div>
+            {(from || to || studentId) && (
+              <Button variant="ghost" onClick={() => { onFromChange(""); onToChange(""); onStudentChange(""); }}>
+                مسح الفلاتر
+              </Button>
+            )}
           </div>
-          <div className="space-y-1">
-            <Label>إلى تاريخ</Label>
-            <Input type="date" value={to} onChange={(e) => onToChange(e.target.value)} className="w-40" />
-          </div>
-          <div className="space-y-1">
-            <Label>الطالب</Label>
-            <select
-              value={studentId}
-              onChange={(e) => onStudentChange(e.target.value)}
-              className="flex h-10 w-48 rounded-xl border border-input bg-background px-3 text-sm"
-            >
-              <option value="">كل الطلاب</option>
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>{s.fullName}</option>
-              ))}
-            </select>
-          </div>
-          {(from || to || studentId) && (
-            <Button variant="ghost" onClick={() => { onFromChange(""); onToChange(""); onStudentChange(""); }}>
-              مسح الفلاتر
-            </Button>
-          )}
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Stat cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -9184,8 +9326,10 @@ function TeacherAnalyticsSection({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {l.status === "live" && <Badge tone="gold">جارية</Badge>}
                     <span className="text-xs font-bold text-brand2">+{l.earned} ج.م</span>
                     <Badge tone="sage">{l.attended} حضور{l.groupSize ? ` / ${l.groupSize}` : ""}</Badge>
+                    {(l.absent ?? 0) > 0 && <Badge tone="danger">{l.absent} غياب</Badge>}
                   </div>
                 </div>
               ))
@@ -9259,6 +9403,154 @@ function TeacherAnalyticsSection({
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ─── Admin Analytics Section ────────────────────────────────────────────────
+// Full filtering; the key filter is the teacher. Shows per-teacher totals
+// (lecture money + attendance counts) or one teacher's full detail view.
+function AdminAnalyticsSection({
+  data,
+  teachers,
+  teacherId,
+  from,
+  to,
+  onTeacherChange,
+  onFromChange,
+  onToChange,
+}: {
+  data: import("../hooks/use-platform-store").AdminAnalytics | null;
+  teachers: { id: string; fullName: string }[];
+  teacherId: string;
+  from: string;
+  to: string;
+  onTeacherChange: (v: string) => void;
+  onFromChange: (v: string) => void;
+  onToChange: (v: string) => void;
+}) {
+  const detail =
+    data && data.totals && data.lectures && data.bookings && data.students
+      ? ({ totals: data.totals, lectures: data.lectures, bookings: data.bookings, students: data.students } as import("../hooks/use-platform-store").TeacherAnalytics)
+      : null;
+
+  const agg = data?.teachers ?? [];
+  const totals = data?.totals;
+
+  const cards = [
+    { label: "محاضرات تمت", value: totals?.lecturesCompleted ?? agg.reduce((s, t) => s + t.lecturesCompleted, 0), icon: Video, tone: "text-brand bg-brand/10" },
+    { label: "حصص محسوبة", value: totals?.sessionsDeducted ?? agg.reduce((s, t) => s + t.sessionsDeducted, 0), icon: Clock, tone: "text-gold bg-gold/15" },
+    { label: "مدرسون", value: agg.length, icon: UsersRound, tone: "text-sage bg-sage/15" },
+    { label: "إجمالي المستحقات", value: `${(totals?.earnings ?? agg.reduce((s, t) => s + t.earnings, 0)).toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م`, icon: Banknote, tone: "text-brand2 bg-brand2/10" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        icon={BarChart3}
+        tone="brand"
+        title="التحليلات"
+        subtitle="أرباح المدرسين والحضور — المحاضرة = 300 ج · حصة المكالمات = 50 ج"
+      />
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label>المدرس</Label>
+            <select
+              value={teacherId}
+              onChange={(e) => onTeacherChange(e.target.value)}
+              className="flex h-10 w-56 rounded-xl border border-input bg-background px-3 text-sm"
+            >
+              <option value="">كل المدرسين</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>{t.fullName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label>من تاريخ</Label>
+            <Input type="date" value={from} onChange={(e) => onFromChange(e.target.value)} className="w-40" />
+          </div>
+          <div className="space-y-1">
+            <Label>إلى تاريخ</Label>
+            <Input type="date" value={to} onChange={(e) => onToChange(e.target.value)} className="w-40" />
+          </div>
+          {(teacherId || from || to) && (
+            <Button variant="ghost" onClick={() => { onTeacherChange(""); onFromChange(""); onToChange(""); }}>
+              مسح الفلاتر
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Stat cards (aggregate only — detail view has its own) */}
+      {!(teacherId && detail) && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map((c) => (
+            <Card key={c.label} className="flex items-center gap-3 p-4">
+              <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${c.tone}`}>
+                <c.icon className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <b className="block text-xl leading-tight">{c.value}</b>
+                <p className="text-[11px] text-muted-foreground">{c.label}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {teacherId && detail ? (
+        <TeacherAnalyticsSection
+          data={detail}
+          students={detail.students.map((s) => ({ id: s.studentId, fullName: s.studentName }))}
+          from={from}
+          to={to}
+          studentId=""
+          onFromChange={onFromChange}
+          onToChange={onToChange}
+          onStudentChange={() => {}}
+          hideFilters
+        />
+      ) : (
+        <Card>
+          <h3 className="font-bold">المدرسون — المحاضرات والمستحقات</h3>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-right text-[11px] text-muted-foreground">
+                  <th className="p-2">المدرس</th>
+                  <th className="p-2">محاضرات</th>
+                  <th className="p-2">حصص محسوبة</th>
+                  <th className="p-2">طلاب حضروا</th>
+                  <th className="p-2">أرباح المحاضرات</th>
+                  <th className="p-2">أرباح الحصص</th>
+                  <th className="p-2">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agg.length === 0 ? (
+                  <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">لا توجد بيانات في هذه الفترة.</td></tr>
+                ) : (
+                  agg.map((t) => (
+                    <tr key={t.teacherId} className="cursor-pointer border-b border-border/50 hover:bg-muted/30" onClick={() => onTeacherChange(t.teacherId)}>
+                      <td className="p-2 font-semibold text-brand2 underline">{t.teacherName}</td>
+                      <td className="p-2">{t.lecturesCompleted}</td>
+                      <td className="p-2">{t.sessionsDeducted}</td>
+                      <td className="p-2">{t.studentsAttended}</td>
+                      <td className="p-2">{t.lectureEarnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م</td>
+                      <td className="p-2">{t.sessionEarnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م</td>
+                      <td className="p-2 font-bold text-brand2">{t.earnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

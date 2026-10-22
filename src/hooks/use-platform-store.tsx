@@ -516,10 +516,14 @@ export interface TeacherAnalytics {
     sessionsCompleted: number;
     sessionsDeducted: number;
     studentsAttended: number;
+    lectureEarnings: number;
+    sessionEarnings: number;
     earnings: number;
     lecturesCompleted: number;
+    lectureRate: number;
+    sessionRate: number;
   };
-  lectures: { id: string; title: string; startsAt: string; groupName: string | null; groupSize: number | null; attended: number }[];
+  lectures: { id: string; title: string; startsAt: string; groupName: string | null; groupSize: number | null; attended: number; earned: number }[];
   bookings: { id: string; studentId: string; studentName: string; packageName: string | null; startsAt: string; status: string; attended: boolean; deducted: boolean; earned: number; sessionPrice: number }[];
   students: { studentId: string; studentName: string; attended: number; noShow: number; lateCancel: number; remaining: number | null; earned: number; upcoming: number }[];
 }

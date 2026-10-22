@@ -9103,8 +9103,8 @@ function TeacherAnalyticsSection({
 
   const stats = data?.totals;
   const cards = [
-    { label: "حصص تم شرحها", value: stats?.sessionsCompleted ?? 0, icon: Video, tone: "text-brand bg-brand/10" },
-    { label: "حصص مخصومة", value: stats?.sessionsDeducted ?? 0, icon: Clock, tone: "text-gold bg-gold/15" },
+    { label: "محاضرات منتهية", value: `${stats?.lecturesCompleted ?? 0} × ${stats?.lectureRate ?? 300} ج`, icon: Video, tone: "text-brand bg-brand/10" },
+    { label: "حصص محسوبة", value: `${stats?.sessionsDeducted ?? 0} × ${stats?.sessionRate ?? 50} ج`, icon: Clock, tone: "text-gold bg-gold/15" },
     { label: "طلاب حضروا", value: stats?.studentsAttended ?? 0, icon: UsersRound, tone: "text-sage bg-sage/15" },
     { label: "إجمالي الأرباح", value: `${(stats?.earnings ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م`, icon: Banknote, tone: "text-brand2 bg-brand2/10" },
   ];
@@ -9115,7 +9115,7 @@ function TeacherAnalyticsSection({
         icon={BarChart3}
         tone="sage"
         title="التحليلات"
-        subtitle="حصصك المكتملة والحضور وأرباحك — سعر الحصة = سعر الباقة ÷ عدد حصصها"
+        subtitle="أرباحك بالحصة: المحاضرة الأساسية = 300 ج · حصة المكالمات = 50 ج — تتحسب عند الحضور أو الغياب بدون إبلاغ مسبق"
       />
 
       {/* Filters */}
@@ -9182,7 +9182,10 @@ function TeacherAnalyticsSection({
                       {l.groupName && ` · ${l.groupName}`}
                     </p>
                   </div>
-                  <Badge tone="sage">{l.attended} حضور{l.groupSize ? ` / ${l.groupSize}` : ""}</Badge>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-brand2">+{l.earned} ج.م</span>
+                    <Badge tone="sage">{l.attended} حضور{l.groupSize ? ` / ${l.groupSize}` : ""}</Badge>
+                  </div>
                 </div>
               ))
             )}

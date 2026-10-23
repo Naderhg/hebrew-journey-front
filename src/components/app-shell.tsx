@@ -377,7 +377,7 @@ export function AppShell({
               <span className="grid size-9 place-items-center rounded-xl bg-brand text-primary-foreground">
                 <GraduationCap className="size-4.5" />
               </span>
-              <b className="font-lat">Ohran</b>
+              <b className="font-lat">עברית שוטפת</b>
             </Link>
             <div className="flex items-center gap-1">
               {notifBell}
@@ -465,7 +465,7 @@ export function AppShell({
                 <GraduationCap className="size-5" />
               </span>
               <span className="min-w-0">
-                <strong className="block font-lat text-base leading-tight">Ohran</strong>
+                <strong className="block font-lat text-base leading-tight">עברית שוטפת</strong>
                 <small className="block font-lat text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Language Academy
                 </small>

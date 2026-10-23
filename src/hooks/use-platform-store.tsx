@@ -316,6 +316,8 @@ export interface ScheduleItem {
   id: string;
   teacherId: string;
   teacher: { id: string; fullName: string };
+  groupId?: string | null;
+  group?: { id: string; name: string } | null;
   groupName?: string | null;
   title: string;
   description?: string | null;
@@ -325,6 +327,9 @@ export interface ScheduleItem {
   location: string;
   meetingUrl?: string | null;
   isActive: boolean;
+  // today's generated lecture instance (set when the teacher pressed "بدء")
+  todayLecture?: { id: string; status: string; meetingUrl?: string | null } | null;
+  isLive?: boolean;
 }
 
 export interface AttendanceRecord {
@@ -584,6 +589,8 @@ export interface WeeklyScheduleItem {
   id: string;
   teacherId: string;
   teacher?: { id: string; fullName: string; specialty?: string | null };
+  groupId?: string | null;
+  group?: { id: string; name: string } | null;
   groupName?: string | null;
   title: string;
   description?: string | null;
@@ -601,6 +608,7 @@ export interface CreateScheduleInput {
   title: string;
   description?: string;
   groupName?: string;
+  groupId?: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -621,6 +629,8 @@ export interface StudentSkillItem {
 export interface TeacherSchedule {
   id: string;
   teacherId: string;
+  groupId?: string | null;
+  group?: { id: string; name: string } | null;
   groupName?: string | null;
   title: string;
   description?: string | null;
@@ -630,6 +640,7 @@ export interface TeacherSchedule {
   location: string;
   meetingUrl?: string | null;
   isActive: boolean;
+  todayLecture?: { id: string; status: string; meetingUrl?: string | null } | null;
 }
 
 export interface LectureItem {
@@ -1088,6 +1099,7 @@ interface PlatformStoreValue {
   fetchStudentFreeLectures: () => Promise<void>;
   // teacher lectures lifecycle + per-lecture attendance
   updateTeacherLectureStatus: (id: string, status: "live" | "completed") => Promise<void>;
+  startScheduleLecture: (scheduleId: string) => Promise<LectureItem>;
   lectureStudents: LectureStudent[];
   fetchLectureStudents: (lectureId: string) => Promise<void>;
   saveLectureAttendance: (lectureId: string, records: { studentId: string; status: "present" | "absent" }[]) => Promise<void>;
@@ -1664,6 +1676,14 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await fetchTeacherLectures();
   }
 
+  // Materialize today's lecture from a fixed weekly slot and start it.
+  async function startScheduleLecture(scheduleId: string) {
+    const res = await apiFetch<{ lecture: LectureItem }>(`/api/teacher/schedules/${scheduleId}/start`, { method: "POST" });
+    await fetchTeacherSchedules();
+    await fetchTeacherLectures();
+    return res.lecture;
+  }
+
   async function fetchLectureStudents(lectureId: string) {
     setLectureStudents([]);
     const res = await apiFetch<{ lecture: { id: string; title: string; startsAt: string; groupName: string | null }; students: LectureStudent[] }>(`/api/teacher/lectures/${lectureId}/students`);
@@ -1986,22 +2006,22 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function fetchAdminSchedules() {
-    const res = await apiFetch<{ schedules: WeeklyScheduleItem[] }>("/api/admin/schedules");
+    const res = await apiFetch<{ schedules: WeeklyScheduleItem[] }>("/api/ops/schedules");
     if (res?.schedules) setAdminSchedules(res.schedules);
   }
 
   async function createAdminSchedule(input: CreateScheduleInput) {
-    await apiFetch("/api/admin/schedules", { method: "POST", body: input });
+    await apiFetch("/api/ops/schedules", { method: "POST", body: input });
     await fetchAdminSchedules();
   }
 
   async function updateAdminSchedule(id: string, input: Partial<CreateScheduleInput>) {
-    await apiFetch(`/api/admin/schedules/${id}`, { method: "PATCH", body: input });
+    await apiFetch(`/api/ops/schedules/${id}`, { method: "PATCH", body: input });
     await fetchAdminSchedules();
   }
 
   async function deleteAdminSchedule(id: string) {
-    await apiFetch(`/api/admin/schedules/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/ops/schedules/${id}`, { method: "DELETE" });
     await fetchAdminSchedules();
   }
 
@@ -2475,6 +2495,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         teacherAnalytics,
         fetchTeacherAnalytics,
         updateTeacherLectureStatus,
+        startScheduleLecture,
         lectureStudents,
         fetchLectureStudents,
         saveLectureAttendance,

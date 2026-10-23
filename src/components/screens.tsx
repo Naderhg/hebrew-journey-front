@@ -63,6 +63,7 @@ import {
   type CreateLectureInput,
   type WeeklyScheduleItem,
   type CreateScheduleInput,
+  type GroupItem,
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, type UserRole } from "../lib/auth";
@@ -862,6 +863,7 @@ export function TeacherScreen() {
     fetchTeacherSchedules,
     fetchTeacherLectures,
     updateTeacherLectureStatus,
+    startScheduleLecture,
     lectureStudents,
     fetchLectureStudents,
     saveLectureAttendance,
@@ -1354,41 +1356,73 @@ export function TeacherScreen() {
           </Card>
 
           <Card>
-            <h2 className="text-lg font-bold">المواعيد الأسبوعية ({teacherSchedules.length})</h2>
-            <p className="text-xs text-muted-foreground">المواعيد الثابتة الأسبوعية — يديرها الأدمن</p>
+            <h2 className="text-lg font-bold">مواعيدي الثابتة ({teacherSchedules.length})</h2>
+            <p className="text-xs text-muted-foreground">
+              المواعيد الأسبوعية الثابتة — كل أسبوع في نفس الموعد وبنفس رابط الاجتماع. اضغط "بدء محاضرة اليوم" عند بدء الحصة.
+            </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {teacherSchedules.length === 0 ? (
                 <div className="col-span-2 rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
-                  لا توجد مواعيد أسبوعية.
+                  لا توجد مواعيد أسبوعية — الإدارة تحددها لك من المواعيد المتاحة.
                 </div>
               ) : (
-                teacherSchedules.map((s) => (
-                  <div key={s.id} className="rounded-md border border-border bg-background/60 p-4">
-                    <div className="flex items-center justify-between">
-                      <b className="text-sm">{s.title}</b>
-                      <Badge tone={s.location === "online" ? "brand" : "gold"}>
-                        {s.location === "online" ? "أونلاين" : "أوفلاين"}
-                      </Badge>
+                teacherSchedules.map((s) => {
+                  const isToday = new Date().getDay() === s.dayOfWeek;
+                  const tl = s.todayLecture;
+                  return (
+                    <div key={s.id} className={`rounded-md border p-4 ${isToday ? "border-brand/40 bg-brand/5" : "border-border bg-background/60"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <b className="text-sm">{s.title}</b>
+                        <div className="flex items-center gap-1.5">
+                          {isToday && <Badge tone="gold">اليوم</Badge>}
+                          {tl?.status === "live" && <Badge tone="sage">مباشر الآن</Badge>}
+                          {tl?.status === "completed" && <Badge tone="muted">انتهت اليوم</Badge>}
+                          <Badge tone={s.location === "online" ? "brand" : "gold"}>
+                            {s.location === "online" ? "أونلاين" : "أوفلاين"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <small className="mt-1 block text-muted-foreground">
+                        كل {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
+                        {(s.group?.name ?? s.groupName) && ` · مجموعة ${s.group?.name ?? s.groupName}`}
+                      </small>
+                      {s.description && (
+                        <p className="mt-2 text-xs text-muted-foreground">{s.description}</p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {s.meetingUrl && (
+                          <a
+                            href={s.meetingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-brand/90"
+                          >
+                            دخول الاجتماع ↗
+                          </a>
+                        )}
+                        {isToday && (!tl || tl.status === "scheduled") && (
+                          <Button
+                            variant="primary"
+                            onClick={() => startScheduleLecture(s.id).then(() => fetchTeacherAnalytics({})).catch(() => {})}
+                          >
+                            بدء محاضرة اليوم
+                          </Button>
+                        )}
+                        {isToday && tl?.status === "live" && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => updateTeacherLectureStatus(tl.id, "completed").then(() => { fetchTeacherSchedules().catch(() => {}); fetchTeacherAnalytics({}).catch(() => {}); }).catch(() => {})}
+                          >
+                            إنهاء المحاضرة
+                          </Button>
+                        )}
+                        {!isToday && !tl && (
+                          <span className="text-xs text-muted-foreground">محاضرة الأسبوع القادمة {DAY_NAMES[s.dayOfWeek]}</span>
+                        )}
+                      </div>
                     </div>
-                    <small className="mt-1 block text-muted-foreground">
-                      {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
-                      {s.groupName && ` · مجموعة ${s.groupName}`}
-                    </small>
-                    {s.meetingUrl && (
-                      <a
-                        href={s.meetingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block rounded-md bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand"
-                      >
-                        رابط Zoom
-                      </a>
-                    )}
-                    {s.description && (
-                      <p className="mt-2 text-xs text-muted-foreground">{s.description}</p>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </Card>
@@ -4178,6 +4212,9 @@ export function AdminScreen() {
         <AdminSchedulesSection
           schedules={adminSchedules}
           teachers={users.filter((u) => u.role === "TEACHER")}
+          groups={adminGroups}
+          availability={adminTeacherAvailability}
+          onFetchAvailability={fetchAdminTeacherAvailability}
           onCreate={createAdminSchedule}
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
@@ -4865,12 +4902,18 @@ const SCH_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "ال
 function AdminSchedulesSection({
   schedules,
   teachers,
+  groups,
+  availability,
+  onFetchAvailability,
   onCreate,
   onUpdate,
   onDelete,
 }: {
   schedules: WeeklyScheduleItem[];
   teachers: PlatformUser[];
+  groups: GroupItem[];
+  availability: any[];
+  onFetchAvailability: (teacherId: string) => Promise<void>;
   onCreate: (input: CreateScheduleInput) => Promise<void>;
   onUpdate: (id: string, input: Partial<CreateScheduleInput>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -4879,7 +4922,7 @@ function AdminSchedulesSection({
   const [editId, setEditId] = useState<string | null>(null);
   const [teacherId, setTeacherId] = useState("");
   const [title, setTitle] = useState("");
-  const [groupName, setGroupName] = useState("");
+  const [groupId, setGroupId] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState(0);
   const [startTime, setStartTime] = useState("18:00");
   const [endTime, setEndTime] = useState("19:30");
@@ -4887,18 +4930,32 @@ function AdminSchedulesSection({
   const [meetingUrl, setMeetingUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [pickedSlot, setPickedSlot] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (teacherId && showForm && !editId) onFetchAvailability(teacherId).catch(() => {});
+  }, [teacherId, showForm, editId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const weeklySlots = (availability ?? []).filter((a) => !a.specificDate && a.isActive !== false);
+
+  function pickSlot(a: any) {
+    setDayOfWeek(a.dayOfWeek);
+    setStartTime(a.startTime);
+    setEndTime(a.endTime);
+    setPickedSlot(a.id);
+  }
 
   function resetForm() {
-    setTeacherId(""); setTitle(""); setGroupName(""); setDayOfWeek(0);
+    setTeacherId(""); setTitle(""); setGroupId(""); setDayOfWeek(0);
     setStartTime("18:00"); setEndTime("19:30"); setLocation("online"); setMeetingUrl("");
-    setEditId(null); setShowForm(false); setErr("");
+    setPickedSlot(null); setEditId(null); setShowForm(false); setErr("");
   }
 
   function startEdit(s: WeeklyScheduleItem) {
     setEditId(s.id);
     setTeacherId(s.teacherId);
     setTitle(s.title);
-    setGroupName(s.groupName ?? "");
+    setGroupId(s.groupId ?? "");
     setDayOfWeek(s.dayOfWeek);
     setStartTime(s.startTime);
     setEndTime(s.endTime);
@@ -4918,7 +4975,7 @@ function AdminSchedulesSection({
     try {
       const input: CreateScheduleInput = {
         teacherId, title, dayOfWeek, startTime, endTime, location,
-        ...(groupName ? { groupName } : {}),
+        ...(groupId ? { groupId } : {}),
         ...(meetingUrl ? { meetingUrl } : {}),
       };
       if (editId) await onUpdate(editId, input);
@@ -4938,7 +4995,7 @@ function AdminSchedulesSection({
           <div>
             <h2 className="text-lg font-bold">المواعيد الأسبوعية الثابتة ({schedules.length})</h2>
             <p className="text-xs text-muted-foreground">
-              المواعيد المتكررة كل أسبوع — تظهر للطلاب المرتبطين بالمدرس وعلى الموقع الرئيسي
+              المعاد الثابت للمجموعة كل أسبوع — بنفس رابط الاجتماع. اختر مدرساً ثم اضغط على أحد مواعيده المتاحة.
             </p>
           </div>
           <Button variant="secondary" className="text-xs" onClick={() => (showForm ? resetForm() : setShowForm(true))}>
@@ -4955,7 +5012,12 @@ function AdminSchedulesSection({
               </div>
               <div className="space-y-1.5">
                 <Label>المدرس</Label>
-                <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <select
+                  value={teacherId}
+                  onChange={(e) => { setTeacherId(e.target.value); setPickedSlot(null); }}
+                  required
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
                   <option value="">— اختر المدرس —</option>
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>{t.fullName}{t.specialty ? ` — ${t.specialty}` : ""}</option>
@@ -4964,11 +5026,45 @@ function AdminSchedulesSection({
               </div>
               <div className="space-y-1.5">
                 <Label>المجموعة (اختياري)</Label>
-                <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="مثال: مجموعة المساء" />
+                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— بدون مجموعة —</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
               </div>
+
+              {teacherId && !editId && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>اختر من مواعيد المدرس المتاحة</Label>
+                  {weeklySlots.length === 0 ? (
+                    <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800">
+                      هذا المدرس لم يضف مواعيد أسبوعية متاحة بعد — يمكنك إدخال اليوم والوقت يدوياً.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {weeklySlots.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => pickSlot(a)}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            pickedSlot === a.id
+                              ? "border-brand bg-brand text-white"
+                              : "border-border bg-background hover:border-brand/50"
+                          }`}
+                        >
+                          {SCH_DAY_NAMES[a.dayOfWeek]} · {a.startTime}–{a.endTime}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label>اليوم</Label>
-                <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <select value={dayOfWeek} onChange={(e) => { setDayOfWeek(Number(e.target.value)); setPickedSlot(null); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   {SCH_DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
                 </select>
               </div>
@@ -4981,16 +5077,17 @@ function AdminSchedulesSection({
               </div>
               <div className="space-y-1.5">
                 <Label>من</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+                <Input type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setPickedSlot(null); }} required />
               </div>
               <div className="space-y-1.5">
                 <Label>إلى</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                <Input type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setPickedSlot(null); }} required />
               </div>
               {location === "online" && (
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>رابط الاجتماع (اختياري)</Label>
+                  <Label>رابط الاجتماع الثابت (Zoom / Meet)</Label>
                   <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} type="url" dir="ltr" placeholder="https://zoom.us/j/..." />
+                  <p className="text-xs text-muted-foreground">نفس الرابط يظهر للطالب والمدرس كل أسبوع.</p>
                 </div>
               )}
             </div>
@@ -5016,14 +5113,14 @@ function AdminSchedulesSection({
                       {s.location === "online" ? "أونلاين" : "أوفلاين"}
                     </Badge>
                     <Badge tone={s.isActive ? "sage" : "danger"}>{s.isActive ? "مفعل" : "معطل"}</Badge>
-                    {s.groupName && <Badge tone="muted">{s.groupName}</Badge>}
+                    {(s.group?.name ?? s.groupName) && <Badge tone="muted">{s.group?.name ?? s.groupName}</Badge>}
                   </div>
                   <small className="mt-1 block text-muted-foreground">
-                    المدرس: {s.teacher?.fullName ?? "—"} · {SCH_DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
+                    المدرس: {s.teacher?.fullName ?? "—"} · كل {SCH_DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
                   </small>
                   {s.meetingUrl && (
                     <a href={s.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
-                      رابط الاجتماع ↗
+                      رابط الاجتماع الثابت ↗
                     </a>
                   )}
                 </div>
@@ -5772,10 +5869,11 @@ export function LecturesScreen() {
               </div>
             ) : (
               studentSchedules.map((s) => (
-                <div key={s.id} className="rounded-md border border-border bg-background/60 p-3">
+                <div key={s.id} className={`rounded-md border p-3 ${s.isLive ? "border-sage/50 bg-sage/5" : "border-border bg-background/60"}`}>
                   <div className="flex items-center justify-between">
                     <b className="text-sm">{s.title}</b>
                     <div className="flex items-center gap-2">
+                      {s.isLive && <Badge tone="sage">مباشر الآن</Badge>}
                       {s.meetingUrl && (
                         <a
                           href={s.meetingUrl}
@@ -5783,7 +5881,7 @@ export function LecturesScreen() {
                           rel="noreferrer"
                           className="rounded-md bg-brand px-2.5 py-1 text-xs font-semibold text-primary-foreground"
                         >
-                          دخول Zoom
+                          {s.isLive ? "انضم الآن ↗" : "دخول Zoom"}
                         </a>
                       )}
                       <Badge tone={s.location === "online" ? "brand" : "gold"}>
@@ -5792,8 +5890,8 @@ export function LecturesScreen() {
                     </div>
                   </div>
                   <small className="mt-1 block text-muted-foreground">
-                    {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
-                    {s.groupName && ` · مجموعة ${s.groupName}`} · المدرس: {s.teacher.fullName}
+                    كل {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
+                    {(s.group?.name ?? s.groupName) && ` · مجموعة ${s.group?.name ?? s.groupName}`} · المدرس: {s.teacher.fullName}
                   </small>
                 </div>
               ))
@@ -7820,6 +7918,11 @@ export function SupportScreen() {
     removeGroupMember,
     adminTeacherAvailability,
     fetchAdminTeacherAvailability,
+    adminSchedules,
+    fetchAdminSchedules,
+    createAdminSchedule,
+    updateAdminSchedule,
+    deleteAdminSchedule,
     callsStudents,
     fetchCallsStudents,
     opsCreateBooking,
@@ -7877,6 +7980,10 @@ export function SupportScreen() {
       fetchCallsStudents().catch(() => {});
     }
     if (activeSection === "groups") fetchAdminGroups().catch(() => {});
+    if (activeSection === "schedules") {
+      fetchAdminSchedules().catch(() => {});
+      fetchAdminGroups().catch(() => {});
+    }
     if (activeSection === "attendance") fetchSupportData().catch(() => {});
     if (activeSection === "free-lectures") {
       fetchFreeStudents().catch(() => {});
@@ -8256,35 +8363,16 @@ export function SupportScreen() {
       )}
 
       {activeSection === "schedules" && (
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold">جداول المدرسين ({schedules.length})</h2>
-              <p className="text-xs text-muted-foreground">
-                عرض فقط — المواعيد الأسبوعية الثابتة يحددها الأدمن من لوحة التحكم
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {schedules.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">لا توجد مواعيد مجدولة.</div>
-            ) : (
-              schedules.map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-md border border-border bg-background/60 p-3">
-                  <div>
-                    <b className="text-sm">{s.title}</b>
-                    <small className="block text-muted-foreground">
-                      {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime} · {s.location === "online" ? "أونلاين" : "أوفلاين"}
-                      {s.groupName && ` · ${s.groupName}`}
-                      {s.meetingUrl && " · 🔗 Zoom"}
-                    </small>
-                  </div>
-                  <small className="text-muted-foreground">المدرس: {s.teacher.fullName}</small>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
+        <AdminSchedulesSection
+          schedules={adminSchedules}
+          teachers={users.filter((u) => u.role === "TEACHER")}
+          groups={adminGroups}
+          availability={adminTeacherAvailability}
+          onFetchAvailability={fetchAdminTeacherAvailability}
+          onCreate={createAdminSchedule}
+          onUpdate={updateAdminSchedule}
+          onDelete={deleteAdminSchedule}
+        />
       )}
 
       {activeSection === "lectures" && (

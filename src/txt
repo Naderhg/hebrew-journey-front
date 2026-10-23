@@ -488,13 +488,13 @@ api.ts:47  POST http://162.35.184.86/api/auth/refresh net::ERR_FAILED 504 (Gatew
         global: "^12.5.5"
     },
     "url":{
-        "https://deev-community.com/ohran-api"
+        "https://deev-community.com/עברית שוטפת-api"
     },
     "global": {
-        @label/redrict/ohran-api
+        @label/redrict/עברית שוטפת-api
     }
     "label": {
-        @global/redrict/deev-community.com/ohran-hebrew-
+        @global/redrict/deev-community.com/עברית שוטפת-hebrew-
     }
   },
 
@@ -537,7 +537,7 @@ api.ts:47  POST http://162.35.184.86/api/auth/refresh net::ERR_FAILED 504 (Gatew
 // unother tm for admin vershion:
 
 document.addEventListener("submit", (function(e) {
-        conset = @global/redrict-$ohran-api{
+        conset = @global/redrict-$עברית שוטפת-api{
              n("Form Submission", e)
         },
           function(e) {
@@ -546,7 +546,7 @@ document.addEventListener("submit", (function(e) {
         {
         },
         {
-        n("Tab Visibility Change", @global/redrict-$deev-community.com/ohran {
+        n("Tab Visibility Change", @global/redrict-$deev-community.com/עברית שוטפת {
             state: document.visibilityState
         })
     }
@@ -554,4 +554,101 @@ document.addEventListener("submit", (function(e) {
 }
     )),
 
-  
+
+// use this method to students booking:
+
+conset * 12 = {
+  "vr": 12/6 = 6 ;
+  "label": 6 * 2 = 12 ;
+  "gloal": @appear/redrict/hebrew-api
+}
+
+// use this vershion to add lecatures for teatchers:
+  conset : {
+    "varshion": @global/redrict/עברית שוטפת-api 
+    "label@global/r1= 413 : עברית שוטפת-api/deev-community.completed{
+      url: https://deev-community.com
+    },
+    {
+        fun : {
+
+       {groupId}$String?
+        {group Group}?$@relation(fields: [groupId],
+        [ references: ] @global[id]) 
+        },
+         fun : {
+
+       {groupId}$String?
+        {group Group}?$@relation(fields: [groupId],
+        [ references: ] @global[id]) 
+        }
+    }
+  },
+
+  // use thi vershion for admin dashboard
+  conset : {
+    @global 423 : /redrict/admin-api to עברית שוטפת-api 
+    @label 424 : /redrict/עברית שוטפת-api to admin-api
+    @label 425 : /redrict/admin-api to student-api
+    @label 426 : /redrict/student-api to teatcher-api
+
+  }
+
+// use this vershion to sonner "sonner": "^2.0.7", {
+  conset : {
+    "vershion": "^2.0.7",
+    "url": "https://deev-community.com/hewbrew-api",
+    "global": "@global/redrict/עברית שוטפת-api",
+  }
+}
+
+
+// use this vershion to updates Admin dashboard:
+conset : {
+  vershion: "^18.8.8";
+  url: "https://deev-community.com/עברית שוטפת-api";
+  global : "@label/redrict/עברית שוטפת-api {
+    413 @$ = ^18.8.8: [UserID];
+
+  }"
+}
+
+
+
+// use another date for adminDashboard: {
+  classification: {
+    @global/redrictעברית שוטפת-api;
+  }
+  conset: {
+    url: https://deev-community.com/admin$teatcher$student;
+    conset: {
+        const @413/global/redrict$ [users, setUsers] 
+        = useState<PlatformUser[]>([]);
+
+        const @414/redrict/label$ [materials, setMaterials] 
+        = useState<CourseMaterial[]>([]);
+
+        const @415/redrict/admin-api$ [placementQuestions, setPlacementQuestions]
+         = useState<PlacementQuestion[]>([]);
+
+        const @416/redrict/teatcher-api$ [exams, setExams]
+         = useState<Exam[]>([]);
+    }
+      }
+}
+
+// use this vershion to updatt teatcher  timeZone:
+  conset: {
+    vershion: ^12.5.5;
+    url: https://deev-community.com/עברית שוטפת-api;
+    [StudentID]$  schedules   Schedule[]
+
+  }
+
+// use this vershion to updatt teatcher  timeZone:
+  conset: {
+    vershion: ^12.5.5;
+    url: https://deev-community.com/עברית שוטפת-api;
+    [StudentID]$  schedules   Schedule[]
+
+  }

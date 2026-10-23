@@ -214,6 +214,7 @@ export function AppShell({
     markNotificationRead,
     markAllNotificationsRead,
     hasCallsPackage,
+    hasBasicPackage,
     fetchHasCallsPackage,
   } = usePlatformStore();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -264,7 +265,14 @@ export function AppShell({
   let navItems = roleNavigationMap[role] ?? studentNav;
   if (needsPlacement) navItems = placementOnlyNav;
   else if (isLocked) navItems = lockedStudentNav;
-  else if (isStudent) navItems = studentNav.filter((item) => item.to !== "/sessions" || hasCallsPackage);
+  else if (isStudent) {
+    const callsOnly = hasCallsPackage && !hasBasicPackage;
+    navItems = studentNav.filter((item) => {
+      if (item.to === "/sessions") return hasCallsPackage;
+      if (callsOnly && ["/lectures", "/courses", "/homework", "/exams"].includes(item.to)) return false;
+      return true;
+    });
+  }
   const displayName = user ? user.fullName : "غير مسجل الدخول";
   const displaySubtitle = user ? `${ROLE_LABELS[currentUserRole]} · ${user.phone ?? user.email ?? ""}` : ROLE_LABELS[role];
 

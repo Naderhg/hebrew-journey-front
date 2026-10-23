@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AreaChart, Area, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -5586,6 +5586,51 @@ function AdminCertificatesSection({
       </div>
     </div>
   );
+}
+
+// Wraps student screens that belong to basic packages — students with only a
+// calls package get individual sessions only and see a notice instead.
+export function CallsOnlyGuard({ children }: { children: ReactNode }) {
+  const { hasCallsPackage, hasBasicPackage, fetchHasCallsPackage } = usePlatformStore();
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        await fetchHasCallsPackage();
+      } finally {
+        if (alive) setChecking(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (checking) {
+    return (
+      <AppShell role="STUDENT">
+        <div className="py-16 text-center text-sm text-muted-foreground">جاري التحقق من اشتراكك...</div>
+      </AppShell>
+    );
+  }
+
+  if (hasCallsPackage && !hasBasicPackage) {
+    return (
+      <AppShell role="STUDENT">
+        <Card className="mx-auto mt-10 max-w-md p-8 text-center">
+          <h2 className="text-lg font-bold text-[#0b2f6e]">هذا القسم غير متاح لباقة المكالمات</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            اشتراكك الحالي في نظام المكالمات — يمكنك الوصول لحصصك الفردية ومحفظتك فقط.
+            المحاضرات والكورسات متاحة مع الباقات الأساسية.
+          </p>
+        </Card>
+      </AppShell>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 export function LecturesScreen() {

@@ -1037,6 +1037,7 @@ interface PlatformStoreValue {
   fetchMySessions: () => Promise<void>;
   fetchHasCallsPackage: () => Promise<void>;
   hasCallsPackage: boolean;
+  hasBasicPackage: boolean;
   fetchAvailableSlots: () => Promise<void>;
   bookSession: (input: { availabilityId: string; startsAt: string }) => Promise<void>;
   rescheduleBooking: (id: string, input: { newAvailabilityId: string; newStartsAt: string }) => Promise<void>;
@@ -1167,6 +1168,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [adminBookings, setAdminBookings] = useState<LessonBookingItem[]>([]);
   const [adminBookingsReport, setAdminBookingsReport] = useState<{ students: any[]; totals: any } | null>(null);
   const [hasCallsPackage, setHasCallsPackage] = useState(false);
+  const [hasBasicPackage, setHasBasicPackage] = useState(false);
   const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMemberItem[]>([]);
   const [adminTeacherAvailability, setAdminTeacherAvailability] = useState<any[]>([]);
@@ -2018,8 +2020,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   // ─── Session-package booking functions ───
   async function fetchHasCallsPackage() {
     try {
-      const res = await apiFetch<{ hasCallsPackage: boolean }>("/api/student/has-calls-package");
-      if (res) setHasCallsPackage(res.hasCallsPackage);
+      const res = await apiFetch<{ hasCallsPackage: boolean; hasBasicPackage?: boolean }>("/api/student/has-calls-package");
+      if (res) {
+        setHasCallsPackage(res.hasCallsPackage);
+        setHasBasicPackage(res.hasBasicPackage ?? false);
+      }
     } catch { /* ignore */ }
   }
 
@@ -2417,6 +2422,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         teacherAvailability,
         teacherBookings,
         hasCallsPackage,
+        hasBasicPackage,
         adminBookings,
         adminBookingsReport,
         fetchMySessions,

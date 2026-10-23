@@ -516,6 +516,59 @@ export interface CallsStudentItem {
   expiresAt?: string | null;
 }
 
+export interface OpsTeacherItem {
+  id: string;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  specialty?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface OpsPackageItem {
+  id: string;
+  nameAr: string;
+  price: number;
+  category: string; // basic | calls
+  packageType: string; // subscription | sessions
+  sessionsTotal?: number | null;
+  durationMonths: number;
+  durationUnit: string; // month | week
+  validityDays?: number | null;
+  level?: string | null;
+  studyMode?: string;
+}
+
+export interface OpsStudentSubscription {
+  id: string;
+  status: string;
+  paymentStatus: string;
+  paidAmount?: number | null;
+  sessionsTotal?: number | null;
+  sessionsRemaining?: number | null;
+  expiresAt?: string | null;
+  endDate?: string | null;
+  createdAt: string;
+  package: { id: string; nameAr: string; category: string; price: number };
+}
+
+export interface OpsStudentItem {
+  id: string;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  level?: string | null;
+  studentStatus: string;
+  placementScore?: number | null;
+  placementCompletedAt?: string | null;
+  createdAt: string;
+  teachers: { id: string; name: string; groupName?: string | null }[];
+  groups: { id: string; name: string }[];
+  subscriptions: OpsStudentSubscription[];
+  examsCount: number;
+}
+
 export interface TeacherAnalytics {
   totals: {
     sessionsCompleted: number;
@@ -1082,6 +1135,14 @@ interface PlatformStoreValue {
   opsCreateBooking: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
   opsBookings: LessonBookingItem[];
   fetchOpsBookings: () => Promise<void>;
+  // ops directories + manual subscription activation
+  opsTeachers: OpsTeacherItem[];
+  fetchOpsTeachers: () => Promise<void>;
+  opsStudents: OpsStudentItem[];
+  fetchOpsStudents: () => Promise<void>;
+  opsPackages: OpsPackageItem[];
+  fetchOpsPackages: () => Promise<void>;
+  activateOpsSubscription: (input: { studentId: string; packageId: string; paidAmount?: number; notes?: string }) => Promise<void>;
   // free lectures
   freeStudents: FreeLectureStudent[];
   freeLectures: FreeLecture[];
@@ -1186,6 +1247,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [adminTeacherAvailability, setAdminTeacherAvailability] = useState<any[]>([]);
   const [callsStudents, setCallsStudents] = useState<CallsStudentItem[]>([]);
   const [opsBookings, setOpsBookings] = useState<LessonBookingItem[]>([]);
+  const [opsTeachers, setOpsTeachers] = useState<OpsTeacherItem[]>([]);
+  const [opsStudents, setOpsStudents] = useState<OpsStudentItem[]>([]);
+  const [opsPackages, setOpsPackages] = useState<OpsPackageItem[]>([]);
   const [freeStudents, setFreeStudents] = useState<FreeLectureStudent[]>([]);
   const [freeLectures, setFreeLectures] = useState<FreeLecture[]>([]);
   const [studentFreeLectures, setStudentFreeLectures] = useState<FreeLecture[]>([]);
@@ -1631,6 +1695,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function updateStudentStatus(studentId: string, status: string) {
     await apiFetch(`/api/support/students/${studentId}/status`, { method: "PATCH", body: { status } });
     setSupportStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, studentStatus: status } : s)),
+    );
+    setOpsStudents((prev) =>
       prev.map((s) => (s.id === studentId ? { ...s, studentStatus: status } : s)),
     );
   }
@@ -2186,6 +2253,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await apiFetch(`/api/ops/groups/${groupId}/members`, { method: "POST", body: { studentIds } });
     await fetchGroupMembers(groupId);
     await fetchAdminGroups();
+    await fetchOpsStudents().catch(() => {});
   }
 
   async function removeGroupMember(groupId: string, studentId: string) {
@@ -2210,6 +2278,26 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function fetchOpsBookings() {
     const res = await apiFetch<{ bookings: LessonBookingItem[] }>("/api/ops/bookings");
     if (res) setOpsBookings(res.bookings ?? []);
+  }
+
+  async function fetchOpsTeachers() {
+    const res = await apiFetch<{ teachers: OpsTeacherItem[] }>("/api/ops/teachers");
+    if (res) setOpsTeachers(res.teachers ?? []);
+  }
+
+  async function fetchOpsStudents() {
+    const res = await apiFetch<{ students: OpsStudentItem[] }>("/api/ops/students");
+    if (res) setOpsStudents(res.students ?? []);
+  }
+
+  async function fetchOpsPackages() {
+    const res = await apiFetch<{ packages: OpsPackageItem[] }>("/api/ops/packages");
+    if (res) setOpsPackages(res.packages ?? []);
+  }
+
+  async function activateOpsSubscription(input: { studentId: string; packageId: string; paidAmount?: number; notes?: string }) {
+    await apiFetch("/api/ops/subscriptions", { method: "POST", body: input });
+    await fetchOpsStudents();
   }
 
   async function opsCreateBooking(input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) {
@@ -2479,6 +2567,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         opsCreateBooking,
         opsBookings,
         fetchOpsBookings,
+        opsTeachers,
+        fetchOpsTeachers,
+        opsStudents,
+        fetchOpsStudents,
+        opsPackages,
+        fetchOpsPackages,
+        activateOpsSubscription,
         freeStudents,
         freeLectures,
         fetchFreeStudents,

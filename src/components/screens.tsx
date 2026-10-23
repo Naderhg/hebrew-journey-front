@@ -2300,6 +2300,12 @@ export function AdminScreen() {
     removeFreeLectureFile,
     adminAnalytics,
     fetchAdminAnalytics,
+    opsStudents,
+    fetchOpsStudents,
+    opsPackages,
+    fetchOpsPackages,
+    activateOpsSubscription,
+    updateStudentStatus,
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
@@ -2315,6 +2321,11 @@ export function AdminScreen() {
 
   useEffect(() => {
     if (activeSection === "bookings") fetchAdminPaymentRequests(bookingFilter).catch(() => {});
+    if (activeSection === "students") {
+      fetchOpsStudents().catch(() => {});
+      fetchOpsPackages().catch(() => {});
+      fetchAdminGroups().catch(() => {});
+    }
     if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
     if (activeSection === "schedules") fetchAdminSchedules().catch(() => {});
     if (activeSection === "sessions") {
@@ -2865,6 +2876,425 @@ export function AdminScreen() {
   </Card>
   );
 
+  const examFormCard = (
+    <Card>
+      <div className="flex items-center gap-2">
+        <span className="grid size-9 place-items-center rounded-md bg-brand/10 text-brand">
+          <FileCheck className="size-4" />
+        </span>
+        <div>
+          <h2 className="font-bold">إنشاء امتحان جديد</h2>
+          <small className="text-muted-foreground">
+            يظهر للمدرس المحدد وللطلاب المربوطين به عند النشر
+          </small>
+        </div>
+      </div>
+
+      {examSuccess && (
+        <div className="mt-4 rounded-md bg-sage/15 p-3 text-xs font-semibold text-sage">
+          {examSuccess}
+        </div>
+      )}
+      {examError && (
+        <div className="mt-4 rounded-md bg-danger/10 p-3 text-xs font-semibold text-danger">
+          {examError}
+        </div>
+      )}
+
+      <form onSubmit={handleCreateExam} className="mt-4 space-y-3">
+        <div className="space-y-1.5">
+          <Label>عنوان الامتحان</Label>
+          <Input
+            value={examTitle}
+            onChange={(e) => setExamTitle(e.target.value)}
+            required
+            placeholder="مثال: امتحان ترجمة — الوحدة 3"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>وصف مختصر (يظهر للطالب)</Label>
+          <Input
+            value={examDesc}
+            onChange={(e) => setExamDesc(e.target.value)}
+            placeholder="تعليمات أو وصف الامتحان"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label>نوع الامتحان</Label>
+            <select
+              value={examType}
+              onChange={(e) => setExamType(e.target.value as ExamType)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="translation">ترجمة (نص ↔ نص)</option>
+              <option value="reading">قراءة وفهم</option>
+              <option value="speaking">فقرة مكتوبة — الطالب يسجل صوته</option>
+              <option value="listening">استماع — صوت الأدمن + كتابة</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>المدرس المستلم</Label>
+            <select
+              value={activeExamTeacherId}
+              onChange={(e) => setExamTeacherId(e.target.value)}
+              required
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {teachers.length === 0 ? (
+                <option value="">لا يوجد مدرسون — أضف مدرساً أولاً</option>
+              ) : (
+                teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.fullName}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+        </div>
+
+        {(examType === "translation" || examType === "reading") && (
+          <div className="space-y-1.5">
+            <Label>
+              أسئلة نص حر سريعة — كل سطر: النص العبري | الإجابة المتوقعة (اختياري)
+            </Label>
+            <textarea
+              value={examItemsText}
+              onChange={(e) => setExamItemsText(e.target.value)}
+              className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 font-he text-sm outline-none"
+              dir="rtl"
+              placeholder={"מה השעה? | كم الساعة؟\nאיפה אתה גר? | أين تسكن؟"}
+            />
+          </div>
+        )}
+
+        {/* Structured question builder — supports text, MCQ, true/false */}
+        <div className="space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-3">
+          <div className="flex items-center justify-between">
+            <Label>أسئلة منظمة (اختياري — تظهر للطالب بالترتيب)</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-2 text-xs"
+              onClick={() =>
+                setExamQuestions((prev) => [
+                  ...prev,
+                  {
+                    type: "mcq" as QuestionType,
+                    prompt: "",
+                    options: ["", ""],
+                    correctIndex: 0,
+                    points: 1,
+                  },
+                ])
+              }
+            >
+              <Plus className="size-3.5" />
+              إضافة سؤال
+            </Button>
+          </div>
+
+          {examQuestions.length > 0 && (
+            <div className="space-y-3">
+              {examQuestions.map((q, qi) => (
+                <div key={qi} className="rounded-md border border-border bg-background p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-muted-foreground">
+                      سؤال {qi + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExamQuestions((prev) => prev.filter((_, i) => i !== qi))
+                      }
+                      className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <select
+                      value={q.type}
+                      onChange={(e) => {
+                        const newType = e.target.value as QuestionType;
+                        setExamQuestions((prev) =>
+                          prev.map((p, i) => {
+                            if (i !== qi) return p;
+                            const updated: ExamQuestionItem = {
+                              ...p,
+                              type: newType,
+                              points: p.points ?? 1,
+                            };
+                            if (newType === "mcq") {
+                              updated.options = p.options ?? ["", ""];
+                              updated.correctIndex = p.correctIndex ?? 0;
+                            } else if (newType === "truefalse") {
+                              updated.options = ["صح", "خطأ"];
+                              updated.correctIndex = 0;
+                            } else {
+                              // text — no options
+                            }
+                            return updated;
+                          }),
+                        );
+                      }}
+                      className="flex h-9 rounded-md border border-input bg-background px-2 text-xs"
+                    >
+                      <option value="text">نص حر (يدوي)</option>
+                      <option value="mcq">اختيار من متعدد (تلقائي)</option>
+                      <option value="truefalse">صح/خطأ (تلقائي)</option>
+                    </select>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="الدرجة"
+                      className="h-9 text-xs"
+                      value={q.points ?? 1}
+                      onChange={(e) =>
+                        setExamQuestions((prev) =>
+                          prev.map((p, i) =>
+                            i === qi ? { ...p, points: Number(e.target.value) } : p,
+                          ),
+                        )
+                      }
+                    />
+                  </div>
+
+                  <Input
+                    className="mt-2 font-he text-sm"
+                    dir="rtl"
+                    placeholder="نص السؤال بالعبرية..."
+                    value={q.prompt}
+                    onChange={(e) =>
+                      setExamQuestions((prev) =>
+                        prev.map((p, i) =>
+                          i === qi ? { ...p, prompt: e.target.value } : p,
+                        ),
+                      )
+                    }
+                  />
+
+                  {q.type === "mcq" && (
+                    <div className="mt-2 space-y-1.5">
+                      {(q.options ?? []).map((opt, oi) => (
+                        <div key={oi} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExamQuestions((prev) =>
+                                prev.map((p, i) =>
+                                  i === qi ? { ...p, correctIndex: oi } : p,
+                                ),
+                              )
+                            }
+                            className={`grid size-6 shrink-0 place-items-center rounded-full border text-xs ${
+                              q.correctIndex === oi
+                                ? "border-brand bg-brand text-primary-foreground"
+                                : "border-border"
+                            }`}
+                          >
+                            {q.correctIndex === oi ? "✓" : oi + 1}
+                          </button>
+                          <Input
+                            className="h-8 flex-1 text-xs"
+                            placeholder={`الاختيار ${oi + 1}`}
+                            value={opt}
+                            onChange={(e) =>
+                              setExamQuestions((prev) =>
+                                prev.map((p, i) =>
+                                  i === qi
+                                    ? {
+                                        ...p,
+                                        options: (p.options ?? []).map((o, j) =>
+                                          j === oi ? e.target.value : o,
+                                        ),
+                                      }
+                                    : p,
+                                ),
+                              )
+                            }
+                          />
+                          {(q.options ?? []).length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExamQuestions((prev) =>
+                                  prev.map((p, i) => {
+                                    if (i !== qi) return p;
+                                    const newOptions = (p.options ?? []).filter(
+                                      (_, j) => j !== oi,
+                                    );
+                                    const newCorrect = Math.max(
+                                      0,
+                                      (p.correctIndex ?? 0) >= oi
+                                        ? (p.correctIndex ?? 0) - 1
+                                        : p.correctIndex ?? 0,
+                                    );
+                                    const updated: ExamQuestionItem = {
+                                      ...p,
+                                      options: newOptions,
+                                      correctIndex: newCorrect,
+                                      points: p.points ?? 1,
+                                    };
+                                    return updated;
+                                  }),
+                                )
+                              }
+                              className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-7 px-2 text-xs"
+                        onClick={() =>
+                          setExamQuestions((prev) =>
+                            prev.map((p, i) =>
+                              i === qi
+                                ? { ...p, options: [...(p.options ?? []), ""] }
+                                : p,
+                            ),
+                          )
+                        }
+                      >
+                        <Plus className="size-3" />
+                        إضافة اختيار
+                      </Button>
+                      <small className="block text-muted-foreground">
+                        الإجابة الصحيحة محددة بـ ✓ — التصحيح تلقائي
+                      </small>
+                    </div>
+                  )}
+
+                  {q.type === "truefalse" && (
+                    <div className="mt-2 flex items-center gap-2">
+                      {["صح", "خطأ"].map((opt, oi) => (
+                        <button
+                          key={oi}
+                          type="button"
+                          onClick={() =>
+                            setExamQuestions((prev) =>
+                              prev.map((p, i) =>
+                                i === qi ? { ...p, correctIndex: oi } : p,
+                              ),
+                            )
+                          }
+                          className={`rounded-md border px-4 py-1.5 text-sm ${
+                            q.correctIndex === oi
+                              ? "border-brand bg-brand/10 font-bold text-brand"
+                              : "border-border"
+                          }`}
+                        >
+                          {opt} {q.correctIndex === oi && "✓"}
+                        </button>
+                      ))}
+                      <small className="text-muted-foreground">التصحيح تلقائي</small>
+                    </div>
+                  )}
+
+                  {q.type === "text" && (
+                    <Input
+                      className="mt-2 text-xs"
+                      placeholder="الإجابة المتوقعة (اختياري — للمرجعية فقط)"
+                      value={q.expected ?? ""}
+                      onChange={(e) =>
+                        setExamQuestions((prev) =>
+                          prev.map((p, i) =>
+                            i === qi ? { ...p, expected: e.target.value } : p,
+                          ),
+                        )
+                      }
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {examType === "speaking" && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>الفقرة المكتوبة (بالعبرية — الطالب يقرؤها ويسجل صوته)</Label>
+              {examParagraph.trim() && <HebrewTTS text={examParagraph} label="معاينة الصوت" />}
+            </div>
+            <textarea
+              value={examParagraph}
+              onChange={(e) => setExamParagraph(e.target.value)}
+              required
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 font-he text-sm outline-none"
+              dir="rtl"
+              placeholder="כתוב כאן את הפסקה שהתלמיד יקרא ויקליט..."
+            />
+          </div>
+        )}
+
+        {examType === "listening" && (
+          <div className="space-y-2">
+            <Label>تسجيل صوتي منك — الطالب يسمعه ويكتب ما فهمه</Label>
+            <AudioRecorder
+              label="سجّل صوتك الآن"
+              onRecorded={(blob) => {
+                setExamRecordedBlob(blob);
+                setExamAudioFile(null);
+              }}
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              أو ارفع ملف صوتي جاهز
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={(e) => {
+                setExamAudioFile(e.target.files?.[0] ?? null);
+                if (e.target.files?.[0]) setExamRecordedBlob(null);
+              }}
+              className="block w-full rounded-md border border-dashed border-border bg-muted/40 p-2.5 text-xs"
+            />
+            {(examAudioFile || examRecordedBlob) && (
+              <small className="font-semibold text-sage">
+                {examAudioFile
+                  ? `الملف الجاهز: ${examAudioFile.name}`
+                  : "تم تسجيل صوتك — سيُرفع مع الامتحان"}
+              </small>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label>حالة النشر</Label>
+          <select
+            value={examStatus}
+            onChange={(e) => setExamStatusSel(e.target.value as PublishStatus)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="DRAFT">مسودة (Draft)</option>
+            <option value="PUBLISHED">نشر فوري (Publish)</option>
+          </select>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={teachers.length === 0 || examSubmitting}
+        >
+          <Plus className="size-4" />
+          {examSubmitting ? "جاري الحفظ والرفع..." : "إنشاء الامتحان"}
+        </Button>
+      </form>
+    </Card>
+  );
+
   return (
     <AppShell
       role="ADMIN"
@@ -3008,18 +3438,15 @@ export function AdminScreen() {
 
       {activeSection === "students" && (
         <div className="space-y-4">
-          <Card>
-            <div>
-              <h2 className="text-lg font-bold">قائمة الطلاب (Students)</h2>
-              <p className="text-xs text-muted-foreground">
-                الطلاب الذين قاموا بإنشاء حسابات عبر صفحة التسجيل في المنصة
-              </p>
-            </div>
-            {renderUsersTable(
-              users.filter((u) => u.role === "STUDENT"),
-              "لا يوجد طلاب مسجلون حالياً.",
-            )}
-          </Card>
+          <StudentsDirectorySection
+            students={opsStudents}
+            groups={adminGroups}
+            packages={opsPackages}
+            loading={loadingData}
+            onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
+            onActivate={activateOpsSubscription}
+            onAddToGroup={addGroupMembers}
+          />
 
           <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
             <Card>
@@ -3390,69 +3817,84 @@ export function AdminScreen() {
         );
       })()}
 
-      {activeSection === "exams" && (
+      {activeSection === "exams" && (() => {
+        const q = examSearch.trim().toLowerCase();
+        const filteredExams = exams.filter((e) => !q || `${e.title} ${e.description} ${e.assignedTeacherName ?? ""}`.toLowerCase().includes(q));
+        const examPages = Math.max(1, Math.ceil(filteredExams.length / PAGE_SIZE));
+        const curPage = Math.min(examPage, examPages);
+        const pageExams = filteredExams.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
+        const publishedCount = exams.filter((e) => e.status === "PUBLISHED").length;
+        const submissions = exams.reduce((n, e) => n + (e.resultsCount ?? 0), 0);
+        return (
         <>
         <SectionHeader
           icon={FileCheck}
           tone="gold"
           title="الامتحانات"
-          subtitle={<>لديك <b>{exams.length}</b> امتحان — المنشور يظهر للمدرس المعيّن وطلابه</>}
+          subtitle="إنشاء الامتحانات وتخصيصها للمدرسين ومتابعة تسليمات الطلاب"
         />
-        <div className="grid gap-4 xl:grid-cols-[1fr_440px]">
-          <Card>
+        <div className="mb-4 grid gap-4 sm:grid-cols-3">
+          <StatTile icon={FileCheck} label="إجمالي الامتحانات" value={exams.length} />
+          <StatTile icon={Check} tone="sage" label="منشورة" value={publishedCount} />
+          <StatTile icon={ClipboardCheck} tone="gold" label="التسليمات" value={submissions} />
+        </div>
+        <div className="grid items-start gap-4 xl:grid-cols-[440px_1fr]">
+          <div className="animate-rise space-y-4 xl:sticky xl:top-4 xl:col-start-1 xl:row-start-1">
+            {examFormCard}
+          </div>
+
+          <Card className="xl:col-start-2 xl:row-start-1">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-bold">الامتحانات المخصصة للمدرسين ({exams.length})</h3>
+              <SearchBox value={examSearch} onChange={(v) => { setExamSearch(v); setExamPage(1); }} placeholder="بحث عن امتحان..." />
+            </div>
             <div className="space-y-3">
-              {exams.length === 0 ? (
+              {pageExams.length === 0 ? (
                 <div className="py-12 text-center text-sm text-muted-foreground">
-                  لا توجد امتحانات في قاعدة البيانات حالياً.
+                  لا توجد امتحانات مطابقة في قاعدة البيانات حالياً.
                 </div>
               ) : (
-                exams.map((exam) => (
+                pageExams.map((exam, i) => (
                   <div
                     key={exam.id}
-                    className="rounded-2xl border border-border bg-muted/30 p-5"
+                    style={{ animationDelay: `${i * 70}ms` }}
+                    className="animate-rise hover-lift rounded-2xl border border-border bg-card p-4"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-start gap-3">
-                        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gold/15 text-gold">
-                          <FileCheck className="size-5" />
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="grid h-24 w-36 shrink-0 place-items-center rounded-xl bg-gold/10 text-gold">
+                        <span className="grid size-10 place-items-center rounded-full bg-background shadow-sm">
+                          <FileCheck className="size-4" />
                         </span>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <b className="text-sm">{exam.title}</b>
-                            <Badge tone="gold">{EXAM_TYPE_LABELS[exam.type]}</Badge>
-                            <Badge tone={exam.status === "PUBLISHED" ? "sage" : "muted"}>
-                              {exam.status === "PUBLISHED" ? "منشور" : "مسودة"}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {exam.description || "بدون وصف"} · المدرس:{" "}
-                            {exam.assignedTeacherName ?? "—"} · التسليمات: {exam.resultsCount ?? 0}
-                          </p>
-                          {exam.questions.audioUrl && (
-                            <audio
-                              controls
-                              src={mediaSrc(exam.questions.audioUrl)}
-                              className="mt-2 h-8 w-56"
-                            />
-                          )}
-                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <b className="text-sm">{exam.title}</b>
+                          <Badge tone="muted">{EXAM_TYPE_LABELS[exam.type]}</Badge>
+                          <Badge tone={exam.status === "PUBLISHED" ? "sage" : "gold"}>
+                            {exam.status === "PUBLISHED" ? "منشور" : "مسودة"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{exam.description || "بدون وصف"}</p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                          <span>المدرس: {exam.assignedTeacherName ?? "—"}</span>
+                          <span>{new Date(exam.createdAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}</span>
+                          <span>التسليمات: {exam.resultsCount ?? 0}</span>
+                        </div>
+                        {exam.questions.audioUrl && (
+                          <audio controls src={mediaSrc(exam.questions.audioUrl)} className="mt-2 h-8 w-56" />
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-1.5">
                         <Button
                           variant="secondary"
-                          className="min-h-8 px-3 py-1 text-xs"
-                          onClick={() =>
-                            setExamStatus(
-                              exam.id,
-                              exam.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED",
-                            )
-                          }
+                          className="min-h-8 px-4 py-1 text-xs"
+                          onClick={() => setExamStatus(exam.id, exam.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED")}
                         >
                           {exam.status === "PUBLISHED" ? "إرجاع كمسودة" : "نشر الآن"}
                         </Button>
                         <button
                           onClick={() => deleteExam(exam.id)}
-                          className="rounded-md p-2 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                          className="grid h-8 place-items-center rounded-xl bg-muted/70 text-muted-foreground hover:bg-danger/10 hover:text-danger"
                           title="حذف الامتحان"
                         >
                           <Trash2 className="size-4" />
@@ -3463,427 +3905,12 @@ export function AdminScreen() {
                 ))
               )}
             </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center gap-2">
-              <span className="grid size-9 place-items-center rounded-md bg-brand/10 text-brand">
-                <FileCheck className="size-4" />
-              </span>
-              <div>
-                <h2 className="font-bold">إنشاء امتحان جديد</h2>
-                <small className="text-muted-foreground">
-                  يظهر للمدرس المحدد وللطلاب المربوطين به عند النشر
-                </small>
-              </div>
-            </div>
-
-            {examSuccess && (
-              <div className="mt-4 rounded-md bg-sage/15 p-3 text-xs font-semibold text-sage">
-                {examSuccess}
-              </div>
-            )}
-            {examError && (
-              <div className="mt-4 rounded-md bg-danger/10 p-3 text-xs font-semibold text-danger">
-                {examError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateExam} className="mt-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label>عنوان الامتحان</Label>
-                <Input
-                  value={examTitle}
-                  onChange={(e) => setExamTitle(e.target.value)}
-                  required
-                  placeholder="مثال: امتحان ترجمة — الوحدة 3"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>وصف مختصر (يظهر للطالب)</Label>
-                <Input
-                  value={examDesc}
-                  onChange={(e) => setExamDesc(e.target.value)}
-                  placeholder="تعليمات أو وصف الامتحان"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label>نوع الامتحان</Label>
-                  <select
-                    value={examType}
-                    onChange={(e) => setExamType(e.target.value as ExamType)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="translation">ترجمة (نص ↔ نص)</option>
-                    <option value="reading">قراءة وفهم</option>
-                    <option value="speaking">فقرة مكتوبة — الطالب يسجل صوته</option>
-                    <option value="listening">استماع — صوت الأدمن + كتابة</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>المدرس المستلم</Label>
-                  <select
-                    value={activeExamTeacherId}
-                    onChange={(e) => setExamTeacherId(e.target.value)}
-                    required
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    {teachers.length === 0 ? (
-                      <option value="">لا يوجد مدرسون — أضف مدرساً أولاً</option>
-                    ) : (
-                      teachers.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.fullName}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              {(examType === "translation" || examType === "reading") && (
-                <div className="space-y-1.5">
-                  <Label>
-                    أسئلة نص حر سريعة — كل سطر: النص العبري | الإجابة المتوقعة (اختياري)
-                  </Label>
-                  <textarea
-                    value={examItemsText}
-                    onChange={(e) => setExamItemsText(e.target.value)}
-                    className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 font-he text-sm outline-none"
-                    dir="rtl"
-                    placeholder={"מה השעה? | كم الساعة؟\nאיפה אתה גר? | أين تسكن؟"}
-                  />
-                </div>
-              )}
-
-              {/* Structured question builder — supports text, MCQ, true/false */}
-              <div className="space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-3">
-                <div className="flex items-center justify-between">
-                  <Label>أسئلة منظمة (اختياري — تظهر للطالب بالترتيب)</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="min-h-8 px-2 text-xs"
-                    onClick={() =>
-                      setExamQuestions((prev) => [
-                        ...prev,
-                        {
-                          type: "mcq" as QuestionType,
-                          prompt: "",
-                          options: ["", ""],
-                          correctIndex: 0,
-                          points: 1,
-                        },
-                      ])
-                    }
-                  >
-                    <Plus className="size-3.5" />
-                    إضافة سؤال
-                  </Button>
-                </div>
-
-                {examQuestions.length > 0 && (
-                  <div className="space-y-3">
-                    {examQuestions.map((q, qi) => (
-                      <div key={qi} className="rounded-md border border-border bg-background p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-muted-foreground">
-                            سؤال {qi + 1}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExamQuestions((prev) => prev.filter((_, i) => i !== qi))
-                            }
-                            className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                          <select
-                            value={q.type}
-                            onChange={(e) => {
-                              const newType = e.target.value as QuestionType;
-                              setExamQuestions((prev) =>
-                                prev.map((p, i) => {
-                                  if (i !== qi) return p;
-                                  const updated: ExamQuestionItem = {
-                                    ...p,
-                                    type: newType,
-                                    points: p.points ?? 1,
-                                  };
-                                  if (newType === "mcq") {
-                                    updated.options = p.options ?? ["", ""];
-                                    updated.correctIndex = p.correctIndex ?? 0;
-                                  } else if (newType === "truefalse") {
-                                    updated.options = ["صح", "خطأ"];
-                                    updated.correctIndex = 0;
-                                  } else {
-                                    // text — no options
-                                  }
-                                  return updated;
-                                }),
-                              );
-                            }}
-                            className="flex h-9 rounded-md border border-input bg-background px-2 text-xs"
-                          >
-                            <option value="text">نص حر (يدوي)</option>
-                            <option value="mcq">اختيار من متعدد (تلقائي)</option>
-                            <option value="truefalse">صح/خطأ (تلقائي)</option>
-                          </select>
-                          <Input
-                            type="number"
-                            min={1}
-                            placeholder="الدرجة"
-                            className="h-9 text-xs"
-                            value={q.points ?? 1}
-                            onChange={(e) =>
-                              setExamQuestions((prev) =>
-                                prev.map((p, i) =>
-                                  i === qi ? { ...p, points: Number(e.target.value) } : p,
-                                ),
-                              )
-                            }
-                          />
-                        </div>
-
-                        <Input
-                          className="mt-2 font-he text-sm"
-                          dir="rtl"
-                          placeholder="نص السؤال بالعبرية..."
-                          value={q.prompt}
-                          onChange={(e) =>
-                            setExamQuestions((prev) =>
-                              prev.map((p, i) =>
-                                i === qi ? { ...p, prompt: e.target.value } : p,
-                              ),
-                            )
-                          }
-                        />
-
-                        {q.type === "mcq" && (
-                          <div className="mt-2 space-y-1.5">
-                            {(q.options ?? []).map((opt, oi) => (
-                              <div key={oi} className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExamQuestions((prev) =>
-                                      prev.map((p, i) =>
-                                        i === qi ? { ...p, correctIndex: oi } : p,
-                                      ),
-                                    )
-                                  }
-                                  className={`grid size-6 shrink-0 place-items-center rounded-full border text-xs ${
-                                    q.correctIndex === oi
-                                      ? "border-brand bg-brand text-primary-foreground"
-                                      : "border-border"
-                                  }`}
-                                >
-                                  {q.correctIndex === oi ? "✓" : oi + 1}
-                                </button>
-                                <Input
-                                  className="h-8 flex-1 text-xs"
-                                  placeholder={`الاختيار ${oi + 1}`}
-                                  value={opt}
-                                  onChange={(e) =>
-                                    setExamQuestions((prev) =>
-                                      prev.map((p, i) =>
-                                        i === qi
-                                          ? {
-                                              ...p,
-                                              options: (p.options ?? []).map((o, j) =>
-                                                j === oi ? e.target.value : o,
-                                              ),
-                                            }
-                                          : p,
-                                      ),
-                                    )
-                                  }
-                                />
-                                {(q.options ?? []).length > 2 && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExamQuestions((prev) =>
-                                        prev.map((p, i) => {
-                                          if (i !== qi) return p;
-                                          const newOptions = (p.options ?? []).filter(
-                                            (_, j) => j !== oi,
-                                          );
-                                          const newCorrect = Math.max(
-                                            0,
-                                            (p.correctIndex ?? 0) >= oi
-                                              ? (p.correctIndex ?? 0) - 1
-                                              : p.correctIndex ?? 0,
-                                          );
-                                          const updated: ExamQuestionItem = {
-                                            ...p,
-                                            options: newOptions,
-                                            correctIndex: newCorrect,
-                                            points: p.points ?? 1,
-                                          };
-                                          return updated;
-                                        }),
-                                      )
-                                    }
-                                    className="rounded-md p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                                  >
-                                    <Trash2 className="size-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="min-h-7 px-2 text-xs"
-                              onClick={() =>
-                                setExamQuestions((prev) =>
-                                  prev.map((p, i) =>
-                                    i === qi
-                                      ? { ...p, options: [...(p.options ?? []), ""] }
-                                      : p,
-                                  ),
-                                )
-                              }
-                            >
-                              <Plus className="size-3" />
-                              إضافة اختيار
-                            </Button>
-                            <small className="block text-muted-foreground">
-                              الإجابة الصحيحة محددة بـ ✓ — التصحيح تلقائي
-                            </small>
-                          </div>
-                        )}
-
-                        {q.type === "truefalse" && (
-                          <div className="mt-2 flex items-center gap-2">
-                            {["صح", "خطأ"].map((opt, oi) => (
-                              <button
-                                key={oi}
-                                type="button"
-                                onClick={() =>
-                                  setExamQuestions((prev) =>
-                                    prev.map((p, i) =>
-                                      i === qi ? { ...p, correctIndex: oi } : p,
-                                    ),
-                                  )
-                                }
-                                className={`rounded-md border px-4 py-1.5 text-sm ${
-                                  q.correctIndex === oi
-                                    ? "border-brand bg-brand/10 font-bold text-brand"
-                                    : "border-border"
-                                }`}
-                              >
-                                {opt} {q.correctIndex === oi && "✓"}
-                              </button>
-                            ))}
-                            <small className="text-muted-foreground">التصحيح تلقائي</small>
-                          </div>
-                        )}
-
-                        {q.type === "text" && (
-                          <Input
-                            className="mt-2 text-xs"
-                            placeholder="الإجابة المتوقعة (اختياري — للمرجعية فقط)"
-                            value={q.expected ?? ""}
-                            onChange={(e) =>
-                              setExamQuestions((prev) =>
-                                prev.map((p, i) =>
-                                  i === qi ? { ...p, expected: e.target.value } : p,
-                                ),
-                              )
-                            }
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {examType === "speaking" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label>الفقرة المكتوبة (بالعبرية — الطالب يقرؤها ويسجل صوته)</Label>
-                    {examParagraph.trim() && <HebrewTTS text={examParagraph} label="معاينة الصوت" />}
-                  </div>
-                  <textarea
-                    value={examParagraph}
-                    onChange={(e) => setExamParagraph(e.target.value)}
-                    required
-                    className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 font-he text-sm outline-none"
-                    dir="rtl"
-                    placeholder="כתוב כאן את הפסקה שהתלמיד יקרא ויקליט..."
-                  />
-                </div>
-              )}
-
-              {examType === "listening" && (
-                <div className="space-y-2">
-                  <Label>تسجيل صوتي منك — الطالب يسمعه ويكتب ما فهمه</Label>
-                  <AudioRecorder
-                    label="سجّل صوتك الآن"
-                    onRecorded={(blob) => {
-                      setExamRecordedBlob(blob);
-                      setExamAudioFile(null);
-                    }}
-                  />
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="h-px flex-1 bg-border" />
-                    أو ارفع ملف صوتي جاهز
-                    <span className="h-px flex-1 bg-border" />
-                  </div>
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={(e) => {
-                      setExamAudioFile(e.target.files?.[0] ?? null);
-                      if (e.target.files?.[0]) setExamRecordedBlob(null);
-                    }}
-                    className="block w-full rounded-md border border-dashed border-border bg-muted/40 p-2.5 text-xs"
-                  />
-                  {(examAudioFile || examRecordedBlob) && (
-                    <small className="font-semibold text-sage">
-                      {examAudioFile
-                        ? `الملف الجاهز: ${examAudioFile.name}`
-                        : "تم تسجيل صوتك — سيُرفع مع الامتحان"}
-                    </small>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <Label>حالة النشر</Label>
-                <select
-                  value={examStatus}
-                  onChange={(e) => setExamStatusSel(e.target.value as PublishStatus)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="DRAFT">مسودة (Draft)</option>
-                  <option value="PUBLISHED">نشر فوري (Publish)</option>
-                </select>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={teachers.length === 0 || examSubmitting}
-              >
-                <Plus className="size-4" />
-                {examSubmitting ? "جاري الحفظ والرفع..." : "إنشاء الامتحان"}
-              </Button>
-            </form>
+            <Pagination page={curPage} pages={examPages} total={filteredExams.length} size={PAGE_SIZE} onPage={setExamPage} />
           </Card>
         </div>
         </>
-      )}
+        );
+      })()}
 
       {activeSection === "results" && (
         <AdminResultsSection
@@ -4575,6 +4602,329 @@ function AdminPlacementResultsSection({ results }: { results: PlacementResultRow
 
 const SCH_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
+const DIR_STATUS_LABELS: Record<string, string> = { new: "جديد", active: "نشط", paused: "متوقف", completed: "منتهي" };
+const DIR_STATUS_TONES: Record<string, "sage" | "gold" | "brand" | "muted"> = {
+  active: "sage", paused: "gold", completed: "brand", new: "muted",
+};
+
+function StudentsDirectorySection({
+  students,
+  groups,
+  packages,
+  loading,
+  onStatusChange,
+  onActivate,
+  onAddToGroup,
+}: {
+  students: import("../hooks/use-platform-store").OpsStudentItem[];
+  groups: GroupItem[];
+  packages: import("../hooks/use-platform-store").OpsPackageItem[];
+  loading: boolean;
+  onStatusChange: (studentId: string, status: string) => void | Promise<void>;
+  onActivate: (input: { studentId: string; packageId: string; paidAmount?: number; notes?: string }) => Promise<void>;
+  onAddToGroup: (groupId: string, studentIds: string[]) => Promise<void>;
+}) {
+  const PAGE_SIZE = 10;
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [levelFilter, setLevelFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
+  const [subFilter, setSubFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkGroupId, setBulkGroupId] = useState("");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [err, setErr] = useState("");
+
+  // activate-subscription modal
+  const [actStudent, setActStudent] = useState<import("../hooks/use-platform-store").OpsStudentItem | null>(null);
+  const [actPackageId, setActPackageId] = useState("");
+  const [actAmount, setActAmount] = useState("");
+  const [actNotes, setActNotes] = useState("");
+  const [actSaving, setActSaving] = useState(false);
+
+  const filtered = students.filter((s) => {
+    const q = search.trim().toLowerCase();
+    if (q && ![s.fullName, s.email ?? "", s.phone ?? ""].some((v) => v.toLowerCase().includes(q))) return false;
+    if (statusFilter && s.studentStatus !== statusFilter) return false;
+    if (levelFilter && s.level !== levelFilter) return false;
+    if (groupFilter && !s.groups.some((g) => g.id === groupFilter)) return false;
+    if (subFilter) {
+      const actives = s.subscriptions.filter((x) => x.status === "ACTIVE");
+      if (subFilter === "active" && actives.length === 0) return false;
+      if (subFilter === "none" && actives.length > 0) return false;
+      if (subFilter === "basic" && !actives.some((x) => x.package.category === "basic")) return false;
+      if (subFilter === "calls" && !actives.some((x) => x.package.category === "calls")) return false;
+    }
+    return true;
+  });
+
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pages);
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageIds = pageRows.map((s) => s.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  function toggleAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkAdd() {
+    if (!bulkGroupId || selected.size === 0) return;
+    setBulkSaving(true); setErr(""); setNotice("");
+    try {
+      await onAddToGroup(bulkGroupId, [...selected]);
+      setNotice(`تمت إضافة ${selected.size} طالب إلى المجموعة`);
+      setSelected(new Set());
+      setBulkGroupId("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "فشل إضافة الطلاب للمجموعة");
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  function openActivate(s: import("../hooks/use-platform-store").OpsStudentItem) {
+    setActStudent(s);
+    setActPackageId("");
+    setActAmount("");
+    setActNotes("");
+    setErr("");
+  }
+
+  async function handleActivate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!actStudent || !actPackageId) return;
+    setActSaving(true); setErr("");
+    try {
+      await onActivate({
+        studentId: actStudent.id,
+        packageId: actPackageId,
+        ...(actAmount ? { paidAmount: Number(actAmount) } : {}),
+        ...(actNotes ? { notes: actNotes } : {}),
+      });
+      setActStudent(null);
+      setNotice(`تم تفعيل الاشتراك للطالب ${actStudent.fullName}`);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "فشل تفعيل الاشتراك");
+    } finally {
+      setActSaving(false);
+    }
+  }
+
+  const activeSubOf = (s: import("../hooks/use-platform-store").OpsStudentItem) =>
+    s.subscriptions.find((x) => x.status === "ACTIVE");
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold">دليل الطلاب ({filtered.length} / {students.length})</h2>
+            <p className="text-xs text-muted-foreground">بحث وفلترة كاملة — حدد طلاباً لضمهم لمجموعة أو فعّل اشتراكاً يدوياً</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="بحث بالاسم / الهاتف / الإيميل" />
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">كل الحالات</option>
+            <option value="new">جديد</option>
+            <option value="active">نشط</option>
+            <option value="paused">متوقف</option>
+            <option value="completed">منتهي</option>
+          </select>
+          <select value={levelFilter} onChange={(e) => { setLevelFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">كل المستويات</option>
+            {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <select value={groupFilter} onChange={(e) => { setGroupFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">كل المجموعات</option>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          <select value={subFilter} onChange={(e) => { setSubFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">كل الاشتراكات</option>
+            <option value="active">لديه اشتراك نشط</option>
+            <option value="none">بدون اشتراك</option>
+            <option value="basic">باقة أساسية</option>
+            <option value="calls">باقة مكالمات</option>
+          </select>
+        </div>
+
+        {notice && <p className="mt-3 rounded-md bg-sage/15 p-2.5 text-xs font-semibold text-sage">{notice}</p>}
+        {err && <p className="mt-3 rounded-md bg-danger/10 p-2.5 text-xs font-semibold text-danger">{err}</p>}
+
+        {selected.size > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-brand/30 bg-brand/5 p-3">
+            <span className="text-sm font-bold">{selected.size} طالب محدد</span>
+            <select value={bulkGroupId} onChange={(e) => setBulkGroupId(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">— اختر المجموعة —</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+            <Button variant="primary" className="min-h-9 text-xs" disabled={!bulkGroupId || bulkSaving} onClick={handleBulkAdd}>
+              {bulkSaving ? "جاري الإضافة..." : "أضف المحددين للمجموعة"}
+            </Button>
+            <Button variant="ghost" className="min-h-9 px-3 text-xs" onClick={() => setSelected(new Set())}>
+              إلغاء التحديد
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      <Card className="overflow-x-auto p-0">
+        {loading ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">جاري التحميل...</div>
+        ) : pageRows.length === 0 ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">لا يوجد طلاب مطابقون للفلاتر.</div>
+        ) : (
+          <table className="w-full min-w-[860px] text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                <th className="w-10 p-3 text-start">
+                  <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="size-4 accent-brand" />
+                </th>
+                <th className="p-3 text-start">الطالب</th>
+                <th className="p-3 text-start">المستوى</th>
+                <th className="p-3 text-start">الحالة</th>
+                <th className="p-3 text-start">المجموعات</th>
+                <th className="p-3 text-start">الاشتراك</th>
+                <th className="p-3 text-start">المدرس</th>
+                <th className="p-3 text-start">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((s) => {
+                const sub = activeSubOf(s);
+                return (
+                  <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
+                    <td className="p-3">
+                      <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} className="size-4 accent-brand" />
+                    </td>
+                    <td className="p-3">
+                      <b className="block text-sm">{s.fullName}</b>
+                      <small className="block text-muted-foreground">{s.phone ?? s.email ?? "—"}</small>
+                      <small className="block text-[11px] text-muted-foreground/70">انضم {s.createdAt}</small>
+                    </td>
+                    <td className="p-3">
+                      {s.level ? <Badge tone="muted">{s.level}{s.placementScore != null ? ` · ${s.placementScore}%` : ""}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                    </td>
+                    <td className="p-3">
+                      <Badge tone={DIR_STATUS_TONES[s.studentStatus] ?? "muted"}>
+                        {DIR_STATUS_LABELS[s.studentStatus] ?? s.studentStatus}
+                      </Badge>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex max-w-[160px] flex-wrap gap-1">
+                        {s.groups.length === 0 ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          s.groups.map((g) => <Badge key={g.id} tone="muted">{g.name}</Badge>)
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      {sub ? (
+                        <div className="text-xs">
+                          <Badge tone={sub.package.category === "calls" ? "gold" : "brand"}>{sub.package.nameAr}</Badge>
+                          {sub.sessionsRemaining != null && (
+                            <small className="mt-0.5 block text-muted-foreground">متبقي {sub.sessionsRemaining} حصة</small>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">بدون اشتراك</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {s.teachers.length === 0 ? "—" : s.teachers.map((t) => t.name).join("، ")}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="primary" className="min-h-8 px-2.5 text-xs" onClick={() => openActivate(s)}>
+                          تفعيل اشتراك
+                        </Button>
+                        <select
+                          value=""
+                          onChange={(e) => { if (e.target.value) void onStatusChange(s.id, e.target.value); }}
+                          className="h-8 rounded-md border border-input bg-background px-1.5 text-xs"
+                        >
+                          <option value="">الحالة</option>
+                          <option value="new">جديد</option>
+                          <option value="active">نشط</option>
+                          <option value="paused">متوقف</option>
+                          <option value="completed">منتهي</option>
+                        </select>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <div className="border-t border-border p-3">
+          <Pagination page={currentPage} pages={pages} total={filtered.length} size={PAGE_SIZE} onPage={setPage} />
+        </div>
+      </Card>
+
+      {/* Activate subscription modal */}
+      {actStudent && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setActStudent(null)}>
+          <Card className="w-full max-w-md">
+            <div onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold">تفعيل اشتراك — {actStudent.fullName}</h3>
+            <p className="text-xs text-muted-foreground">للطالب الذي دفع خارج المنصة (واتساب / كاش / تحويل)</p>
+            <form onSubmit={handleActivate} className="mt-4 space-y-3">
+              <div className="space-y-1.5">
+                <Label>الباقة</Label>
+                <select value={actPackageId} onChange={(e) => setActPackageId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">— اختر الباقة —</option>
+                  {packages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nameAr} — {p.price} ج {p.category === "calls" ? "(مكالمات)" : ""}{p.sessionsTotal ? ` · ${p.sessionsTotal} حصة` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>المبلغ المدفوع (اختياري — الافتراضي سعر الباقة)</Label>
+                <Input type="number" min="0" step="0.01" value={actAmount} onChange={(e) => setActAmount(e.target.value)} placeholder="سعر الباقة" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>ملاحظات (اختياري)</Label>
+                <Input value={actNotes} onChange={(e) => setActNotes(e.target.value)} placeholder="مثال: دفع واتساب — محفظة" />
+              </div>
+              {err && <p className="rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{err}</p>}
+              <div className="flex gap-2">
+                <Button type="submit" disabled={actSaving || !actPackageId} className="flex-1">
+                  {actSaving ? "جاري التفعيل..." : "تفعيل الاشتراك"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setActStudent(null)}>
+                  إلغاء
+                </Button>
+              </div>
+            </form>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminSchedulesSection({
   schedules,
   teachers,
@@ -4586,7 +4936,7 @@ function AdminSchedulesSection({
   onDelete,
 }: {
   schedules: WeeklyScheduleItem[];
-  teachers: PlatformUser[];
+  teachers: { id: string; fullName: string; specialty?: string | null }[];
   groups: GroupItem[];
   availability: any[];
   onFetchAvailability: (teacherId: string) => Promise<void>;
@@ -7569,7 +7919,6 @@ export function SupportScreen() {
     schedules,
     attendance,
     irregularStudents,
-    users,
     loadingData,
     updateStudentStatus,
     createTicket,
@@ -7597,6 +7946,13 @@ export function SupportScreen() {
     createAdminSchedule,
     updateAdminSchedule,
     deleteAdminSchedule,
+    opsTeachers,
+    fetchOpsTeachers,
+    opsStudents,
+    fetchOpsStudents,
+    opsPackages,
+    fetchOpsPackages,
+    activateOpsSubscription,
     callsStudents,
     fetchCallsStudents,
     opsCreateBooking,
@@ -7641,16 +7997,23 @@ export function SupportScreen() {
   const [atDate, setAtDate] = useState(new Date().toISOString().slice(0, 10));
   const [atSaving, setAtSaving] = useState(false);
 
-  const teachers = users.filter((u) => u.role === "TEACHER");
+  const teachers = opsTeachers;
 
   useEffect(() => {
     fetchSupportChatThreads();
+    fetchOpsTeachers().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (activeSection === "students") {
+      fetchOpsStudents().catch(() => {});
+      fetchOpsPackages().catch(() => {});
+      fetchAdminGroups().catch(() => {});
+    }
     if (activeSection === "sessions") {
       fetchOpsBookings().catch(() => {});
       fetchCallsStudents().catch(() => {});
+      fetchOpsTeachers().catch(() => {});
     }
     if (activeSection === "groups") fetchAdminGroups().catch(() => {});
     if (activeSection === "schedules") {
@@ -7756,67 +8119,15 @@ export function SupportScreen() {
       </div>
 
       {activeSection === "students" && (
-        <Card>
-          <h2 className="text-lg font-bold">الطلاب المسجلون ({supportStudents.length})</h2>
-          <p className="text-xs text-muted-foreground">عرض بيانات الطلاب وحالاتهم والمجموعات والمدرسين</p>
-          <div className="mt-4 space-y-2">
-            {loadingData ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">جاري التحميل...</div>
-            ) : supportStudents.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">لا يوجد طلاب بعد.</div>
-            ) : (
-              supportStudents.map((s) => (
-                <div key={s.id} className="rounded-md border border-border bg-background/60 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <b className="text-sm">{s.fullName}</b>
-                      <small className="block text-muted-foreground">
-                        {s.phone ?? s.email ?? "—"}
-                      </small>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge tone={
-                        s.studentStatus === "active" ? "sage"
-                        : s.studentStatus === "paused" ? "gold"
-                        : s.studentStatus === "completed" ? "brand"
-                        : "muted"
-                      }>
-                        {STUDENT_STATUSES[s.studentStatus] ?? s.studentStatus}
-                      </Badge>
-                      <select
-                        value=""
-                        onChange={(e) => { if (e.target.value) updateStudentStatus(s.id, e.target.value); }}
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-                      >
-                        <option value="">تغيير الحالة</option>
-                        <option value="new">جديد</option>
-                        <option value="active">نشط</option>
-                        <option value="paused">متوقف</option>
-                        <option value="completed">منتهي</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    {s.level && (
-                      <span>
-                        المستوى: {s.level}
-                        {s.placementScore !== null && s.placementScore !== undefined && ` (${s.placementScore}%)`}
-                      </span>
-                    )}
-                    {s.placementCompletedAt && (
-                      <span>اختبار المستوى: {new Date(s.placementCompletedAt).toLocaleDateString("ar-EG")}</span>
-                    )}
-                    {s.teachers.map((t) => (
-                      <span key={t.id}>المدرس: {t.name}{t.groupName && ` (${t.groupName})`}</span>
-                    ))}
-                    {s.teachers.length === 0 && <span className="text-danger">غير مربوط بمدرس</span>}
-                    <span>امتحانات: {s.examsCount}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
+        <StudentsDirectorySection
+          students={opsStudents}
+          groups={adminGroups}
+          packages={opsPackages}
+          loading={loadingData}
+          onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
+          onActivate={activateOpsSubscription}
+          onAddToGroup={addGroupMembers}
+        />
       )}
 
       {/* Ticket form */}
@@ -8038,7 +8349,7 @@ export function SupportScreen() {
       {activeSection === "schedules" && (
         <AdminSchedulesSection
           schedules={adminSchedules}
-          teachers={users.filter((u) => u.role === "TEACHER")}
+          teachers={teachers}
           groups={adminGroups}
           availability={adminTeacherAvailability}
           onFetchAvailability={fetchAdminTeacherAvailability}
@@ -8475,7 +8786,7 @@ function OpsCreateSessionCard({
   onFetchCallsStudents,
 }: {
   callsStudents: import("../hooks/use-platform-store").CallsStudentItem[];
-  teachers: PlatformUser[];
+  teachers: { id: string; fullName: string; specialty?: string | null }[];
   availability: any[];
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreate: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
@@ -8644,7 +8955,7 @@ function OpsFreeLecturesSection({
   freeStudents: import("../hooks/use-platform-store").FreeLectureStudent[];
   freeLectures: import("../hooks/use-platform-store").FreeLecture[];
   groups: import("../hooks/use-platform-store").GroupItem[];
-  teachers: PlatformUser[];
+  teachers: { id: string; fullName: string; specialty?: string | null }[];
   availability: any[];
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreateStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;

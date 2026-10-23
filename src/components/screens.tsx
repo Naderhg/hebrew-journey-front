@@ -35,7 +35,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { AppShell, PageHeader } from "./app-shell";
-import { Badge, Button, Card, Input, Label, ProgressBar, SectionHeader } from "./ui";
+import { Badge, Button, Card, Dropzone, Input, Label, Pagination, ProgressBar, SearchBox, SectionHeader, StatTile } from "./ui";
 import {
   usePlatformStore,
   uploadFile,
@@ -59,8 +59,6 @@ import {
   type Subscription,
   type PaymentRequestItem,
   type PlacementResultRow,
-  type AdminLectureItem,
-  type CreateLectureInput,
   type WeeklyScheduleItem,
   type CreateScheduleInput,
   type GroupItem,
@@ -2217,7 +2215,6 @@ export type AdminSection =
   | "sales-report"
   | "leads"
   | "certificates"
-  | "lectures"
   | "schedules"
   | "analytics";
 
@@ -2263,11 +2260,6 @@ export function AdminScreen() {
     reviewPaymentRequest,
     placementResults,
     fetchPlacementResults,
-    adminLectures,
-    fetchAdminLectures,
-    createAdminLecture,
-    updateAdminLecture,
-    deleteAdminLecture,
     adminSchedules,
     fetchAdminSchedules,
     createAdminSchedule,
@@ -2311,8 +2303,12 @@ export function AdminScreen() {
   } = usePlatformStore();
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  const PAGE_SIZE = 5;
+  const [matSearch, setMatSearch] = useState("");
+  const [matPage, setMatPage] = useState(1);
+  const [examSearch, setExamSearch] = useState("");
+  const [examPage, setExamPage] = useState(1);
   const [bookingFilter, setBookingFilter] = useState<string>("");
-  const [lectureFilter, setLectureFilter] = useState<string>("");
   const [anTeacherId, setAnTeacherId] = useState("");
   const [anFrom, setAnFrom] = useState("");
   const [anTo, setAnTo] = useState("");
@@ -2320,7 +2316,6 @@ export function AdminScreen() {
   useEffect(() => {
     if (activeSection === "bookings") fetchAdminPaymentRequests(bookingFilter).catch(() => {});
     if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
-    if (activeSection === "lectures") fetchAdminLectures({ status: lectureFilter }).catch(() => {});
     if (activeSection === "schedules") fetchAdminSchedules().catch(() => {});
     if (activeSection === "sessions") {
       fetchAdminBookings().catch(() => {});
@@ -2343,7 +2338,7 @@ export function AdminScreen() {
       }).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, bookingFilter, lectureFilter, anTeacherId, anFrom, anTo]);
+  }, [activeSection, bookingFilter, anTeacherId, anFrom, anTo]);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -2735,6 +2730,140 @@ export function AdminScreen() {
       </div>
     );
   }
+
+  const courseFormCard = (
+  <Card>
+  <div className="flex items-center gap-2">
+    <span className="grid size-9 place-items-center rounded-md bg-brand/10 text-brand">
+      <Upload className="size-4" />
+    </span>
+    <div>
+      <h2 className="font-bold">رفع كورس / فيديو / ملف لمدرس</h2>
+      <small className="text-muted-foreground">
+        اختر المدرس الذي ستصل إليه هذه الماتيريال في لوحته
+      </small>
+    </div>
+  </div>
+
+  {courseSuccess && (
+    <div className="mt-4 rounded-md bg-sage/15 p-3 text-xs font-semibold text-sage">
+      {courseSuccess}
+    </div>
+  )}
+  {courseError && (
+    <div className="mt-4 rounded-md bg-danger/10 p-3 text-xs font-semibold text-danger">
+      {courseError}
+    </div>
+  )}
+
+  <form onSubmit={handleUploadCourse} className="mt-4 space-y-3">
+    <div className="space-y-1.5">
+      <Label>اختر المدرس المستلم (تخصيص الماتيريال)</Label>
+      <select
+        value={activeTeacherId}
+        onChange={(e) => setSelectedTeacherId(e.target.value)}
+        required
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        {teachers.length === 0 ? (
+          <option value="">لا يوجد مدرسون — أضف مدرساً أولاً</option>
+        ) : (
+          teachers.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.fullName} ({t.specialty ?? "مدرس"})
+            </option>
+          ))
+        )}
+      </select>
+    </div>
+
+    <div className="space-y-1.5">
+      <Label>عنوان الكورس / المحاضرة</Label>
+      <Input
+        value={courseTitle}
+        onChange={(e) => setCourseTitle(e.target.value)}
+        required
+        placeholder="عنوان الكورس أو المحاضرة"
+      />
+    </div>
+
+    <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-1.5">
+        <Label>نوع الملف</Label>
+        <select
+          value={courseType}
+          onChange={(e) => setCourseType(e.target.value as MaterialType)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="VIDEO">فيديو (Video)</option>
+          <option value="DOCUMENT">ملف / كتاب (PDF)</option>
+          <option value="AUDIO">ملف صوتي (Audio)</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>المستوى</Label>
+        <select
+          value={courseLevel}
+          onChange={(e) =>
+            setCourseLevel(e.target.value as "A1" | "A2" | "B1" | "B2")
+          }
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="A1">A1</option>
+          <option value="A2">A2</option>
+          <option value="B1">B1</option>
+          <option value="B2">B2</option>
+        </select>
+      </div>
+    </div>
+
+    <div className="space-y-1.5">
+      <Label>وصف مختصر للمدرس</Label>
+      <textarea
+        value={courseDesc}
+        onChange={(e) => setCourseDesc(e.target.value)}
+        className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
+        placeholder="ملاحظات حول طريقة شرح هذا الدرس..."
+      />
+    </div>
+
+    <div className="space-y-1.5">
+      <Label>اختيار ملف الفيديو أو المستند</Label>
+      <Dropzone
+        file={selectedFile}
+        onFile={setSelectedFile}
+        accept="video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx"
+        hint="MP4, PDF, MP3, DOC, PPT"
+      />
+    </div>
+
+    <div className="space-y-1.5">
+      <Label>حالة النشر</Label>
+      <select
+        value={courseStatus}
+        onChange={(e) => setCourseStatus(e.target.value as PublishStatus)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        <option value="DRAFT">مسودة (Draft) — لا تظهر للطلاب</option>
+        <option value="PUBLISHED">نشر (Publish) — تظهر للطلاب فوراً</option>
+      </select>
+    </div>
+
+    <Button
+      type="submit"
+      className="w-full"
+      disabled={teachers.length === 0 || courseUploading}
+    >
+      <Upload className="size-4" />
+      {courseUploading
+        ? "جاري رفع الملف..."
+        : courseStatus === "PUBLISHED"
+          ? "رفع ونشر للمدرس والطلاب"
+          : "رفع كمسودة"}
+    </Button>
+  </form>
+  </Card>
+  );
 
   return (
     <AppShell
@@ -3142,89 +3271,111 @@ export function AdminScreen() {
         </Card>
       )}
 
-      {activeSection === "courses" && (
+      {activeSection === "courses" && (() => {
+        const q = matSearch.trim().toLowerCase();
+        const filteredMats = materials.filter((m) => !q || `${m.title} ${m.description} ${m.assignedTeacherName}`.toLowerCase().includes(q));
+        const matPages = Math.max(1, Math.ceil(filteredMats.length / PAGE_SIZE));
+        const curPage = Math.min(matPage, matPages);
+        const pageMats = filteredMats.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
+        const publishedCount = materials.filter((m) => m.status === "PUBLISHED").length;
+        return (
         <>
         <SectionHeader
           icon={Film}
           title="الكورسات والماتيريال"
-          subtitle={<>لديك <b>{materials.length}</b> ملف مرفوع ومربوط بالمدرسين</>}
+          subtitle="إدارة رفع الملفات التعليمية والفيديوهات الملحقة"
         />
-        <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
-          <Card>
+        <div className="mb-4 grid gap-4 sm:grid-cols-3">
+          <StatTile icon={Film} label="فيديوهات" value={materials.filter((m) => m.type === "VIDEO").length} />
+          <StatTile icon={FileText} tone="gold" label="مستندات وصوتيات" value={materials.filter((m) => m.type !== "VIDEO").length} />
+          <StatTile icon={Check} tone="sage" label="قيد النشر" value={publishedCount} />
+        </div>
+        <div className="grid items-start gap-4 xl:grid-cols-[400px_1fr]">
+          <div className="animate-rise space-y-4 xl:sticky xl:top-4 xl:col-start-1 xl:row-start-1">
+            {courseFormCard}
+            <div className="rounded-2xl bg-gradient-to-br from-brand to-brand2 p-5 text-white shadow-xl">
+              <small className="text-[11px] opacity-80">إحصائيات سريعة</small>
+              <b className="mt-1 block text-lg">أداء الماتيريال المرفوعة</b>
+              <div className="mt-4 space-y-2 text-xs">
+                <div className="flex justify-between"><span>إجمالي الملفات</span><b className="font-lat text-base">{materials.length}</b></div>
+                <div className="flex justify-between"><span>منشورة للطلاب</span><b className="font-lat text-base">{publishedCount}</b></div>
+                <div className="flex justify-between"><span>مسودات</span><b className="font-lat text-base">{materials.length - publishedCount}</b></div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/25">
+                  <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${materials.length ? (publishedCount / materials.length) * 100 : 0}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Card className="xl:col-start-2 xl:row-start-1">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-bold">الماتيريال المرفوعة ({materials.length})</h3>
+              <SearchBox value={matSearch} onChange={(v) => { setMatSearch(v); setMatPage(1); }} placeholder="بحث عن مادة..." />
+            </div>
             <div className="space-y-3">
-              {materials.length === 0 ? (
+              {pageMats.length === 0 ? (
                 <div className="py-12 text-center text-sm text-muted-foreground">
-                  لا توجد كورسات مرفوعة في قاعدة البيانات حالياً.
+                  لا توجد كورسات مطابقة في قاعدة البيانات حالياً.
                 </div>
               ) : (
-                materials.map((m) => (
+                pageMats.map((m, i) => (
                   <div
                     key={m.id}
-                    className="rounded-2xl border border-border bg-muted/30 p-5"
+                    style={{ animationDelay: `${i * 70}ms` }}
+                    className="animate-rise hover-lift rounded-2xl border border-border bg-card p-4"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/10 text-brand">
-                          {m.type === "VIDEO" ? (
-                            <Film className="size-5" />
-                          ) : m.type === "AUDIO" ? (
-                            <Mic className="size-5" />
-                          ) : (
-                            <FileText className="size-5" />
-                          )}
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="relative grid h-24 w-36 shrink-0 place-items-center rounded-xl bg-muted/70 text-muted-foreground">
+                        <span className="grid size-10 place-items-center rounded-full bg-background shadow-sm">
+                          {m.type === "VIDEO" ? <Film className="size-4" /> : m.type === "AUDIO" ? <Mic className="size-4" /> : <FileText className="size-4" />}
                         </span>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <b className="text-sm">{m.title}</b>
-                            <Badge tone="sage">المدرس: {m.assignedTeacherName}</Badge>
-                            <Badge tone="gold">مستوى {m.level}</Badge>
-                            <Badge tone={m.status === "PUBLISHED" ? "sage" : "muted"}>
-                              {m.status === "PUBLISHED" ? "منشور للطلاب" : "مسودة (Draft)"}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
-                          <div className="mt-2 flex flex-wrap gap-3 font-lat text-xs text-muted-foreground">
-                            <span>{m.fileName}</span>
-                            <span>•</span>
-                            <span>{m.fileSize}</span>
-                            <span>•</span>
-                            <span className="text-brand">{m.storageUrl}</span>
-                          </div>
+                        <span className="absolute end-2 top-2 rounded-md bg-background px-1.5 py-0.5 font-lat text-[9px] font-bold">
+                          {m.type === "VIDEO" ? "VIDEO" : m.type === "AUDIO" ? "AUDIO" : "PDF"}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <b className="text-sm">{m.title}</b>
+                          <Badge tone="muted">{m.level}</Badge>
+                          <Badge tone={m.status === "PUBLISHED" ? "sage" : "gold"}>
+                            {m.status === "PUBLISHED" ? "منشور" : "مسودة (Draft)"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{m.description}</p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                          <span>المدرس: {m.assignedTeacherName}</span>
+                          <span>{new Date(m.createdAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}</span>
+                          <span className="font-lat">{m.fileSize}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 flex-col gap-1.5">
                         <Button
                           variant="secondary"
-                          className="min-h-8 px-3 py-1 text-xs"
-                          onClick={() =>
-                            setMaterialStatus(
-                              m.id,
-                              m.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED",
-                            )
-                          }
+                          className="min-h-8 px-4 py-1 text-xs"
+                          onClick={() => setMaterialStatus(m.id, m.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED")}
                         >
                           {m.status === "PUBLISHED" ? "إرجاع كمسودة" : "نشر للطلاب"}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          className="min-h-8 px-3 py-1 text-xs"
-                          onClick={() =>
-                            setOpenMaterialId(openMaterialId === m.id ? null : m.id)
-                          }
-                        >
-                          {openMaterialId === m.id ? "إغلاق" : "معاينة"}
-                        </Button>
-                        <button
-                          onClick={() => deleteCourseMaterial(m.id)}
-                          className="rounded-md p-2 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                          title="حذف المادة"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
+                        <div className="flex gap-1.5">
+                          <Button
+                            variant="ghost"
+                            className="min-h-8 flex-1 px-3 py-1 text-xs"
+                            onClick={() => setOpenMaterialId(openMaterialId === m.id ? null : m.id)}
+                          >
+                            {openMaterialId === m.id ? "إغلاق" : "معاينة"}
+                          </Button>
+                          <button
+                            onClick={() => deleteCourseMaterial(m.id)}
+                            className="grid size-8 place-items-center rounded-xl bg-muted/70 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                            title="حذف المادة"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {openMaterialId === m.id && (
-                      <div className="mt-4 border-t border-border pt-4">
+                      <div className="animate-rise mt-4 border-t border-border pt-4">
                         <MaterialPlayer material={m} />
                       </div>
                     )}
@@ -3232,147 +3383,12 @@ export function AdminScreen() {
                 ))
               )}
             </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center gap-2">
-              <span className="grid size-9 place-items-center rounded-md bg-brand/10 text-brand">
-                <Upload className="size-4" />
-              </span>
-              <div>
-                <h2 className="font-bold">رفع كورس / فيديو / ملف لمدرس</h2>
-                <small className="text-muted-foreground">
-                  اختر المدرس الذي ستصل إليه هذه الماتيريال في لوحته
-                </small>
-              </div>
-            </div>
-
-            {courseSuccess && (
-              <div className="mt-4 rounded-md bg-sage/15 p-3 text-xs font-semibold text-sage">
-                {courseSuccess}
-              </div>
-            )}
-            {courseError && (
-              <div className="mt-4 rounded-md bg-danger/10 p-3 text-xs font-semibold text-danger">
-                {courseError}
-              </div>
-            )}
-
-            <form onSubmit={handleUploadCourse} className="mt-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label>اختر المدرس المستلم (تخصيص الماتيريال)</Label>
-                <select
-                  value={activeTeacherId}
-                  onChange={(e) => setSelectedTeacherId(e.target.value)}
-                  required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {teachers.length === 0 ? (
-                    <option value="">لا يوجد مدرسون — أضف مدرساً أولاً</option>
-                  ) : (
-                    teachers.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.fullName} ({t.specialty ?? "مدرس"})
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>عنوان الكورس / المحاضرة</Label>
-                <Input
-                  value={courseTitle}
-                  onChange={(e) => setCourseTitle(e.target.value)}
-                  required
-                  placeholder="عنوان الكورس أو المحاضرة"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label>نوع الملف</Label>
-                  <select
-                    value={courseType}
-                    onChange={(e) => setCourseType(e.target.value as MaterialType)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="VIDEO">فيديو (Video)</option>
-                    <option value="DOCUMENT">ملف / كتاب (PDF)</option>
-                    <option value="AUDIO">ملف صوتي (Audio)</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>المستوى</Label>
-                  <select
-                    value={courseLevel}
-                    onChange={(e) =>
-                      setCourseLevel(e.target.value as "A1" | "A2" | "B1" | "B2")
-                    }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="A1">A1</option>
-                    <option value="A2">A2</option>
-                    <option value="B1">B1</option>
-                    <option value="B2">B2</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>وصف مختصر للمدرس</Label>
-                <textarea
-                  value={courseDesc}
-                  onChange={(e) => setCourseDesc(e.target.value)}
-                  className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
-                  placeholder="ملاحظات حول طريقة شرح هذا الدرس..."
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>اختيار ملف الفيديو أو المستند</Label>
-                <input
-                  type="file"
-                  accept="video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
-                  className="block w-full rounded-md border border-dashed border-border bg-muted/40 p-2.5 text-xs"
-                />
-                {selectedFile && (
-                  <small className="text-muted-foreground">
-                    سيتم رفع الملف الفعلي ({selectedFile.name}) وتشغيله داخل المنصة.
-                  </small>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>حالة النشر</Label>
-                <select
-                  value={courseStatus}
-                  onChange={(e) => setCourseStatus(e.target.value as PublishStatus)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="DRAFT">مسودة (Draft) — لا تظهر للطلاب</option>
-                  <option value="PUBLISHED">نشر (Publish) — تظهر للطلاب فوراً</option>
-                </select>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={teachers.length === 0 || courseUploading}
-              >
-                <Upload className="size-4" />
-                {courseUploading
-                  ? "جاري رفع الملف..."
-                  : courseStatus === "PUBLISHED"
-                    ? "رفع ونشر للمدرس والطلاب"
-                    : "رفع كمسودة"}
-              </Button>
-            </form>
+            <Pagination page={curPage} pages={matPages} total={filteredMats.length} size={PAGE_SIZE} onPage={setMatPage} />
           </Card>
         </div>
         </>
-      )}
+        );
+      })()}
 
       {activeSection === "exams" && (
         <>
@@ -4193,21 +4209,6 @@ export function AdminScreen() {
         <AdminPlacementResultsSection results={placementResults} />
       )}
 
-      {activeSection === "lectures" && (
-        <AdminLecturesSection
-          lectures={adminLectures}
-          teachers={users.filter((u) => u.role === "TEACHER")}
-          groups={adminGroups}
-          adminTeacherAvailability={adminTeacherAvailability}
-          filter={lectureFilter}
-          onFilterChange={setLectureFilter}
-          onCreate={createAdminLecture}
-          onUpdate={updateAdminLecture}
-          onDelete={deleteAdminLecture}
-          onFetchTeacherAvailability={fetchAdminTeacherAvailability}
-        />
-      )}
-
       {activeSection === "schedules" && (
         <AdminSchedulesSection
           schedules={adminSchedules}
@@ -4569,331 +4570,6 @@ function AdminPlacementResultsSection({ results }: { results: PlacementResultRow
         )}
       </div>
     </Card>
-  );
-}
-
-const LECTURE_STATUS_LABELS: Record<string, string> = {
-  scheduled: "مجدولة",
-  live: "مباشر الآن",
-  completed: "منتهية",
-  cancelled: "ملغاة",
-};
-
-function AdminLecturesSection({
-  lectures,
-  teachers,
-  groups,
-  adminTeacherAvailability,
-  filter,
-  onFilterChange,
-  onCreate,
-  onUpdate,
-  onDelete,
-  onFetchTeacherAvailability,
-}: {
-  lectures: AdminLectureItem[];
-  teachers: PlatformUser[];
-  groups: import("../hooks/use-platform-store").GroupItem[];
-  adminTeacherAvailability: any[];
-  filter: string;
-  onFilterChange: (f: string) => void;
-  onCreate: (input: CreateLectureInput) => Promise<void>;
-  onUpdate: (id: string, input: Partial<CreateLectureInput>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-  onFetchTeacherAvailability: (teacherId?: string) => Promise<void>;
-}) {
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [teacherId, setTeacherId] = useState("");
-  const [groupName, setGroupName] = useState("");
-  const [groupId, setGroupId] = useState("");
-  const [level, setLevel] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [meetingUrl, setMeetingUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-
-  // Fetch teacher availability when teacher changes
-  useEffect(() => {
-    if (teacherId) onFetchTeacherAvailability(teacherId);
-  }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setErr("");
-    if (!title || !teacherId || !startsAt) {
-      setErr("العنوان والمدرس وتاريخ البداية مطلوبة");
-      return;
-    }
-    setSaving(true);
-    try {
-      await onCreate({
-        title,
-        ...(description ? { description } : {}),
-        teacherId,
-        ...(groupName ? { groupName } : {}),
-        ...(groupId ? { groupId } : {}),
-        ...(level ? { level: level as "A1" | "A2" | "B1" | "B2" | "C1" | "C2" } : {}),
-        startsAt: new Date(startsAt).toISOString(),
-        ...(endsAt ? { endsAt: new Date(endsAt).toISOString() } : {}),
-        ...(meetingUrl ? { meetingUrl } : {}),
-      });
-      setTitle(""); setDescription(""); setTeacherId(""); setGroupName(""); setGroupId("");
-      setLevel(""); setStartsAt(""); setEndsAt(""); setMeetingUrl("");
-      setShowForm(false);
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "فشل إنشاء المحاضرة");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const filtered = filter ? lectures.filter((l) => l.status === filter) : lectures;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-3">
-          <span className="grid size-12 place-items-center rounded-2xl bg-sage/15 text-sage">
-            <Video className="size-5" />
-          </span>
-          <div>
-            <h2 className="text-xl font-extrabold">المحاضرات المباشرة</h2>
-            <p className="text-xs text-muted-foreground">
-              لديك <b>{lectures.length}</b> محاضرة مجدولة في النظام
-            </p>
-          </div>
-        </div>
-        <Button className="me-auto min-h-11 px-5" onClick={() => setShowForm(!showForm)}>
-          <PlusCircle className="size-4" />
-          {showForm ? "إلغاء" : "إضافة محاضرة جديدة"}
-        </Button>
-      </div>
-
-      <Card className="flex flex-wrap items-center gap-4 px-5 py-4">
-        <div className="flex flex-wrap gap-2">
-          {["", "scheduled", "live", "completed", "cancelled"].map((f) => (
-            <button
-              key={f}
-              onClick={() => onFilterChange(f)}
-              className={`rounded-xl px-5 py-2 text-[13px] font-bold transition-colors ${
-                filter === f
-                  ? "bg-brand text-white shadow-[0_8px_20px_-10px] shadow-brand"
-                  : f === "live"
-                    ? "bg-sage/12 text-sage"
-                    : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {f === "live" && <span className="me-1.5 inline-block size-1.5 rounded-full bg-sage align-middle" />}
-              {f === "" ? "الكل" : LECTURE_STATUS_LABELS[f]}
-            </button>
-          ))}
-        </div>
-        <div className="me-auto flex items-center gap-5 text-center">
-          <div>
-            <small className="block text-[11px] text-muted-foreground">قيد الانتظار</small>
-            <b className="font-lat text-lg">{lectures.filter((l) => l.status === "scheduled").length}</b>
-          </div>
-          <span className="h-8 w-px bg-border" />
-          <div>
-            <small className="block text-[11px] text-muted-foreground">تمت بنجاح</small>
-            <b className="font-lat text-lg">{lectures.filter((l) => l.status === "completed").length}</b>
-          </div>
-        </div>
-      </Card>
-
-      {showForm && (
-        <Card>
-          <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-border bg-muted/40 p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>عنوان المحاضرة</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="مثال: محاضرة A1 — القواعد الأساسية" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>المدرس</Label>
-                <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">— اختر المدرس —</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>{t.fullName}{t.specialty ? ` — ${t.specialty}` : ""}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>المجموعة (اختياري)</Label>
-                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">— بدون مجموعة —</option>
-                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g._count?.members ?? 0} طالب)</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>اسم المجموعة (نص حر — اختياري)</Label>
-                <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="مثال: مجموعة المساء" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>المستوى (اختياري)</Label>
-                <select value={level} onChange={(e) => setLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">— بدون مستوى —</option>
-                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>تاريخ ووقت البداية</Label>
-                <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>تاريخ ووقت النهاية (اختياري)</Label>
-                <Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
-              </div>
-
-              {/* Teacher available slots — shown when a teacher is selected */}
-              {teacherId && adminTeacherAvailability.length > 0 && (
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>مواعيد المدرس المتاحة (اضغط لاختيار موعد)</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {adminTeacherAvailability.map((slot) => {
-                      const dayName = slot.specificDate
-                        ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
-                        : ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][slot.dayOfWeek ?? 0];
-                      return (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          onClick={() => {
-                            // For weekly slots, pick the next occurrence
-                            const now = new Date();
-                            if (slot.specificDate) {
-                              const d = new Date(slot.specificDate);
-                              d.setHours(Number(slot.startTime.split(":")[0]), Number(slot.startTime.split(":")[1]), 0, 0);
-                              setStartsAt(d.toISOString().slice(0, 16));
-                              const end = new Date(d);
-                              const [eh, em] = slot.endTime.split(":").map(Number);
-                              end.setHours(eh, em, 0, 0);
-                              setEndsAt(end.toISOString().slice(0, 16));
-                            } else {
-                              const day = slot.dayOfWeek ?? 0;
-                              const diff = (day - now.getDay() + 7) % 7;
-                              const d = new Date(now);
-                              d.setDate(d.getDate() + diff);
-                              const [sh, sm] = slot.startTime.split(":").map(Number);
-                              d.setHours(sh, sm, 0, 0);
-                              setStartsAt(d.toISOString().slice(0, 16));
-                              const end = new Date(d);
-                              const [eh, em] = slot.endTime.split(":").map(Number);
-                              end.setHours(eh, em, 0, 0);
-                              setEndsAt(end.toISOString().slice(0, 16));
-                            }
-                          }}
-                          className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5"
-                        >
-                          {dayName} {slot.startTime}—{slot.endTime}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>رابط الاجتماع (Zoom/Meet — اختياري)</Label>
-                <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>الوصف (اختياري)</Label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
-            </div>
-            {err && <p className="text-sm font-semibold text-danger">{err}</p>}
-            <Button type="submit" disabled={saving}>{saving ? "جاري الحفظ..." : "إنشاء المحاضرة"}</Button>
-          </form>
-        </Card>
-      )}
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        {filtered.length === 0 ? (
-          <Card className="py-10 text-center text-sm text-muted-foreground xl:col-span-2">لا توجد محاضرات بهذا الفلتر.</Card>
-        ) : (
-          filtered.map((l) => {
-            const isLive = l.status === "live";
-            const start = new Date(l.startsAt);
-            return (
-              <Card key={l.id} className="space-y-4 p-6">
-                <div className="flex items-start gap-3">
-                  <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${isLive ? "bg-sage/15 text-sage" : "bg-brand/10 text-brand"}`}>
-                    {isLive ? <Video className="size-5" /> : <CalendarDays className="size-5" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <b className="block truncate text-base">{l.title}</b>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <Badge tone={isLive ? "sage" : l.status === "cancelled" ? "danger" : l.status === "completed" ? "muted" : "brand"}>
-                        {LECTURE_STATUS_LABELS[l.status] ?? l.status}
-                      </Badge>
-                      {l.level && <Badge tone="sage">مستوى {l.level}</Badge>}
-                      {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
-                    </div>
-                  </div>
-                  <button onClick={() => onDelete(l.id).catch(() => {})} className="grid size-9 place-items-center rounded-xl bg-muted/70 text-muted-foreground hover:bg-danger/10 hover:text-danger" title="حذف">
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-
-                {l.description && <p className="text-xs text-muted-foreground">{l.description}</p>}
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border bg-muted/40 p-4">
-                    <small className="block text-[11px] text-muted-foreground">المعلم المسؤول</small>
-                    <b className="mt-2 flex items-center gap-2 text-[13px]">
-                      <span className="grid size-6 place-items-center rounded-full bg-brand/10 text-[11px] text-brand">{(l.teacher?.fullName ?? "—")[0]}</span>
-                      {l.teacher?.fullName ?? "—"}
-                    </b>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-muted/40 p-4">
-                    <small className="block text-[11px] text-muted-foreground">توقيت المحاضرة</small>
-                    <b className="mt-2 flex items-center gap-2 text-[13px]">
-                      <Clock className="size-3.5 text-muted-foreground" />
-                      {start.toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" })}
-                      {l.endsAt ? ` – ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { timeStyle: "short" })}` : ""}
-                    </b>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <select
-                    value={l.status}
-                    onChange={(e) => onUpdate(l.id, { status: e.target.value as CreateLectureInput["status"] }).catch(() => {})}
-                    className="h-11 shrink-0 rounded-xl border border-border bg-muted/40 px-3 text-xs font-semibold text-muted-foreground"
-                    title="تغيير الحالة"
-                  >
-                    <option value="scheduled">مجدولة</option>
-                    <option value="live">مباشر الآن</option>
-                    <option value="completed">منتهية</option>
-                    <option value="cancelled">ملغاة</option>
-                  </select>
-                  {l.meetingUrl ? (
-                    <a
-                      href={l.meetingUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="dash-btn-primary inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand text-[13px] font-bold text-white hover:bg-brand/90"
-                    >
-                      <Video className="size-4" />
-                      {isLive ? "الدخول للاجتماع الآن" : "رابط الاجتماع"}
-                    </a>
-                  ) : (
-                    <span className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-muted text-[13px] font-bold text-muted-foreground/70">
-                      <Video className="size-4" />
-                      لا يوجد رابط اجتماع
-                    </span>
-                  )}
-                </div>
-              </Card>
-            );
-          })
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -7856,7 +7532,7 @@ export function SalesScreen() {
   );
 }
 
-type SupportSection = "students" | "tickets" | "chat" | "schedules" | "lectures" | "sessions" | "groups" | "free-lectures" | "attendance" | "irregular";
+type SupportSection = "students" | "tickets" | "chat" | "schedules" | "sessions" | "groups" | "free-lectures" | "attendance" | "irregular";
 
 const TICKET_CATEGORIES: Record<string, string> = {
   login: "مشكلة دخول",
@@ -7904,8 +7580,6 @@ export function SupportScreen() {
     fetchSupportChatThreads,
     fetchSupportChatThread,
     sendSupportChatReply,
-    supportLectures,
-    fetchSupportLectures,
     // ops (shared with admin)
     adminGroups,
     groupMembers,
@@ -7974,7 +7648,6 @@ export function SupportScreen() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeSection === "lectures") fetchSupportLectures().catch(() => {});
     if (activeSection === "sessions") {
       fetchOpsBookings().catch(() => {});
       fetchCallsStudents().catch(() => {});
@@ -8373,53 +8046,6 @@ export function SupportScreen() {
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
         />
-      )}
-
-      {activeSection === "lectures" && (
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold">المحاضرات المباشرة ({supportLectures.length})</h2>
-              <p className="text-xs text-muted-foreground">
-                عرض فقط — المحاضرات المجدولة والمباشرة من الإدارة
-              </p>
-            </div>
-            <Button variant="ghost" className="min-h-8 px-3 text-xs" onClick={() => fetchSupportLectures().catch(() => {})}>
-              تحديث
-            </Button>
-          </div>
-          <div className="mt-4 space-y-2">
-            {supportLectures.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">لا توجد محاضرات مجدولة.</div>
-            ) : (
-              supportLectures.map((l) => (
-                <div key={l.id} className="rounded-md border border-border bg-background/60 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <b className="text-sm">{l.title}</b>
-                        <Badge tone={l.status === "live" ? "sage" : "brand"}>
-                          {l.status === "live" ? "مباشر الآن" : "مجدولة"}
-                        </Badge>
-                        {l.level && <Badge tone="muted">{l.level}</Badge>}
-                        {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
-                      </div>
-                      <small className="mt-1 block text-muted-foreground">
-                        {l.teacher?.fullName ?? "—"} · {new Date(l.startsAt).toLocaleString("ar-EG")}
-                        {l.endsAt && ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}`}
-                      </small>
-                    </div>
-                    {l.meetingUrl && (
-                      <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand hover:underline">
-                        رابط الاجتماع ↗
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
       )}
 
       {activeSection === "attendance" && (

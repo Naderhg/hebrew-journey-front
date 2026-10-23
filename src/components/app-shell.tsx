@@ -150,7 +150,6 @@ const adminNav: readonly NavEntry[] = [
     group: "المحاضرات والجداول",
     icon: CalendarDays,
     items: [
-      { to: "/admin", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
       { to: "/admin", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
       { to: "/admin", section: "sessions", label: "نظام المكالمات", icon: CalendarCheck },
       { to: "/admin", section: "groups", label: "المجموعات", icon: Users },
@@ -183,8 +182,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
     { to: "/support", section: "students", label: "الطلاب", icon: GraduationCap },
     { to: "/support", section: "tickets", label: "الشكاوى والتذاكر", icon: TicketCheck },
     { to: "/support", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
-    { to: "/support", section: "schedules", label: "جداول المدرسين", icon: ClipboardCheck },
-    { to: "/support", section: "lectures", label: "المحاضرات المباشرة", icon: CalendarDays },
+    { to: "/support", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
     { to: "/support", section: "sessions", label: "نظام المكالمات", icon: CalendarCheck },
     { to: "/support", section: "groups", label: "المجموعات", icon: Users },
     { to: "/support", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
@@ -554,7 +552,7 @@ export function AppShell({
             </div>
           </aside>
 
-          <main className="min-w-0 flex-1 animate-enter p-4 lg:p-6">
+          <main key={`${path}-${activeSection ?? ""}`} className="min-w-0 flex-1 animate-enter p-4 lg:p-6">
             {loading || !user || isRoleMismatch ? (
               <Card className="mx-auto my-12 max-w-lg p-8 text-center">
                 <div className="mx-auto size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />

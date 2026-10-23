@@ -1,0 +1,118 @@
+      {activeSection === "courses" && (() => {
+        const q = matSearch.trim().toLowerCase();
+        const filteredMats = materials.filter((m) => !q || `${m.title} ${m.description} ${m.assignedTeacherName}`.toLowerCase().includes(q));
+        const matPages = Math.max(1, Math.ceil(filteredMats.length / PAGE_SIZE));
+        const curPage = Math.min(matPage, matPages);
+        const pageMats = filteredMats.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
+        const publishedCount = materials.filter((m) => m.status === "PUBLISHED").length;
+        return (
+        <>
+        <SectionHeader
+          icon={Film}
+          title="الكورسات والماتيريال"
+          subtitle="إدارة رفع الملفات التعليمية والفيديوهات الملحقة"
+        />
+        <div className="mb-4 grid gap-4 sm:grid-cols-3">
+          <StatTile icon={Film} label="فيديوهات" value={materials.filter((m) => m.type === "VIDEO").length} />
+          <StatTile icon={FileText} tone="gold" label="مستندات وصوتيات" value={materials.filter((m) => m.type !== "VIDEO").length} />
+          <StatTile icon={Check} tone="sage" label="قيد النشر" value={publishedCount} />
+        </div>
+        <div className="grid items-start gap-4 xl:grid-cols-[400px_1fr]">
+          <div className="animate-rise space-y-4 xl:sticky xl:top-4 xl:col-start-1 xl:row-start-1">
+            {courseFormCard}
+            <div className="rounded-2xl bg-gradient-to-br from-brand to-brand2 p-5 text-white shadow-xl">
+              <small className="text-[11px] opacity-80">إحصائيات سريعة</small>
+              <b className="mt-1 block text-lg">أداء الماتيريال المرفوعة</b>
+              <div className="mt-4 space-y-2 text-xs">
+                <div className="flex justify-between"><span>إجمالي الملفات</span><b className="font-lat text-base">{materials.length}</b></div>
+                <div className="flex justify-between"><span>منشورة للطلاب</span><b className="font-lat text-base">{publishedCount}</b></div>
+                <div className="flex justify-between"><span>مسودات</span><b className="font-lat text-base">{materials.length - publishedCount}</b></div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/25">
+                  <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${materials.length ? (publishedCount / materials.length) * 100 : 0}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Card className="xl:col-start-2 xl:row-start-1">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-bold">الماتيريال المرفوعة ({materials.length})</h3>
+              <SearchBox value={matSearch} onChange={(v) => { setMatSearch(v); setMatPage(1); }} placeholder="بحث عن مادة..." />
+            </div>
+            <div className="space-y-3">
+              {pageMats.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  لا توجد كورسات مطابقة في قاعدة البيانات حالياً.
+                </div>
+              ) : (
+                pageMats.map((m, i) => (
+                  <div
+                    key={m.id}
+                    style={{ animationDelay: `${i * 70}ms` }}
+                    className="animate-rise hover-lift rounded-2xl border border-border bg-card p-4"
+                  >
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="relative grid h-24 w-36 shrink-0 place-items-center rounded-xl bg-muted/70 text-muted-foreground">
+                        <span className="grid size-10 place-items-center rounded-full bg-background shadow-sm">
+                          {m.type === "VIDEO" ? <Film className="size-4" /> : m.type === "AUDIO" ? <Mic className="size-4" /> : <FileText className="size-4" />}
+                        </span>
+                        <span className="absolute end-2 top-2 rounded-md bg-background px-1.5 py-0.5 font-lat text-[9px] font-bold">
+                          {m.type === "VIDEO" ? "VIDEO" : m.type === "AUDIO" ? "AUDIO" : "PDF"}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <b className="text-sm">{m.title}</b>
+                          <Badge tone="muted">{m.level}</Badge>
+                          <Badge tone={m.status === "PUBLISHED" ? "sage" : "gold"}>
+                            {m.status === "PUBLISHED" ? "منشور" : "مسودة (Draft)"}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{m.description}</p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                          <span>المدرس: {m.assignedTeacherName}</span>
+                          <span>{new Date(m.createdAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}</span>
+                          <span className="font-lat">{m.fileSize}</span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-1.5">
+                        <Button
+                          variant="secondary"
+                          className="min-h-8 px-4 py-1 text-xs"
+                          onClick={() => setMaterialStatus(m.id, m.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED")}
+                        >
+                          {m.status === "PUBLISHED" ? "إرجاع كمسودة" : "نشر للطلاب"}
+                        </Button>
+                        <div className="flex gap-1.5">
+                          <Button
+                            variant="ghost"
+                            className="min-h-8 flex-1 px-3 py-1 text-xs"
+                            onClick={() => setOpenMaterialId(openMaterialId === m.id ? null : m.id)}
+                          >
+                            {openMaterialId === m.id ? "إغلاق" : "معاينة"}
+                          </Button>
+                          <button
+                            onClick={() => deleteCourseMaterial(m.id)}
+                            className="grid size-8 place-items-center rounded-xl bg-muted/70 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                            title="حذف المادة"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {openMaterialId === m.id && (
+                      <div className="animate-rise mt-4 border-t border-border pt-4">
+                        <MaterialPlayer material={m} />
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <Pagination page={curPage} pages={matPages} total={filteredMats.length} size={PAGE_SIZE} onPage={setMatPage} />
+          </Card>
+        </div>
+        </>
+        );
+      })()}

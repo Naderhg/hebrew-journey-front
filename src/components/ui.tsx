@@ -30,3 +30,43 @@ export function SectionHeader({ icon: Icon, title, subtitle, actions, tone = "br
     </div>
   );
 }
+export function StatTile({ icon: Icon, label, value, tone = "brand" }: { icon: React.ComponentType<{ className?: string }>; label: string; value: ReactNode; tone?: "brand" | "sage" | "gold" | "danger" }) {
+  const tones = { brand: "bg-brand text-white", sage: "bg-sage text-white", gold: "bg-gold text-white", danger: "bg-danger text-white" };
+  return (
+    <Card className="group flex items-center gap-4 p-5 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+      <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl shadow-lg transition duration-300 group-hover:scale-110 group-hover:rotate-6", tones[tone])}><Icon className="size-5" /></span>
+      <div><small className="block text-xs text-muted-foreground">{label}</small><b className="font-lat text-2xl">{value}</b></div>
+    </Card>
+  );
+}
+export function SearchBox({ value, onChange, placeholder = "بحث..." }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-10 w-full max-w-60 rounded-xl border border-input bg-muted/40 px-3.5 text-xs transition focus:w-72 focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring" />;
+}
+export function Pagination({ page, pages, total, size, onPage }: { page: number; pages: number; total: number; size: number; onPage: (p: number) => void }) {
+  if (pages <= 1) return null;
+  const from = (page - 1) * size + 1;
+  const to = Math.min(total, page * size);
+  const btn = "grid size-8 place-items-center rounded-lg text-xs font-semibold transition hover:bg-muted active:scale-90 disabled:opacity-40";
+  return (
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs text-muted-foreground">
+      <span>عرض {from}-{to} من أصل {total}</span>
+      <div className="flex items-center gap-1">
+        <button className={btn} disabled={page === 1} onClick={() => onPage(page - 1)}>›</button>
+        {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
+          <button key={p} onClick={() => onPage(p)} className={cn(btn, p === page && "bg-brand text-white shadow-md hover:bg-brand")}>{p}</button>
+        ))}
+        <button className={btn} disabled={page === pages} onClick={() => onPage(page + 1)}>‹</button>
+      </div>
+    </div>
+  );
+}
+export function Dropzone({ file, onFile, accept, hint }: { file: File | null; onFile: (f: File | null) => void; accept?: string; hint?: string }) {
+  return (
+    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-muted/30 px-4 py-8 text-center transition duration-300 hover:border-brand hover:bg-brand/5">
+      <span className="grid size-11 place-items-center rounded-full bg-brand/10 text-brand text-lg transition group-hover:scale-110">⬆</span>
+      <b className="text-xs">{file ? file.name : "اضغط للرفع أو اسحب الملف هنا"}</b>
+      <small className="text-[10px] text-muted-foreground">{file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : hint}</small>
+      <input type="file" accept={accept} className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+    </label>
+  );
+}

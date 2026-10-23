@@ -99,3 +99,9 @@
 .dash-theme .dash-btn-primary { box-shadow: 0 10px 24px -12px oklch(0.43 0.15 257 / 70%); }
 .dash-theme select, .dash-theme textarea, .dash-theme input[type="file"] { border-radius: 0.75rem; }
 .dash-theme select, .dash-theme textarea { background-color: var(--card); }
+.dash-theme button, .dash-theme a, .dash-theme select, .dash-theme input, .dash-theme textarea { transition: background-color .2s, color .2s, border-color .2s, box-shadow .2s, transform .2s, opacity .2s; }
+.dash-theme button:active:not(:disabled) { transform: scale(0.97); }
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.animate-rise { animation: rise .5s cubic-bezier(.22,.8,.3,1) both; }
+.dash-theme .hover-lift { transition: transform .3s, box-shadow .3s; }
+.dash-theme .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -22px oklch(0.3 0.08 260 / 35%); }

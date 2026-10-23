@@ -2188,7 +2188,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function opsCreateBooking(input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) {
-    await apiFetch("/api/ops/bookings", { method: "POST", body: input });
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await apiFetch("/api/ops/bookings", { method: "POST", body: { ...input, timeZone } });
     await Promise.all([fetchOpsBookings(), fetchCallsStudents()]);
   }
 

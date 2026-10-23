@@ -8753,6 +8753,9 @@ function OpsCreateSessionCard({
       d.setDate(d.getDate() + diff);
     }
     d.setHours(sh, sm, 0, 0);
+    if (!slot.specificDate && d.getTime() <= Date.now()) {
+      d.setDate(d.getDate() + 7); // this week's slot passed — take next week's
+    }
     setStartsAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
     const e = new Date(d);
     e.setHours(eh, em, 0, 0);
@@ -8930,6 +8933,9 @@ function OpsFreeLecturesSection({
       d.setDate(d.getDate() + diff);
     }
     d.setHours(sh, sm, 0, 0);
+    if (!slot.specificDate && d.getTime() <= Date.now()) {
+      d.setDate(d.getDate() + 7); // this week's slot passed — take next week's
+    }
     setLStarts(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
     const e = new Date(d);
     e.setHours(eh, em, 0, 0);

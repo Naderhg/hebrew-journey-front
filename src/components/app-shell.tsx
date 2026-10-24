@@ -157,6 +157,7 @@ const adminNav: readonly NavEntry[] = [
     ],
   },
   { to: "/admin", section: "analytics", label: "التحليلات", icon: LineChart },
+  { to: "/admin", section: "guide", label: "دليل المنصة", icon: BookOpen },
 ];
 
 const placementOnlyNav: readonly SidebarItem[] = [

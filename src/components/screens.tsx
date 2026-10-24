@@ -5,6 +5,7 @@ import {
   Award,
   Banknote,
   BarChart3,
+  Rocket,
   CalendarDays,
   Check,
   Circle,
@@ -2279,7 +2280,8 @@ export type AdminSection =
   | "leads"
   | "certificates"
   | "schedules"
-  | "analytics";
+  | "analytics"
+  | "guide";
 
 export function AdminScreen() {
   const {
@@ -4526,7 +4528,132 @@ export function AdminScreen() {
           onToChange={setAnTo}
         />
       )}
+
+      {activeSection === "guide" && <AdminGuideSection />}
     </AppShell>
+  );
+}
+
+// ─── Admin guide ────────────────────────────────────────────────────────────
+
+function GuideBlock({ icon: Icon, title, children, tone = "brand" }: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: ReactNode;
+  tone?: "brand" | "sage" | "gold";
+}) {
+  const tones = { brand: "bg-brand/10 text-brand", sage: "bg-sage/15 text-sage", gold: "bg-gold/15 text-gold" };
+  return (
+    <Card>
+      <div className="flex items-center gap-2">
+        <span className={`grid size-9 shrink-0 place-items-center rounded-md ${tones[tone]}`}>
+          <Icon className="size-4" />
+        </span>
+        <h2 className="font-bold">{title}</h2>
+      </div>
+      <div className="mt-3 space-y-2 text-sm leading-7 text-foreground/90">{children}</div>
+    </Card>
+  );
+}
+
+function AdminGuideSection() {
+  const li = (t: ReactNode) => (
+    <li className="flex gap-2">
+      <Check className="mt-1.5 size-3.5 shrink-0 text-sage" />
+      <span>{t}</span>
+    </li>
+  );
+  return (
+    <div className="mx-auto max-w-4xl space-y-4">
+      <Card className="bg-brand/5">
+        <h2 className="text-lg font-extrabold">دليل تشغيل المنصة — من تسجيل الطالب حتى الشهادة</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          الصفحة دي مرجعك الكامل: رحلة الطالب، دور كل فريق، طريقة استخدام كل قسم، وسيناريوهات الشغل اليومي.
+        </p>
+      </Card>
+
+      <GuideBlock icon={GraduationCap} title="١) رحلة الطالب الكاملة">
+        <ol className="list-decimal space-y-1.5 pe-5">
+          <li><b>التسجيل:</b> الطالب يسجل من صفحة "إنشاء حساب" — بيظهر فوراً في قسم "الطلاب" بحالة "جديد".</li>
+          <li><b>تحديد المستوى:</b> يحل اختبار المستوى — النتيجة بتظهر في "نتائج تحديد المستوى" (مع تسجيلاته الصوتية إن وجدت).</li>
+          <li><b>المحاضرة المجانية:</b> يتواصل واتساب لحجز المحاضرة التجريبية — أنت تضيفه في "المحاضرة المجانية" كطالب تجربة أو لمجموعة.</li>
+          <li><b>الاشتراك:</b> يختار باقة — إما يدفع برنامج الدفع ويوافق الطلب من "طلبات الدفع"، أو يدفع خارج المنصة وانت تفعّله يدوياً من "الطلاب" ← "تفعيل اشتراك".</li>
+          <li><b>التجميع:</b> حدد الطلاب من دليل الطلاب (checkbox) وضمهم لمجموعة — أو أنشئ مجموعة من قسم "المجموعات".</li>
+          <li><b>المعاد الثابت:</b> المدرس يضيف مواعيده المتاحة، وأنت تنشئ منها "موعد أسبوعي" برابط زووم دائم للمجموعة.</li>
+          <li><b>المحاضرات:</b> كل أسبوع الطالب والمدرس يدخلوا نفس الرابط — المدرس يدوس "بدء محاضرة اليوم" ويسجل الحضور.</li>
+          <li><b>المحتوى:</b> ترفع كورسات/امتحانات/واجبات للمدرس — بتظهر لطلابه المربوطين وأعضاء مجموعاته.</li>
+          <li><b>الحصص الفردية:</b> طلاب باقة المكالمات تحجزلهم حصصاً من "نظام المكالمات" داخل مواعيد المدرس المتاحة.</li>
+          <li><b>الشهادة:</b> عند إتمام المستوى تصدر شهادة للطالب من قسم "الشهادات".</li>
+        </ol>
+      </GuideBlock>
+
+      <GuideBlock icon={UsersRound} title="٢) من يعمل إيه (الأدوار)" tone="sage">
+        <ul className="space-y-1.5">
+          {li(<><b>الأدمن (أنت):</b> كل شيء — المستخدمين، الباقات، الاشتراكات، المحتوى، المواعيد، الشهادات، التحليلات.</>)}
+          {li(<><b>خدمة العملاء:</b> الطلاب (حالات + تفعيل اشتراك يدوي + ضم لمجموعات)، الشكاوى، المحادثات، المواعيد الأسبوعية، نظام المكالمات، المحاضرة المجانية، الحضور.</>)}
+          {li(<><b>المبيعات:</b> العملاء المحتملون (leads)، سجل المكالمات، متابعة الاشتراكات.</>)}
+          {li(<><b>المدرس:</b> مواعيده المتاحة، جدوله الثابت، بدء المحاضرات، تسجيل الحضور، الواجبات والتصحيح، محادثات الطلاب، تحليلات أرباحه.</>)}
+          {li(<><b>الطالب:</b> اختبار المستوى، محفظته، حصصه الفردية، جدوله الثابت ورابط الزووم، كورساته وامتحاناته وواجباته.</>)}
+        </ul>
+      </GuideBlock>
+
+      <GuideBlock icon={Rocket} title="٣) الإعداد الأولي لمدرس جديد" tone="gold">
+        <ol className="list-decimal space-y-1.5 pe-5">
+          <li>أنشئ حسابه من "إضافة مستخدم" بدور مدرس.</li>
+          <li>اطلب منه يضيف مواعيده المتاحة من صفحة "مواعيدي المتاحة" في لوحته.</li>
+          <li>أنشئ مجموعة (أو أكثر) من "المجموعات" واربطها به.</li>
+          <li>من "المواعيد الأسبوعية" اختر المدرس ← اضغط موعداً من مواعيده المتاحة ← حدد المجموعة والرابط الدائم.</li>
+          <li>ارفع له الكورسات/الامتحانات من "الكورسات والماتيريال" و"الامتحانات والنتائج".</li>
+          <li>اربط الطلاب بمجموعته من دليل الطلاب (تحديد جماعي → أضف للمجموعة).</li>
+        </ol>
+      </GuideBlock>
+
+      <GuideBlock icon={CalendarDays} title="٤) المواعيد الأسبوعية والمحاضرات">
+        <ul className="space-y-1.5">
+          {li(<>المعاد الثابت = "كل يوم كذا الساعة كذا" — يظهر للطالب والمدرس دائماً بنفس رابط الزووم.</>)}
+          {li(<>لا تحتاج إنشاء محاضرة يدوياً — المدرس يضغط "بدء محاضرة اليوم" في النظام يولّدها تلقائياً ويحسبها في أرباحه (300 ج).</>)}
+          {li(<>المحاضرة الموجهة لمجموعة يشوفها أعضاء المجموعة فقط — وبدون مجموعة يشوفها طلاب المدرس المربوطين.</>)}
+          {li(<>الحضور: المدرس يسجله من "الحضور والغياب" ← يختار المحاضرة ← يحدد حاضر/غائب لكل طالب.</>)}
+        </ul>
+      </GuideBlock>
+
+      <GuideBlock icon={Headphones} title="٥) نظام المكالمات (الحصص الفردية)">
+        <ul className="space-y-1.5">
+          {li(<>باقة مكالمات = عدد حصص محدد برصيد — الطالب يشوف رصيده وحجوزاته في "محفظتي" و"حصصي الفردية".</>)}
+          {li(<>الحجز من عندك فقط: "نظام المكالمات" ← اختر مدرس ← اضغط موعداً متاحاً ← اختر الطالب — يخصم حصة من رصيده.</>)}
+          {li(<>كل حصة محسوبة للمدرس بـ 50 ج — سواء حضر أو لم يحضر أو ألغى متأخراً (أقل من 12 ساعة).</>)}
+          {li(<>طالب المكالمات فقط (بدون باقة أساسية) لا يرى الكورسات والمحاضرات — حصصه الفردية فقط.</>)}
+        </ul>
+      </GuideBlock>
+
+      <GuideBlock icon={CreditCard} title="٦) الاشتراكات والمدفوعات">
+        <ul className="space-y-1.5">
+          {li(<><b>باقات أساسية:</b> مدة بالأشهر/الأسابيع + يمكن تحديد عدد حصص أونلاين/أوفلاين.</>)}
+          {li(<><b>باقات مكالمات:</b> عدد حصص + صلاحية بالأيام — أونلاين فقط.</>)}
+          {li(<><b>طلبات الدفع:</b> الطالب يحوّل ويرفع صورة → يراجع الطلب من "طلبات الدفع" → الموافقة تفعّل الاشتراك فوراً.</>)}
+          {li(<><b>الدفع الخارجي (واتساب/كاش):</b> "الطلاب" ← "تفعيل اشتراك" ← اختر الباقة والمبلغ — نفس النتيجة فوراً.</>)}
+        </ul>
+      </GuideBlock>
+
+      <GuideBlock icon={BarChart3} title="٧) التحليلات وأرباح المدرسين">
+        <ul className="space-y-1.5">
+          {li(<>المحاضرة المنتهية/الجارية = 300 ج للمدرس — بغض النظر عن عدد الحضور.</>)}
+          {li(<>حصة المكالمات = 50 ج للمدرس — عند الحضور أو عدم الحضور أو الإلغاء المتأخر.</>)}
+          {li(<>صفحة "التحليلات" تعرض كل مدرس على حدة مع فلترة بالتاريخ والمدرس.</>)}
+          {li(<>الطالب يرى استهلاكه في "محفظتي" — والمدرس يرى أرباحه في "التحليلات" عنده.</>)}
+        </ul>
+      </GuideBlock>
+
+      <GuideBlock icon={ClipboardCheck} title="٨) سيناريوهات يومية سريعة">
+        <ul className="space-y-1.5">
+          {li(<><b>طالب دفع على واتساب:</b> الطلاب ← ابحث عنه ← تفعيل اشتراك ← الباقة والمبلغ.</>)}
+          {li(<><b>نقل طلاب لمجموعة جديدة:</b> الطلاب ← حدد بالـ checkbox ← اختر المجموعة ← أضف المحددين.</>)}
+          {li(<><b>محاضرة تجريبية مجانية:</b> المحاضرة المجانية ← أضف طالب تجربة ← أنشئ المحاضرة بموعد ورابط.</>)}
+          {li(<><b>متابعة طالب متخلف:</b> "متابعة الطلاب" عند خدمة العملاء يعرض المتأخرين في الامتحانات.</>)}
+          {li(<><b>إصدار شهادة:</b> الشهادات ← اختر الطالب والمستوى ← تصدر فوراً ويصل الطالب إشعار.</>)}
+        </ul>
+      </GuideBlock>
+    </div>
   );
 }
 
@@ -4679,6 +4806,7 @@ function AdminBookingsSection({
 }
 
 function AdminPlacementResultsSection({ results }: { results: PlacementResultRow[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   return (
     <Card>
       <h3 className="font-bold">نتائج اختبار تحديد المستوى ({results.length})</h3>
@@ -4689,23 +4817,45 @@ function AdminPlacementResultsSection({ results }: { results: PlacementResultRow
         {results.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">لم يكمل أي طالب الاختبار بعد.</p>
         ) : (
-          results.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 p-3">
-              <div>
-                <b className="text-sm">{r.fullName}</b>
-                <small className="block text-muted-foreground">
-                  {r.phone ?? r.email ?? "—"}
-                </small>
+          results.map((r) => {
+            const audios = (r.audioAnswers ?? []).filter((a) => a.audioUrl);
+            return (
+              <div key={r.id} className="rounded-md border border-border bg-background/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <b className="text-sm">{r.fullName}</b>
+                    <small className="block text-muted-foreground">
+                      {r.phone ?? r.email ?? "—"}
+                    </small>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge tone="brand">مستوى {r.level}</Badge>
+                    <Badge tone="muted">{r.placementScore}%</Badge>
+                    {audios.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        className="min-h-8 px-2.5 text-xs"
+                        onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                      >
+                        🎧 التسجيلات ({audios.length})
+                      </Button>
+                    )}
+                    <small className="text-muted-foreground">
+                      {r.placementCompletedAt ? new Date(r.placementCompletedAt).toLocaleDateString("ar-EG") : ""}
+                    </small>
+                  </div>
+                </div>
+                {openId === r.id && audios.length > 0 && (
+                  <div className="mt-3 space-y-2 rounded-md border border-dashed border-border bg-muted/30 p-3">
+                    <small className="block text-xs font-semibold text-muted-foreground">تسجيلات الطالب الصوتية:</small>
+                    {audios.map((a, i) => (
+                      <audio key={a.questionId} controls src={mediaSrc(a.audioUrl!)} className="w-full" title={`تسجيل ${i + 1}`} />
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <Badge tone="brand">مستوى {r.level}</Badge>
-                <Badge tone="muted">{r.placementScore}%</Badge>
-                <small className="text-muted-foreground">
-                  {r.placementCompletedAt ? new Date(r.placementCompletedAt).toLocaleDateString("ar-EG") : ""}
-                </small>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </Card>

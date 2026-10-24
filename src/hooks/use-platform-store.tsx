@@ -433,6 +433,7 @@ export interface PlacementResultRow {
   placementScore?: number | null;
   placementCompletedAt?: string | null;
   studentStatus?: string | null;
+  audioAnswers?: { questionId: string; audioUrl?: string }[];
 }
 
 export interface AdminLectureItem {

@@ -10,6 +10,7 @@ import {
   Check,
   Circle,
   Clock,
+  CreditCard,
   PlusCircle,
   Video,
   ClipboardCheck,

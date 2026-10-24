@@ -48,6 +48,7 @@ import {
   type MaterialAttachment,
   type MaterialType,
   type PlacementSection,
+  type PlacementQuestionType,
   type PlatformUser,
   type PublishStatus,
   type QuestionType,
@@ -429,8 +430,13 @@ export function PlacementScreen() {
   const activeQuestions = placementQuestions.filter((q) => q.isActive);
   const [step, setStep] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number | string>>({});
+  const [audioAnswers, setAudioAnswers] = useState<Record<string, string>>({});
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioError, setAudioError] = useState("");
 
   const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const isAudioQ = (q: (typeof activeQuestions)[number]) => q.questionType === "audio";
+  const gradedQuestions = activeQuestions.filter((q) => !isAudioQ(q));
   const isCorrect = (q: (typeof activeQuestions)[number]) => {
     const ans = selectedAnswers[q.id];
     if (q.questionType === "text") {
@@ -440,18 +446,47 @@ export function PlacementScreen() {
     return ans === q.correctOptionIndex;
   };
   const hasAnswer = (q: (typeof activeQuestions)[number]) => {
+    if (isAudioQ(q)) return !!audioAnswers[q.id];
     const ans = selectedAnswers[q.id];
     if (q.questionType === "text") return typeof ans === "string" && ans.trim().length > 0;
     return typeof ans === "number";
   };
 
+  async function handleAudioRecorded(qId: string, blob: Blob) {
+    setAudioError("");
+    setAudioUploading(true);
+    try {
+      const up = await uploadFile(blob, "audio");
+      setAudioAnswers((p) => ({ ...p, [qId]: up.url }));
+    } catch {
+      setAudioError("تعذر رفع التسجيل — حاول مرة أخرى");
+    } finally {
+      setAudioUploading(false);
+    }
+  }
+
   if (step >= activeQuestions.length && activeQuestions.length > 0) {
-    const correctCount = activeQuestions.reduce(
+    const correctCount = gradedQuestions.reduce(
       (acc, q) => (isCorrect(q) ? acc + 1 : acc),
       0,
     );
-    const scorePercent = Math.round((correctCount / activeQuestions.length) * 100);
-    return <PlacementResult scorePercent={scorePercent} correctCount={correctCount} total={activeQuestions.length} />;
+    const scorePercent = gradedQuestions.length
+      ? Math.round((correctCount / gradedQuestions.length) * 100)
+      : 0;
+    const answers = activeQuestions.map((q) => ({
+      questionId: q.id,
+      ...(isAudioQ(q)
+        ? { audioUrl: audioAnswers[q.id] }
+        : { answer: selectedAnswers[q.id] }),
+    }));
+    return (
+      <PlacementResult
+        scorePercent={scorePercent}
+        correctCount={correctCount}
+        total={gradedQuestions.length}
+        answers={answers}
+      />
+    );
   }
 
   const currentQ = activeQuestions[step];
@@ -497,7 +532,33 @@ export function PlacementScreen() {
               <h2 className="mt-4 text-2xl font-bold">{currentQ.promptAr}</h2>
               <p className="mt-3 font-he text-xl leading-9">{currentQ.hebrewText}</p>
 
-              {currentQ.questionType === "text" ? (
+              {currentQ.paragraph && (
+                <div className="mt-4 rounded-md border border-border bg-muted/40 p-4">
+                  <small className="block text-xs font-semibold text-muted-foreground">اقرأ الفقرة التالية ثم أجب</small>
+                  <p className="mt-1 whitespace-pre-wrap font-he text-base leading-8">{currentQ.paragraph}</p>
+                </div>
+              )}
+
+              {currentQ.audioUrl && (
+                <div className="mt-4">
+                  <small className="mb-1 block text-xs font-semibold text-muted-foreground">استمع للمقطع ثم أجب</small>
+                  <audio controls src={mediaSrc(currentQ.audioUrl)} className="w-full" />
+                </div>
+              )}
+
+              {currentQ.questionType === "audio" ? (
+                <div className="mt-6">
+                  <AudioRecorder
+                    label="سجّل إجابتك الصوتية"
+                    onRecorded={(blob) => void handleAudioRecorded(currentQ.id, blob)}
+                  />
+                  {audioUploading && <p className="mt-2 text-xs text-muted-foreground">جاري رفع التسجيل...</p>}
+                  {audioAnswers[currentQ.id] && !audioUploading && (
+                    <p className="mt-2 text-xs font-semibold text-sage">تم حفظ تسجيلك — يمكنك إعادة التسجيل إن أردت</p>
+                  )}
+                  {audioError && <p className="mt-2 text-xs font-semibold text-danger">{audioError}</p>}
+                </div>
+              ) : currentQ.questionType === "text" ? (
                 <div className="mt-6">
                   <Input
                     dir="rtl"
@@ -546,10 +607,12 @@ function PlacementResult({
   scorePercent,
   correctCount,
   total,
+  answers,
 }: {
   scorePercent: number;
   correctCount: number;
   total: number;
+  answers?: { questionId: string; answer?: number | string; audioUrl?: string }[];
 }) {
   const { submitPlacementResult } = usePlatformStore();
   const { user, refreshUser } = useAuth();
@@ -563,7 +626,7 @@ function PlacementResult({
     if (!user || submitted.current) return;
     submitted.current = true;
     setSaveState("saving");
-    submitPlacementResult(scorePercent, level)
+    submitPlacementResult(scorePercent, level, answers)
       .then(() => {
         setSaveState("saved");
         return refreshUser().catch(() => {});
@@ -2405,9 +2468,12 @@ export function AdminScreen() {
 
   const [qSection, setQSection] = useState<PlacementSection>("قراءة");
   const [qLevel, setQLevel] = useState<"A1" | "A2" | "B1" | "B2">("B1");
-  const [qType, setQType] = useState<"mcq" | "truefalse" | "text">("mcq");
+  const [qType, setQType] = useState<PlacementQuestionType>("mcq");
   const [qPromptAr, setQPromptAr] = useState("");
   const [qHebrewText, setQHebrewText] = useState("");
+  const [qParagraph, setQParagraph] = useState("");
+  const [qAudioFile, setQAudioFile] = useState<File | null>(null);
+  const [qUploading, setQUploading] = useState(false);
   const [opt1, setOpt1] = useState("");
   const [opt2, setOpt2] = useState("");
   const [opt3, setOpt3] = useState("");
@@ -2633,7 +2699,7 @@ export function AdminScreen() {
     } else if (qType === "truefalse") {
       options = ["صح", "خطأ"];
       correctOptionIndex = qTrueFalse ? 0 : 1;
-    } else {
+    } else if (qType === "text") {
       expectedAnswer = qExpected.trim();
       if (!expectedAnswer) {
         setQuestionError("سؤال النص يحتاج الإجابة المتوقعة");
@@ -2641,7 +2707,13 @@ export function AdminScreen() {
       }
     }
 
+    setQUploading(true);
     try {
+      let audioUrl: string | undefined;
+      if (qAudioFile) {
+        const up = await uploadFile(qAudioFile, "audio");
+        audioUrl = up.url;
+      }
       await addPlacementQuestion({
         section: qSection,
         promptAr: qPromptAr,
@@ -2650,11 +2722,15 @@ export function AdminScreen() {
         options,
         correctOptionIndex,
         ...(expectedAnswer ? { expectedAnswer } : {}),
+        ...(qParagraph.trim() ? { paragraph: qParagraph.trim() } : {}),
+        ...(audioUrl ? { audioUrl } : {}),
         levelTag: qLevel,
       });
 
       setQPromptAr("");
       setQHebrewText("");
+      setQParagraph("");
+      setQAudioFile(null);
       setOpt1("");
       setOpt2("");
       setOpt3("");
@@ -2665,6 +2741,8 @@ export function AdminScreen() {
       setQuestionSuccess("تم نشر السؤال فوراً في اختبار تحديد المستوى بالصفحة الرئيسية.");
     } catch (err) {
       setQuestionError(err instanceof Error ? err.message : "فشل حفظ السؤال");
+    } finally {
+      setQUploading(false);
     }
   }
 
@@ -4056,6 +4134,7 @@ export function AdminScreen() {
                     onChange={(e) => setQSection(e.target.value as PlacementSection)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
+                    <option value="ترجمة">ترجمة</option>
                     <option value="قراءة">قراءة</option>
                     <option value="استماع">استماع</option>
                     <option value="كتابة">كتابة</option>
@@ -4099,13 +4178,39 @@ export function AdminScreen() {
                 />
               </div>
 
+              {qSection === "قراءة" && (
+                <div className="space-y-1.5">
+                  <Label>فقرة القراءة (تظهر للطالب قبل السؤال)</Label>
+                  <textarea
+                    value={qParagraph}
+                    onChange={(e) => setQParagraph(e.target.value)}
+                    className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
+                    dir="rtl"
+                    placeholder="اكتب فقرة الفهم هنا..."
+                  />
+                </div>
+              )}
+
+              {qSection === "استماع" && (
+                <div className="space-y-1.5">
+                  <Label>مقطع الاستماع (صوت الأدمن — يظهر للطالب)</Label>
+                  <Dropzone
+                    file={qAudioFile}
+                    onFile={setQAudioFile}
+                    accept="audio/*,.mp3,.wav,.ogg,.m4a"
+                    hint="MP3 / WAV / M4A"
+                  />
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label>نوع السؤال</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {([
                     ["mcq", "اختيار من متعدد"],
                     ["truefalse", "صح / خطأ"],
                     ["text", "إجابة نصية"],
+                    ["audio", "إجابة صوتية"],
                   ] as const).map(([v, l]) => (
                     <button
                       key={v}
@@ -4185,9 +4290,16 @@ export function AdminScreen() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full">
+              {qType === "audio" && (
+                <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  سؤال إجابة صوتية — الطالب يسجّل صوته (قراءة الجملة/الفقرة بالعبرية)،
+                  ولا يدخل في الدرجة التلقائية، تتم مراجعته من الإدارة.
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={qUploading}>
                 <Plus className="size-4" />
-                نشر السؤال في الصفحة الرئيسية
+                {qUploading ? "جاري رفع الصوت والنشر..." : "نشر السؤال في الصفحة الرئيسية"}
               </Button>
             </form>
           </Card>

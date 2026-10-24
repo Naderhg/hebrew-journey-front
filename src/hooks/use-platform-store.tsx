@@ -41,19 +41,29 @@ export interface CourseMaterial {
   createdAt: string;
 }
 
-export type PlacementSection = "قراءة" | "استماع" | "كتابة" | "محادثة";
+export type PlacementSection = "ترجمة" | "قراءة" | "استماع" | "كتابة" | "محادثة";
+
+export type PlacementQuestionType = "mcq" | "truefalse" | "text" | "audio";
 
 export interface PlacementQuestion {
   id: string;
   section: PlacementSection;
   promptAr: string;
   hebrewText: string;
-  questionType: "mcq" | "truefalse" | "text";
+  questionType: PlacementQuestionType;
   options: string[];
   correctOptionIndex: number;
   expectedAnswer?: string | null;
+  paragraph?: string | null;
+  audioUrl?: string | null;
   levelTag: "A1" | "A2" | "B1" | "B2";
   isActive: boolean;
+}
+
+export interface PlacementAnswerEntry {
+  questionId: string;
+  answer?: number | string;
+  audioUrl?: string;
 }
 
 export type ExamType = "translation" | "reading" | "speaking" | "listening";
@@ -170,10 +180,12 @@ interface CreatePlacementQuestionInput {
   section: PlacementSection;
   promptAr: string;
   hebrewText: string;
-  questionType: "mcq" | "truefalse" | "text";
+  questionType: PlacementQuestionType;
   options: string[];
   correctOptionIndex: number;
   expectedAnswer?: string;
+  paragraph?: string;
+  audioUrl?: string;
   levelTag: "A1" | "A2" | "B1" | "B2";
 }
 
@@ -1073,7 +1085,7 @@ interface PlatformStoreValue {
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   gradeHomeworkSubmission: (submissionId: string, input: { grade?: number; feedback?: string }) => Promise<void>;
-  submitPlacementResult: (scorePercent: number, level: string) => Promise<void>;
+  submitPlacementResult: (scorePercent: number, level: string, answers?: PlacementAnswerEntry[]) => Promise<void>;
   // Billing / bookings
   fetchMyBilling: () => Promise<void>;
   createPaymentRequest: (input: { packageId: string; method: "wallet" | "instapay"; studyMode?: "online" | "offline"; screenshotUrl: string }) => Promise<void>;
@@ -2006,8 +2018,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (res?.homework) setTeacherHomework(res.homework);
   }
 
-  async function submitPlacementResult(scorePercent: number, level: string) {
-    await apiFetch("/api/placement/result", { method: "POST", body: { scorePercent, level } });
+  async function submitPlacementResult(scorePercent: number, level: string, answers?: PlacementAnswerEntry[]) {
+    await apiFetch("/api/placement/result", { method: "POST", body: { scorePercent, level, ...(answers?.length ? { answers } : {}) } });
   }
 
   // ─── Billing / bookings ────────────────────────────────────────────────

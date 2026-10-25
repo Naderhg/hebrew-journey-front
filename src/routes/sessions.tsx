@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Calendar, CalendarCheck, Clock, Plus, X, AlertTriangle } from "lucide-react";
+import { Calendar, CalendarCheck, Clock, Plus } from "lucide-react";
 import { Button, Card, Badge } from "../components/ui";
 import { usePlatformStore, type SessionSubscription } from "../hooks/use-platform-store";
 
@@ -35,13 +35,11 @@ function StudentSessionsPage() {
     mySessions,
     myBookings,
     fetchMySessions,
-    cancelBooking,
     hasCallsPackage,
     fetchHasCallsPackage,
   } = usePlatformStore();
 
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -86,17 +84,6 @@ function StudentSessionsPage() {
     );
   }
 
-  async function handleCancel(id: string) {
-    if (!confirm("هل تريد إلغاء هذه الحصة؟ إذا تبقى أقل من 12 ساعة على موعدها ستُخصم من رصيدك.")) return;
-    setErr("");
-    try {
-      const res = await cancelBooking(id);
-      alert(res.refunded ? "تم إلغاء الحصة وأُرجعت لرصيدك" : "تم إلغاء الحصة (خصمت من رصيدك لعدم الالتزام بـ12 ساعة)");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "فشل الإلغاء");
-    }
-  }
-
   const upcoming = myBookings.filter((b) => b.status === "booked" && new Date(b.startsAt) > new Date());
   const past = myBookings.filter((b) => b.status !== "booked" || new Date(b.startsAt) <= new Date());
 
@@ -105,16 +92,12 @@ function StudentSessionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">حصصي الفردية</h1>
-          <p className="text-sm text-muted-foreground">احجز حصصك مع مدرسك، غيّر مواعيدها أو ألغها</p>
+          <p className="text-sm text-muted-foreground">تابع حصصك المحجوزة ورصيدك المتبقي</p>
         </div>
         <Button variant="ghost" onClick={refresh} disabled={loading}>
           تحديث
         </Button>
       </div>
-
-      {err && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{err}</div>
-      )}
 
       {/* ─── Balance cards ─── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -148,39 +131,28 @@ function StudentSessionsPage() {
           <p className="text-sm text-muted-foreground">لا توجد حصص محجوزة قادمة.</p>
         ) : (
           <div className="space-y-3">
-            {upcoming.map((b) => {
-              const hoursLeft = (new Date(b.startsAt).getTime() - Date.now()) / 3_600_000;
-              const canReschedule = hoursLeft >= 12;
-              return (
-                <div key={b.id} className="rounded-xl border border-[#e7edf7] bg-white p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 text-sm font-bold text-[#0b2f6e]">
-                        <Clock className="size-4" />
-                        {b.teacher?.fullName ?? "مدرس"}
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{fmtDate(b.startsAt)}</p>
-                      {b.meetingUrl && (
-                        <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
-                          رابط الاجتماع
-                        </a>
-                      )}
+            {upcoming.map((b) => (
+              <div key={b.id} className="rounded-xl border border-[#e7edf7] bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#0b2f6e]">
+                      <Clock className="size-4" />
+                      {b.teacher?.fullName ?? "مدرس"}
                     </div>
-                    <Badge style={{ background: STATUS_LABELS.booked.color }}>{STATUS_LABELS.booked.label}</Badge>
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => handleCancel(b.id)}>
-                      <X className="size-4" /> إلغاء
-                    </Button>
-                    {!canReschedule && (
-                      <span className="flex items-center gap-1 text-xs text-amber-600">
-                        <AlertTriangle className="size-3" /> لا يمكن الإلغاء بدون خصم (أقل من 12 ساعة)
-                      </span>
+                    <p className="mt-1 text-sm text-muted-foreground">{fmtDate(b.startsAt)}</p>
+                    {b.meetingUrl && (
+                      <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
+                        رابط الاجتماع
+                      </a>
                     )}
                   </div>
+                  <Badge style={{ background: STATUS_LABELS.booked.color }}>{STATUS_LABELS.booked.label}</Badge>
                 </div>
-              );
-            })}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  لتغيير الموعد أو الإلغاء، تواصل مع فريق الدعم.
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </Card>

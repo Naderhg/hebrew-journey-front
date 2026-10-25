@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge, Button, Card, Input, Label } from "../components/ui";
-import { usePlatformStore, type PublicPackage } from "../hooks/use-platform-store";
+import { usePlatformStore, type PublicPackage, type PublicTeacher } from "../hooks/use-platform-store";
+import { mediaSrc } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 import { getHomeRouteForRole } from "../lib/auth";
 
@@ -188,39 +189,38 @@ function FaqItem({ q }: { q: string }) {
 
 function Landing() {
   const { user } = useAuth();
-  const { publicPackages, fetchPublicPackages, publicSchedules, fetchPublicSchedules } = usePlatformStore();
+  const { publicPackages, fetchPublicPackages, publicSchedules, fetchPublicSchedules, publicTeachers, fetchPublicTeachers } = usePlatformStore();
   const [bookingPkg, setBookingPkg] = useState<PublicPackage | null>(null);
 
   useEffect(() => {
     fetchPublicPackages();
     fetchPublicSchedules();
+    fetchPublicTeachers();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Group live weekly schedules by teacher — replaces hardcoded slots
+  // Teachers come from the public endpoint (all active teachers added by admin);
+  // weekly slots are merged in from publicSchedules when they exist.
   const LANDING_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-  const liveTeachers = Object.values(
-    publicSchedules.reduce<Record<string, { name: string; badge: string; slots: string[]; online: boolean }>>(
-      (acc, s) => {
-        const t = s.teacher;
-        if (!t) return acc;
-        acc[t.id] ??= {
-          name: t.fullName,
-          badge: t.specialty ?? "مدرس لغات",
-          slots: [],
-          online: s.location === "online",
-        };
-        acc[t.id].slots.push(`${LANDING_DAY_NAMES[s.dayOfWeek]} ${s.startTime}`);
-        acc[t.id].online ||= s.location === "online";
-        return acc;
-      },
-      {},
-    ),
+  const slotsByTeacher = publicSchedules.reduce<Record<string, { slots: string[]; online: boolean }>>(
+    (acc, s) => {
+      const t = s.teacher;
+      if (!t) return acc;
+      acc[t.id] ??= { slots: [], online: false };
+      acc[t.id].slots.push(`${LANDING_DAY_NAMES[s.dayOfWeek]} ${s.startTime}`);
+      acc[t.id].online ||= s.location === "online";
+      return acc;
+    },
+    {},
   );
-  const teachersToRender = liveTeachers.map((t, i) => ({
-    ...t,
+  const teachersToRender = publicTeachers.map((t: PublicTeacher, i) => ({
+    name: t.fullName,
+    badge: t.specialty ?? "مدرس لغات",
+    avatarUrl: t.avatarUrl ?? null,
+    slots: slotsByTeacher[t.id]?.slots ?? [],
+    online: slotsByTeacher[t.id]?.online ?? true,
     desc: "مدرس معتمد — أونلاين وحضوري، مواعيد ثابتة كل أسبوع",
     avatarBg: TEACHER_CARD_COLORS[i % TEACHER_CARD_COLORS.length],
-    initials: t.name.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟",
+    initials: t.fullName.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟",
   }));
 
   return (
@@ -582,9 +582,17 @@ function Landing() {
             {teachersToRender.map((t) => (
               <div key={t.name} className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-6 text-center shadow-sm">
                 <div className="relative mx-auto w-fit">
-                  <span className={`grid size-28 place-items-center rounded-full text-4xl font-bold ring-4 ring-white shadow-lg ${t.avatarBg}`} style={{ color: NAVY }}>
-                    {t.initials}
-                  </span>
+                  {t.avatarUrl ? (
+                    <img
+                      src={mediaSrc(t.avatarUrl)}
+                      alt={t.name}
+                      className="size-28 rounded-full object-cover ring-4 ring-white shadow-lg"
+                    />
+                  ) : (
+                    <span className={`grid size-28 place-items-center rounded-full text-4xl font-bold ring-4 ring-white shadow-lg ${t.avatarBg}`} style={{ color: NAVY }}>
+                      {t.initials}
+                    </span>
+                  )}
                   <span className="absolute -bottom-1 -left-1 grid size-7 place-items-center rounded-full text-white" style={{ background: GREEN }}>
                     <Check className="size-4" />
                   </span>
@@ -597,11 +605,15 @@ function Landing() {
                 <div className="mt-4 border-t border-[#eef2f9] pt-4">
                   <p className="mb-2 text-[11px] font-semibold text-[#8a98b5]">المواعيد المتاحة هذا الأسبوع</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
-                    {t.slots.map((s) => (
-                      <span key={s} className="rounded-md bg-[#eef3fb] px-2 py-1 text-[10px] font-semibold" style={{ color: NAVY }}>
-                        {s}
-                      </span>
-                    ))}
+                    {t.slots.length === 0 ? (
+                      <span className="text-[10px] text-[#8a98b5]">تُعلن المواعيد قريباً</span>
+                    ) : (
+                      t.slots.map((s) => (
+                        <span key={s} className="rounded-md bg-[#eef3fb] px-2 py-1 text-[10px] font-semibold" style={{ color: NAVY }}>
+                          {s}
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
                 <a href="#packages">

@@ -910,6 +910,13 @@ export interface PublicPackage {
   validityDays?: number | null;
 }
 
+export interface PublicTeacher {
+  id: string;
+  fullName: string;
+  specialty?: string | null;
+  avatarUrl?: string | null;
+}
+
 // ─── Session-package booking types ───
 export interface SessionSubscription {
   id: string;
@@ -1006,6 +1013,7 @@ interface PlatformStoreValue {
   adminLectures: AdminLectureItem[];
   adminSchedules: WeeklyScheduleItem[];
   publicSchedules: WeeklyScheduleItem[];
+  publicTeachers: PublicTeacher[];
   supportLectures: AdminLectureItem[];
   loadingData: boolean;
   refreshAll: () => Promise<void>;
@@ -1102,6 +1110,7 @@ interface PlatformStoreValue {
   updateAdminSchedule: (id: string, input: Partial<CreateScheduleInput>) => Promise<void>;
   deleteAdminSchedule: (id: string) => Promise<void>;
   fetchPublicSchedules: () => Promise<void>;
+  fetchPublicTeachers: () => Promise<void>;
   fetchSupportLectures: () => Promise<void>;
   // ─── Session-package bookings ───
   mySessions: SessionSubscription[];
@@ -1118,7 +1127,7 @@ interface PlatformStoreValue {
   fetchAvailableSlots: () => Promise<void>;
   bookSession: (input: { availabilityId: string; startsAt: string }) => Promise<void>;
   rescheduleBooking: (id: string, input: { newAvailabilityId: string; newStartsAt: string }) => Promise<void>;
-  cancelBooking: (id: string, reason?: string) => Promise<{ refunded: boolean }>;
+
   fetchTeacherAvailability: () => Promise<void>;
   addTeacherAvailability: (input: { dayOfWeek: number | null; specificDate?: string | null; startTime: string; endTime: string }) => Promise<void>;
   toggleTeacherAvailability: (id: string) => Promise<void>;
@@ -1244,6 +1253,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [adminLectures, setAdminLectures] = useState<AdminLectureItem[]>([]);
   const [adminSchedules, setAdminSchedules] = useState<WeeklyScheduleItem[]>([]);
   const [publicSchedules, setPublicSchedules] = useState<WeeklyScheduleItem[]>([]);
+  const [publicTeachers, setPublicTeachers] = useState<PublicTeacher[]>([]);
   const [supportLectures, setSupportLectures] = useState<AdminLectureItem[]>([]);
   // booking state
   const [mySessions, setMySessions] = useState<SessionSubscription[]>([]);
@@ -2112,6 +2122,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* public page — ignore */ }
   }
 
+  async function fetchPublicTeachers() {
+    try {
+      const res = await apiFetch<{ teachers: PublicTeacher[] }>("/api/public/teachers");
+      if (res?.teachers) setPublicTeachers(res.teachers);
+    } catch { /* public page — ignore */ }
+  }
+
   async function fetchSupportLectures() {
     const res = await apiFetch<{ lectures: AdminLectureItem[] }>("/api/support/lectures");
     if (res?.lectures) setSupportLectures(res.lectures);
@@ -2157,16 +2174,6 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     });
     await fetchMySessions();
     await fetchAvailableSlots();
-  }
-
-  async function cancelBooking(id: string, reason?: string): Promise<{ refunded: boolean }> {
-    const res = await apiFetch<{ refunded: boolean }>(`/api/student/bookings/${id}`, {
-      method: "DELETE",
-      body: { reason },
-    });
-    await fetchMySessions();
-    await fetchAvailableSlots();
-    return res ?? { refunded: false };
   }
 
   async function fetchTeacherAvailability() {
@@ -2447,6 +2454,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         adminLectures,
         adminSchedules,
         publicSchedules,
+        publicTeachers,
         supportLectures,
         loadingData,
         refreshAll,
@@ -2535,6 +2543,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         updateAdminSchedule,
         deleteAdminSchedule,
         fetchPublicSchedules,
+        fetchPublicTeachers,
         fetchSupportLectures,
         // bookings
         mySessions,
@@ -2551,7 +2560,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchAvailableSlots,
         bookSession,
         rescheduleBooking,
-        cancelBooking,
+
         fetchTeacherAvailability,
         addTeacherAvailability,
         toggleTeacherAvailability,

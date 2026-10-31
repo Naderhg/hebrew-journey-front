@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   TicketCheck,
   Upload,
+  UserRound,
   UserPlus,
   UsersRound,
   Users,
@@ -82,11 +83,12 @@ const studentNav: readonly SidebarItem[] = [
 
 const teacherNav: readonly NavEntry[] = [
   { to: "/teacher", section: "students", label: "طلابي وتقدمهم", icon: UsersRound },
+  { to: "/teacher", section: "profile", label: "نبذة عني", icon: UserRound },
   {
     group: "المواعيد والحضور",
     icon: CalendarDays,
     items: [
-      { to: "/teacher", section: "sessions", label: "مواعيدي المتاحة", icon: CalendarCheck },
+      { to: "/teacher", section: "sessions", label: "إتاحة الحصص الفردية", icon: CalendarCheck },
       { to: "/teacher", section: "schedule", label: "جدولي", icon: CalendarDays },
       { to: "/teacher", section: "attendance", label: "الحضور والغياب", icon: TicketCheck },
     ],
@@ -150,7 +152,7 @@ const adminNav: readonly NavEntry[] = [
     group: "المحاضرات والجداول",
     icon: CalendarDays,
     items: [
-      { to: "/admin", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
+      { to: "/admin", section: "schedules", label: "جدول المجموعات الأسبوعي", icon: RotateCcw },
       { to: "/admin", section: "sessions", label: "نظام المكالمات", icon: CalendarCheck },
       { to: "/admin", section: "groups", label: "المجموعات", icon: Users },
       { to: "/admin", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
@@ -183,7 +185,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
     { to: "/support", section: "students", label: "الطلاب", icon: GraduationCap },
     { to: "/support", section: "tickets", label: "الشكاوى والتذاكر", icon: TicketCheck },
     { to: "/support", section: "chat", label: "محادثات الطلاب", icon: MessageCircle },
-    { to: "/support", section: "schedules", label: "المواعيد الأسبوعية", icon: RotateCcw },
+      { to: "/support", section: "schedules", label: "جدول المجموعات الأسبوعي", icon: RotateCcw },
     { to: "/support", section: "sessions", label: "نظام المكالمات", icon: CalendarCheck },
     { to: "/support", section: "groups", label: "المجموعات", icon: Users },
     { to: "/support", section: "free-lectures", label: "المحاضرة المجانية", icon: Gift },
@@ -219,15 +221,29 @@ export function AppShell({
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [localSubscriptionPreview, setLocalSubscriptionPreview] = useState(false);
+  const [previewCheckComplete, setPreviewCheckComplete] = useState(false);
 
   const currentUserRole = (user?.role?.toUpperCase() as UserRole | undefined) ?? role;
   const isRoleMismatch = Boolean(user && currentUserRole !== role);
   const isStudent = Boolean(user && currentUserRole === "STUDENT" && role === "STUDENT");
   const needsPlacement = isStudent && !user!.placementCompletedAt;
-  const isLocked = isStudent && Boolean(user!.placementCompletedAt) && !user!.hasActiveSubscription;
+  const isLocked =
+    isStudent &&
+    Boolean(user!.placementCompletedAt) &&
+    !user!.hasActiveSubscription &&
+    !localSubscriptionPreview;
 
   useEffect(() => {
-    if (loading) return;
+    const enabled =
+      import.meta.env.DEV &&
+      new URLSearchParams(window.location.search).get("dev-preview") === "1";
+    setLocalSubscriptionPreview(enabled);
+    setPreviewCheckComplete(true);
+  }, []);
+
+  useEffect(() => {
+    if (loading || !previewCheckComplete) return;
     if (!user) {
       navigate({ to: "/login" });
       return;
@@ -242,6 +258,7 @@ export function AppShell({
       } else if (
         user.placementCompletedAt &&
         !user.hasActiveSubscription &&
+        !localSubscriptionPreview &&
         path !== "/subscribe" &&
         path !== "/placement" &&
         path !== "/free-lectures"
@@ -249,7 +266,17 @@ export function AppShell({
         navigate({ to: "/subscribe" });
       }
     }
-  }, [loading, user, isRoleMismatch, isStudent, currentUserRole, path, navigate]);
+  }, [
+    loading,
+    previewCheckComplete,
+    localSubscriptionPreview,
+    user,
+    isRoleMismatch,
+    isStudent,
+    currentUserRole,
+    path,
+    navigate,
+  ]);
 
   // Close the mobile drawer on navigation
   useEffect(() => {
@@ -263,11 +290,15 @@ export function AppShell({
 
   let navItems = roleNavigationMap[role] ?? studentNav;
   if (needsPlacement) navItems = placementOnlyNav;
-  else if (isLocked) navItems = lockedStudentNav;
-  else if (isStudent) {
+  else if (isLocked) {
+    navItems = lockedStudentNav.filter(
+      (item) => item.to !== "/free-lectures" || hasCallsPackage,
+    );
+  } else if (isStudent) {
     const callsOnly = hasCallsPackage && !hasBasicPackage;
     navItems = studentNav.filter((item) => {
       if (item.to === "/sessions") return hasCallsPackage;
+      if (item.to === "/free-lectures") return hasCallsPackage;
       if (callsOnly && ["/lectures", "/courses", "/homework", "/exams"].includes(item.to)) return false;
       return true;
     });

@@ -218,7 +218,7 @@ function Landing() {
     avatarUrl: t.avatarUrl ?? null,
     slots: slotsByTeacher[t.id]?.slots ?? [],
     online: slotsByTeacher[t.id]?.online ?? true,
-    desc: "مدرس معتمد — أونلاين وحضوري، مواعيد ثابتة كل أسبوع",
+    desc: t.bio?.trim() || "مدرس معتمد — أونلاين وحضوري، مواعيد ثابتة كل أسبوع",
     avatarBg: TEACHER_CARD_COLORS[i % TEACHER_CARD_COLORS.length],
     initials: t.fullName.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟",
   }));

@@ -10,6 +10,7 @@ export interface AuthUser {
   role: UserRole;
   locale: string;
   avatarUrl?: string;
+  bio?: string | null;
   isActive?: boolean;
   emailVerifiedAt?: string;
   createdAt?: string;
@@ -17,6 +18,7 @@ export interface AuthUser {
   level?: string | null;
   placementCompletedAt?: string | null;
   hasActiveSubscription?: boolean;
+  isDemo?: boolean;
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -90,6 +92,7 @@ export async function updateProfile(input: {
   phone?: string;
   locale?: string;
   avatarUrl?: string;
+  bio?: string;
 }): Promise<{ user: AuthUser }> {
   return apiFetch<{ user: AuthUser }>("/api/auth/me", {
     method: "PATCH",

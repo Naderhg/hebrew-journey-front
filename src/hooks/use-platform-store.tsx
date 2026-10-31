@@ -2,6 +2,12 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { apiFetch, uploadFile } from "../lib/api";
 import type { UserRole } from "../lib/auth";
 import { useAuth } from "./use-auth";
+import { canJoinRegularGroup, hasActiveCallsPackage } from "../lib/package-access";
+import {
+  DEMO_STUDENT_DASHBOARD,
+  DEMO_STUDENT_LEADERBOARD,
+  DEMO_STUDENT_SKILLS,
+} from "../data/demo-student";
 
 export interface PlatformUser {
   id: string;
@@ -915,6 +921,7 @@ export interface PublicTeacher {
   fullName: string;
   specialty?: string | null;
   avatarUrl?: string | null;
+  bio?: string | null;
 }
 
 // ─── Session-package booking types ───
@@ -1173,6 +1180,7 @@ interface PlatformStoreValue {
   deleteFreeStudent: (id: string) => Promise<void>;
   fetchFreeLectures: () => Promise<void>;
   createFreeLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
+  createFreeLectureForStudents: (input: { description?: string; teacherId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string; studentIds: string[] }) => Promise<{ createdStudentIds: string[]; failedStudents: { id: string; name: string; reason: string }[] }>;
   updateFreeLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
   deleteFreeLecture: (id: string) => Promise<void>;
   addFreeLectureFile: (id: string, file: { name: string; url: string }) => Promise<void>;
@@ -1286,6 +1294,18 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function refreshAll() {
     setLoadingData(true);
     try {
+      const localDemoRequested =
+        import.meta.env.DEV &&
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("dev-preview") === "1";
+      if (user?.isDemo || localDemoRequested) {
+        setStudentDashboard(DEMO_STUDENT_DASHBOARD);
+        setLeaderboard(DEMO_STUDENT_LEADERBOARD);
+        setStudentSkills(DEMO_STUDENT_SKILLS);
+        setStudentAttendanceRate(92);
+        return;
+      }
+
       apiFetch<{ questions: PlacementQuestion[] }>("/api/placement/questions", { skipAuth: true })
         .then((res) => {
           if (res?.questions) setPlacementQuestions(res.questions);
@@ -1457,7 +1477,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   // Poll notifications every 60s while logged in
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.isDemo) return;
     const t = setInterval(() => {
       fetchNotifications().catch(() => {});
     }, 60_000);
@@ -1466,7 +1486,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   // Near-real-time dashboard data — poll every 45s while the tab is visible
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.isDemo) return;
     const t = setInterval(() => {
       if (document.visibilityState === "visible") {
         refreshAll().catch(() => {});
@@ -2000,6 +2020,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   // ─── Notifications & misc ────────────────────────────────────────────────
 
   async function fetchNotifications() {
+    if (user?.isDemo) return;
     try {
       const res = await apiFetch<{ notifications: AppNotification[]; unreadCount: number }>(
         "/api/notifications"
@@ -2050,7 +2071,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     method: "wallet" | "instapay";
     studyMode?: "online" | "offline";
     screenshotUrl: string;
-  }) {
+  }): Promise<{ createdStudentIds: string[]; failedStudents: { id: string; name: string; reason: string }[] }> {
     await apiFetch("/api/student/payment-requests", { method: "POST", body: input });
     await fetchMyBilling();
   }
@@ -2066,7 +2087,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     input: { action: "approve" | "reject"; rejectReason?: string }
   ) {
     await apiFetch(`/api/admin/payment-requests/${id}`, { method: "PATCH", body: input });
-    await fetchAdminPaymentRequests();
+    await Promise.all([fetchAdminPaymentRequests(), fetchOpsStudents()]);
   }
 
   async function fetchPlacementResults() {
@@ -2261,7 +2282,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   async function deleteAdminGroup(id: string) {
     await apiFetch(`/api/ops/groups/${id}`, { method: "DELETE" });
-    await fetchAdminGroups();
+    await Promise.all([fetchAdminGroups(), fetchOpsStudents()]);
   }
 
   async function fetchGroupMembers(groupId: string) {
@@ -2270,6 +2291,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function addGroupMembers(groupId: string, studentIds: string[]) {
+    const selectedStudents = studentIds.map((studentId) => opsStudents.find((student) => student.id === studentId));
+    if (selectedStudents.some((student) => !student)) {
+      throw new Error("تعذر التحقق من باقة أحد الطلاب. حدّث بيانات الطلاب ثم أعد المحاولة.");
+    }
+    if (selectedStudents.some((student) => !canJoinRegularGroup(student!.subscriptions))) {
+      throw new Error("المجموعات مخصصة للمشتركين النشطين في الباقات الأساسية فقط. طلاب نظام المكالمات تتم إدارتهم من صفحة نظام المكالمات.");
+    }
     await apiFetch(`/api/ops/groups/${groupId}/members`, { method: "POST", body: { studentIds } });
     await fetchGroupMembers(groupId);
     await fetchAdminGroups();
@@ -2279,10 +2307,10 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function removeGroupMember(groupId: string, studentId: string) {
     await apiFetch(`/api/ops/groups/${groupId}/members/${studentId}`, { method: "DELETE" });
     await fetchGroupMembers(groupId);
-    await fetchAdminGroups();
+    await Promise.all([fetchAdminGroups(), fetchOpsStudents()]);
   }
 
-  // ─── Admin teacher availability (for creating lectures from slots) ───
+  // ─── Admin teacher availability (for individual Calls bookings) ───
   async function fetchAdminTeacherAvailability(teacherId?: string) {
     const qs = teacherId ? `?teacherId=${teacherId}` : "";
     const res = await apiFetch<{ availability: any[] }>(`/api/ops/teacher-availability${qs}`);
@@ -2350,6 +2378,29 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function createFreeLecture(input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) {
     await apiFetch("/api/ops/free-lectures", { method: "POST", body: input });
     await fetchFreeLectures();
+  }
+
+  async function createFreeLectureForStudents(input: {
+    description?: string;
+    teacherId?: string;
+    level?: string | null;
+    startsAt: string;
+    endsAt?: string;
+    meetingUrl?: string;
+    studentIds: string[];
+  }): Promise<{ createdStudentIds: string[]; failedStudents: { id: string; name: string; reason: string }[] }> {
+    const studentIds = [...new Set(input.studentIds)];
+    if (studentIds.length === 0) throw new Error("اختر طالباً واحداً على الأقل");
+    const eligibleStudents = new Map(
+      opsStudents
+        .filter((student) => hasActiveCallsPackage(student.subscriptions))
+        .map((student) => [student.id, student]),
+    );
+    const selectedStudents = studentIds.map((id) => eligibleStudents.get(id));
+    if (selectedStudents.some((student) => !student)) {
+      throw new Error("بعض الطلاب المحددين ليس لديهم اشتراك نشط في نظام المكالمات. حدّث القائمة ثم اخترهم مرة أخرى.");
+    }
+    throw new Error("لم يتم إنشاء المحاضرة: الواجهة الحالية للـ API تحفظ المحاضرات باستخدام groupId فقط، ولا تدعم تعيين الطالب مباشرة. لم تتم إضافة طلاب المكالمات إلى مجموعات.");
   }
 
   async function updateFreeLecture(id: string, input: Record<string, unknown>) {
@@ -2603,6 +2654,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         deleteFreeStudent,
         fetchFreeLectures,
         createFreeLecture,
+        createFreeLectureForStudents,
         updateFreeLecture,
         deleteFreeLecture,
         addFreeLectureFile,

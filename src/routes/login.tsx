@@ -83,6 +83,12 @@ function LoginPage() {
             </Button>
           </form>
 
+          {import.meta.env.DEV && (
+            <p className="mt-4 rounded-md bg-brand/5 p-3 text-xs text-muted-foreground" dir="ltr">
+              Local demo login: demo@example.test / demo12345
+            </p>
+          )}
+
           <p className="mt-4 text-center text-sm">
             <Link to="/forgot-password" className="text-muted-foreground hover:text-brand hover:underline">
               نسيت كلمة المرور؟

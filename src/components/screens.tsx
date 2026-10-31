@@ -69,6 +69,7 @@ import {
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, type UserRole } from "../lib/auth";
 import { SERVER_CONFIG, mediaSrc } from "../lib/api";
+import { canJoinRegularGroup, hasActiveBasicPackage, hasActiveCallsPackage as hasActiveCallsSubscription, isActiveSubscriptionStatus } from "../lib/package-access";
 
 const meta = (title: string, description: string) => ({
   meta: [
@@ -297,6 +298,11 @@ export function DashboardScreen() {
           </>
         }
       />
+      {user?.isDemo && (
+        <Card className="mb-4 border-brand/30 bg-brand/5 py-3 text-sm text-brand">
+          معاينة محلية ببيانات تجريبية — هذه ليست بيانات حساب حقيقي.
+        </Card>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card>
@@ -690,94 +696,6 @@ function PlacementResult({
   );
 }
 
-export function PlanScreen() {
-  return (
-    <AppShell role="STUDENT">
-      <PageHeader title="خطة التعلم الشخصية" subtitle="المسار اليومي المخصص لك" />
-      <Card className="py-12 text-center text-sm text-muted-foreground">
-        لا توجد خطة تعلم مسجلة حالياً.
-      </Card>
-    </AppShell>
-  );
-}
-
-export function ConversationScreen() {
-  const [recording, setRecording] = useState(false);
-  const [messages, setMessages] = useState<string[]>([]);
-  const [text, setText] = useState("");
-  const send = () => {
-    if (text.trim()) {
-      setMessages([...messages, text]);
-      setText("");
-    }
-  };
-  return (
-    <AppShell role="STUDENT">
-      <PageHeader title="محادثة عبرية" subtitle="محادثة تفاعلية" />
-      <Card className="flex min-h-[520px] flex-col p-0">
-        <div className="flex flex-1 flex-col gap-4 p-5">
-          {messages.length === 0 ? (
-            <div className="m-auto text-center text-sm text-muted-foreground">
-              ابدأ المحادثة بكتابة رسالة بالعبرية...
-            </div>
-          ) : (
-            messages.map((m, i) => (
-              <div
-                key={i}
-                dir="rtl"
-                className="me-auto max-w-[78%] rounded-lg bg-brand px-4 py-3 font-he text-primary-foreground"
-              >
-                {m}
-              </div>
-            ))
-          )}
-        </div>
-        <div className="flex items-end gap-2 border-t border-border p-4">
-          <Button
-            onClick={() => setRecording(!recording)}
-            variant={recording ? "primary" : "secondary"}
-            className="size-11 shrink-0 rounded-full p-0"
-          >
-            <Mic className={recording ? "animate-pulse" : ""} />
-          </Button>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            dir="rtl"
-            className="max-h-28 min-h-11 flex-1 resize-none rounded-md border border-input bg-background/70 px-3 py-2 font-he outline-none focus:ring-2 focus:ring-ring"
-            placeholder="כתבי הודעה בעברית..."
-          />
-          <Button onClick={send} className="size-11 p-0">
-            <Send className="size-4" />
-          </Button>
-        </div>
-      </Card>
-    </AppShell>
-  );
-}
-
-export function ScenariosScreen() {
-  return (
-    <AppShell role="STUDENT">
-      <PageHeader title="مكتبة السيناريوهات" subtitle="تدرّب على مواقف واقعية تناسب مستواك" />
-      <Card className="py-12 text-center text-sm text-muted-foreground">
-        لا توجد سيناريوهات مضافة في قاعدة البيانات حالياً.
-      </Card>
-    </AppShell>
-  );
-}
-
-export function MistakesScreen() {
-  return (
-    <AppShell role="STUDENT">
-      <PageHeader title="سجل الأخطاء" subtitle="متابعة الأخطاء المتكررة وتصحيحها" />
-      <Card className="py-12 text-center text-sm text-muted-foreground">
-        لا توجد أخطاء مسجلة حالياً.
-      </Card>
-    </AppShell>
-  );
-}
-
 export function ProgressScreen() {
   const { studentSkills, studentAttendanceRate, studentAttendance, studentDashboard } = usePlatformStore();
   const chartData: { m: string; reading: number; speaking: number }[] = [];
@@ -878,7 +796,7 @@ export function ProgressScreen() {
   );
 }
 
-export type TeacherSection = "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
+export type TeacherSection = "students" | "profile" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
 
 const SKILL_LABELS: Record<string, string> = {
   listening: "الاستماع",
@@ -887,7 +805,8 @@ const SKILL_LABELS: Record<string, string> = {
   writing: "الكتابة",
 };
 
-export function TeacherScreen() {
+export function TeacherScreen({ initialSection = "students" }: { initialSection?: TeacherSection }) {
+  const { user, updateProfile } = useAuth();
   const {
     materials,
     exams,
@@ -931,7 +850,20 @@ export function TeacherScreen() {
     fetchLectureStudents,
     saveLectureAttendance,
   } = usePlatformStore();
-  const [activeSection, setActiveSection] = useState<TeacherSection>("students");
+  const [activeSection, setActiveSection] = useState<TeacherSection>(initialSection);
+  const navigate = useNavigate();
+  useEffect(() => setActiveSection(initialSection), [initialSection]);
+  function selectSection(section: string) {
+    const nextSection = section as TeacherSection;
+    setActiveSection(nextSection);
+    navigate({ to: "/teacher", search: { section: nextSection } });
+  }
+  const [profileBio, setProfileBio] = useState(user?.bio ?? "");
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
   const [openExamId, setOpenExamId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -993,6 +925,20 @@ export function TeacherScreen() {
   const [avSaving, setAvSaving] = useState(false);
 
   useEffect(() => {
+    setProfileBio(user?.bio ?? "");
+  }, [user?.id, user?.bio]);
+
+  useEffect(() => {
+    if (!profilePhoto) {
+      setProfilePhotoPreview(user?.avatarUrl ? mediaSrc(user.avatarUrl) : "");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(profilePhoto);
+    setProfilePhotoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [profilePhoto, user?.avatarUrl]);
+
+  useEffect(() => {
     if (activeSection === "attendance") {
       fetchTeacherAttendance().catch(() => {});
       fetchTeacherSchedules().catch(() => {});
@@ -1021,6 +967,30 @@ export function TeacherScreen() {
       setAvDate("");
     } finally {
       setAvSaving(false);
+    }
+  }
+
+  async function handleSaveTeacherProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileError("");
+    setProfileMessage("");
+    try {
+      if (profilePhoto) {
+        const uploaded = await uploadFile(profilePhoto, "avatars");
+        await updateProfile({ avatarUrl: uploaded.url });
+      }
+      const updatedUser = await updateProfile({ bio: profileBio.trim() });
+      setProfilePhoto(null);
+      if ((updatedUser.bio ?? "") !== profileBio.trim()) {
+        setProfileError("تم تحديث الصورة، لكن الخادم لم يحفظ النبذة. يحتاج API إلى دعم حقل النبذة ليتم حفظها.");
+        return;
+      }
+      setProfileMessage("تم حفظ ملفك الشخصي بنجاح.");
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "تعذر حفظ الملف الشخصي.");
+    } finally {
+      setProfileSaving(false);
     }
   }
 
@@ -1124,12 +1094,50 @@ export function TeacherScreen() {
     <AppShell
       role="TEACHER"
       activeSection={activeSection}
-      onSelectSection={(s) => setActiveSection(s as TeacherSection)}
+      onSelectSection={selectSection}
     >
       <PageHeader
         title="لوحة المدرس"
         subtitle="طلابك المسجلون وتقدمهم · الماتيريال المرسلة من الإدارة · الامتحانات والنتائج"
       />
+
+      {activeSection === "profile" && (
+        <Card className="mx-auto max-w-3xl">
+          <h2 className="text-lg font-bold">نبذة عني</h2>
+          <p className="mt-1 text-sm text-muted-foreground">أضف صورة وتعريفاً قصيراً ليظهر ملفك للطلاب والزوار.</p>
+          <form onSubmit={handleSaveTeacherProfile} className="mt-5 space-y-5">
+            <div className="flex flex-wrap items-center gap-4">
+              {profilePhotoPreview ? (
+                <img src={profilePhotoPreview} alt="صورة المدرس" className="size-24 rounded-full object-cover ring-2 ring-border" />
+              ) : (
+                <div className="grid size-24 place-items-center rounded-full bg-brand/10 text-3xl font-bold text-brand">{user?.fullName?.[0] ?? "؟"}</div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="teacher-profile-photo">الصورة الشخصية</Label>
+                <Input id="teacher-profile-photo" type="file" accept="image/*" onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (file && file.size > 5 * 1024 * 1024) {
+                    setProfileError("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
+                    event.target.value = "";
+                    return;
+                  }
+                  setProfileError("");
+                  setProfilePhoto(file);
+                }} />
+                <p className="text-xs text-muted-foreground">صورة JPG أو PNG أو WebP، حتى 5 ميجابايت.</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="teacher-profile-bio">نبذة قصيرة عني</Label>
+              <textarea id="teacher-profile-bio" value={profileBio} onChange={(event) => setProfileBio(event.target.value)} maxLength={600} rows={5} placeholder="اكتب خبرتك وطريقتك في التدريس واللغات أو المستويات التي تدرّسها..." className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+              <p className="text-left text-xs text-muted-foreground">{profileBio.length}/600</p>
+            </div>
+            {profileError && <p className="text-sm font-semibold text-danger">{profileError}</p>}
+            {profileMessage && <p className="text-sm font-semibold text-[#2f9e4f]">{profileMessage}</p>}
+            <Button type="submit" disabled={profileSaving}>{profileSaving ? "جاري الحفظ..." : "حفظ الملف الشخصي"}</Button>
+          </form>
+        </Card>
+      )}
 
       {activeSection === "students" && (
         <>
@@ -2014,9 +2022,9 @@ export function TeacherScreen() {
         <div className="space-y-4">
           {/* Availability form */}
           <Card>
-            <h3 className="font-bold">إضافة موعد متاح للحجز</h3>
+            <h3 className="font-bold">إضافة وقت متاح لحصة فردية</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              المواعيد الأسبوعية تتكرر كل أسبوع — أو حدد تاريخ محدد لموعد لمرة واحدة.
+              هذه الأوقات تظهر للإدارة عند حجز حصة فردية لطالب مكالمات. الوقت الأسبوعي يتكرر كفتحة حجز؛ والتاريخ المحدد يفتح مرة واحدة. هذا ليس جدولاً أسبوعياً لمجموعة.
             </p>
             <form onSubmit={handleAddAvailability} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
@@ -2061,7 +2069,7 @@ export function TeacherScreen() {
 
           {/* Availability list */}
           <Card>
-            <h3 className="font-bold">مواعيدي المتاحة</h3>
+            <h3 className="font-bold">أوقات الحصص الفردية المتاحة للحجز</h3>
             <div className="mt-3 space-y-2">
               {teacherAvailability.length === 0 ? (
                 <p className="text-sm text-muted-foreground">لا توجد مواعيد متاحة — أضف موعداً ليحجز الطلاب.</p>
@@ -2284,7 +2292,7 @@ export type AdminSection =
   | "analytics"
   | "guide";
 
-export function AdminScreen() {
+export function AdminScreen({ initialSection = "overview" }: { initialSection?: AdminSection }) {
   const {
     users,
     materials,
@@ -2359,7 +2367,7 @@ export function AdminScreen() {
     createFreeStudent,
     deleteFreeStudent,
     fetchFreeLectures,
-    createFreeLecture,
+    createFreeLectureForStudents,
     updateFreeLecture,
     deleteFreeLecture,
     addFreeLectureFile,
@@ -2374,7 +2382,14 @@ export function AdminScreen() {
     updateStudentStatus,
   } = usePlatformStore();
 
-  const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  const [activeSection, setActiveSection] = useState<AdminSection>(initialSection);
+  const navigate = useNavigate();
+  useEffect(() => setActiveSection(initialSection), [initialSection]);
+  function selectSection(section: string) {
+    const nextSection = section as AdminSection;
+    setActiveSection(nextSection);
+    navigate({ to: "/admin", search: { section: nextSection } });
+  }
   const PAGE_SIZE = 5;
   const [matSearch, setMatSearch] = useState("");
   const [matPage, setMatPage] = useState(1);
@@ -2391,6 +2406,7 @@ export function AdminScreen() {
       fetchOpsStudents().catch(() => {});
       fetchOpsPackages().catch(() => {});
       fetchAdminGroups().catch(() => {});
+      fetchAdminPaymentRequests().catch(() => {});
     }
     if (activeSection === "placement-results") fetchPlacementResults().catch(() => {});
     if (activeSection === "schedules") fetchAdminSchedules().catch(() => {});
@@ -2401,11 +2417,13 @@ export function AdminScreen() {
     }
     if (activeSection === "groups") {
       fetchAdminGroups().catch(() => {});
+      fetchOpsStudents().catch(() => {});
     }
     if (activeSection === "free-lectures") {
       fetchFreeStudents().catch(() => {});
       fetchFreeLectures().catch(() => {});
       fetchAdminGroups().catch(() => {});
+      fetchOpsStudents().catch(() => {});
     }
     if (activeSection === "analytics") {
       fetchAdminAnalytics({
@@ -3380,7 +3398,7 @@ export function AdminScreen() {
     <AppShell
       role="ADMIN"
       activeSection={activeSection}
-      onSelectSection={(s) => setActiveSection(s as AdminSection)}
+      onSelectSection={selectSection}
     >
       <PageHeader
         title="لوحة تحكم الإدارة"
@@ -3477,7 +3495,7 @@ export function AdminScreen() {
           <Card>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">جميع المستخدمين المسجلين في النظام</h2>
-              <Button onClick={() => setActiveSection("add-user")}>
+              <Button onClick={() => selectSection("add-user")}>
                 <UserPlus className="size-4" />
                 إضافة مستخدم جديد
               </Button>
@@ -3503,7 +3521,7 @@ export function AdminScreen() {
             <Button
               onClick={() => {
                 setNewUserRole("TEACHER");
-                setActiveSection("add-user");
+                selectSection("add-user");
               }}
             >
               <Plus className="size-4" />
@@ -3523,6 +3541,7 @@ export function AdminScreen() {
             students={opsStudents}
             groups={adminGroups}
             packages={opsPackages}
+            paymentRequests={adminPaymentRequests}
             loading={loadingData}
             onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
             onActivate={activateOpsSubscription}
@@ -3638,7 +3657,7 @@ export function AdminScreen() {
             <Button
               onClick={() => {
                 setNewUserRole("SALES");
-                setActiveSection("add-user");
+                selectSection("add-user");
               }}
             >
               <Plus className="size-4" />
@@ -3662,7 +3681,7 @@ export function AdminScreen() {
             <Button
               onClick={() => {
                 setNewUserRole("SUPPORT");
-                setActiveSection("add-user");
+                selectSection("add-user");
               }}
             >
               <Plus className="size-4" />
@@ -4356,8 +4375,6 @@ export function AdminScreen() {
           schedules={adminSchedules}
           teachers={users.filter((u) => u.role === "TEACHER")}
           groups={adminGroups}
-          availability={adminTeacherAvailability}
-          onFetchAvailability={fetchAdminTeacherAvailability}
           onCreate={createAdminSchedule}
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
@@ -4489,6 +4506,7 @@ export function AdminScreen() {
           groups={adminGroups}
           members={groupMembers}
           students={users.filter((u) => u.role === "STUDENT")}
+          opsStudents={opsStudents}
           teachers={users.filter((u) => u.role === "TEACHER")}
           onCreate={createAdminGroup}
           onUpdate={updateAdminGroup}
@@ -4503,13 +4521,13 @@ export function AdminScreen() {
         <OpsFreeLecturesSection
           freeStudents={freeStudents}
           freeLectures={freeLectures}
-          groups={adminGroups}
+          opsStudents={opsStudents}
           teachers={users.filter((u) => u.role === "TEACHER")}
           availability={adminTeacherAvailability}
           onFetchAvailability={fetchAdminTeacherAvailability}
           onCreateStudent={createFreeStudent}
           onDeleteStudent={deleteFreeStudent}
-          onCreateLecture={createFreeLecture}
+          onCreateLectureForStudents={createFreeLectureForStudents}
           onUpdateLecture={updateFreeLecture}
           onDeleteLecture={deleteFreeLecture}
           onAddFile={addFreeLectureFile}
@@ -4577,13 +4595,14 @@ function AdminGuideSection() {
         <ol className="list-decimal space-y-1.5 pe-5">
           <li><b>التسجيل:</b> الطالب يسجل من صفحة "إنشاء حساب" — بيظهر فوراً في قسم "الطلاب" بحالة "جديد".</li>
           <li><b>تحديد المستوى:</b> يحل اختبار المستوى — النتيجة بتظهر في "نتائج تحديد المستوى" (مع تسجيلاته الصوتية إن وجدت).</li>
-          <li><b>المحاضرة المجانية:</b> يتواصل واتساب لحجز المحاضرة التجريبية — أنت تضيفه في "المحاضرة المجانية" كطالب تجربة أو لمجموعة.</li>
+          <li><b>الباقات:</b> تُدار اشتراكات الباقات الأساسية والمكالمات كلٌ في نظامه؛ لا يُضاف طلاب المكالمات إلى المجموعات.</li>
+          <li><b>المحاضرة المجانية:</b> لا تُنشأ لطالب مكالمات حالياً؛ الاستهداف الفردي يحتاج أن يدعمه الـ API مباشرة.</li>
           <li><b>الاشتراك:</b> يختار باقة — إما يدفع برنامج الدفع ويوافق الطلب من "طلبات الدفع"، أو يدفع خارج المنصة وانت تفعّله يدوياً من "الطلاب" ← "تفعيل اشتراك".</li>
-          <li><b>التجميع:</b> حدد الطلاب من دليل الطلاب (checkbox) وضمهم لمجموعة — أو أنشئ مجموعة من قسم "المجموعات".</li>
-          <li><b>المعاد الثابت:</b> المدرس يضيف مواعيده المتاحة، وأنت تنشئ منها "موعد أسبوعي" برابط زووم دائم للمجموعة.</li>
+          <li><b>التجميع:</b> أنشئ مجموعة ثم أضف إليها فقط الطلاب ذوي باقة أساسية نشطة. لا يُضاف طلاب المكالمات أو الطلاب بلا باقة أساسية.</li>
+          <li><b>جدول المجموعة:</b> أنشئ موعداً أسبوعياً متكرراً للمجموعة وحدد اليوم والوقت ومكان الحصة (أونلاين أو حضوري). هذا الجدول منفصل عن إتاحة المدرس للحصص الفردية؛ تسجيل الحضور يتم لاحقاً من قسم الحضور والغياب.</li>
           <li><b>المحاضرات:</b> كل أسبوع الطالب والمدرس يدخلوا نفس الرابط — المدرس يدوس "بدء محاضرة اليوم" ويسجل الحضور.</li>
           <li><b>المحتوى:</b> ترفع كورسات/امتحانات/واجبات للمدرس — بتظهر لطلابه المربوطين وأعضاء مجموعاته.</li>
-          <li><b>الحصص الفردية:</b> طلاب باقة المكالمات تحجزلهم حصصاً من "نظام المكالمات" داخل مواعيد المدرس المتاحة.</li>
+          <li><b>الحصص الفردية:</b> من "نظام المكالمات" اختر المدرس، ثم وقتاً متاحاً أضافه المدرس، ثم طالب مكالمات لديه رصيد.</li>
           <li><b>الشهادة:</b> عند إتمام المستوى تصدر شهادة للطالب من قسم "الشهادات".</li>
         </ol>
       </GuideBlock>
@@ -4591,7 +4610,7 @@ function AdminGuideSection() {
       <GuideBlock icon={UsersRound} title="٢) من يعمل إيه (الأدوار)" tone="sage">
         <ul className="space-y-1.5">
           {li(<><b>الأدمن (أنت):</b> كل شيء — المستخدمين، الباقات، الاشتراكات، المحتوى، المواعيد، الشهادات، التحليلات.</>)}
-          {li(<><b>خدمة العملاء:</b> الطلاب (حالات + تفعيل اشتراك يدوي + ضم لمجموعات)، الشكاوى، المحادثات، المواعيد الأسبوعية، نظام المكالمات، المحاضرة المجانية، الحضور.</>)}
+          {li(<><b>خدمة العملاء:</b> الطلاب (حالات + تفعيل اشتراك يدوي + ضم لمجموعات)، الشكاوى، المحادثات، جدول المجموعات الأسبوعي، نظام المكالمات، المحاضرة المجانية، الحضور.</>)}
           {li(<><b>المبيعات:</b> العملاء المحتملون (leads)، سجل المكالمات، متابعة الاشتراكات.</>)}
           {li(<><b>المدرس:</b> مواعيده المتاحة، جدوله الثابت، بدء المحاضرات، تسجيل الحضور، الواجبات والتصحيح، محادثات الطلاب، تحليلات أرباحه.</>)}
           {li(<><b>الطالب:</b> اختبار المستوى، محفظته، حصصه الفردية، جدوله الثابت ورابط الزووم، كورساته وامتحاناته وواجباته.</>)}
@@ -4601,27 +4620,26 @@ function AdminGuideSection() {
       <GuideBlock icon={Rocket} title="٣) الإعداد الأولي لمدرس جديد" tone="gold">
         <ol className="list-decimal space-y-1.5 pe-5">
           <li>أنشئ حسابه من "إضافة مستخدم" بدور مدرس.</li>
-          <li>اطلب منه يضيف مواعيده المتاحة من صفحة "مواعيدي المتاحة" في لوحته.</li>
-          <li>أنشئ مجموعة (أو أكثر) من "المجموعات" واربطها به.</li>
-          <li>من "المواعيد الأسبوعية" اختر المدرس ← اضغط موعداً من مواعيده المتاحة ← حدد المجموعة والرابط الدائم.</li>
+          <li>اطلب منه يضيف أوقات إتاحة الحصص الفردية من قسم "إتاحة الحصص الفردية".</li>
+          <li>أنشئ مجموعة أساسية واربطها بالمدرس، ثم أضف إليها الطلاب ذوي اشتراك أساسي نشط فقط.</li>
+          <li>من "جدول المجموعات الأسبوعي" أدخل موعد المجموعة المتكرر يدوياً وحدد اليوم والوقت ومكان الحصة (أونلاين أو حضوري).</li>
           <li>ارفع له الكورسات/الامتحانات من "الكورسات والماتيريال" و"الامتحانات والنتائج".</li>
           <li>اربط الطلاب بمجموعته من دليل الطلاب (تحديد جماعي → أضف للمجموعة).</li>
         </ol>
       </GuideBlock>
 
-      <GuideBlock icon={CalendarDays} title="٤) المواعيد الأسبوعية والمحاضرات">
+      <GuideBlock icon={CalendarDays} title="٤) جدول المجموعات الأسبوعي">
         <ul className="space-y-1.5">
-          {li(<>المعاد الثابت = "كل يوم كذا الساعة كذا" — يظهر للطالب والمدرس دائماً بنفس رابط الزووم.</>)}
-          {li(<>لا تحتاج إنشاء محاضرة يدوياً — المدرس يضغط "بدء محاضرة اليوم" في النظام يولّدها تلقائياً ويحسبها في أرباحه (300 ج).</>)}
-          {li(<>المحاضرة الموجهة لمجموعة يشوفها أعضاء المجموعة فقط — وبدون مجموعة يشوفها طلاب المدرس المربوطين.</>)}
-          {li(<>الحضور: المدرس يسجله من "الحضور والغياب" ← يختار المحاضرة ← يحدد حاضر/غائب لكل طالب.</>)}
+          {li(<>هذا موعد متكرر لدرس مجموعة: يحدد اليوم والوقت والمدرس، ويمكن ربطه بمجموعة أساسية ومكان الحصة (أونلاين أو حضوري) ورابط ثابت. المكان لا يسجل حضور الطالب؛ الحضور يُسجل لاحقاً في قسم الحضور والغياب.</>)}
+          {li(<>ليس وقت توفر للحجز الفردي. المدرس يضيف أوقات الحصص الفردية من قسم الإتاحة، والإدارة تختارها في "نظام المكالمات".</>)}
+          {li(<>يمكن تسجيل الحضور من قسم "الحضور والغياب" وفق الموعد أو المحاضرة المرتبطة به.</>)}
         </ul>
       </GuideBlock>
 
       <GuideBlock icon={Headphones} title="٥) نظام المكالمات (الحصص الفردية)">
         <ul className="space-y-1.5">
           {li(<>باقة مكالمات = عدد حصص محدد برصيد — الطالب يشوف رصيده وحجوزاته في "محفظتي" و"حصصي الفردية".</>)}
-          {li(<>الحجز من عندك فقط: "نظام المكالمات" ← اختر مدرس ← اضغط موعداً متاحاً ← اختر الطالب — يخصم حصة من رصيده.</>)}
+          {li(<>إنشاء الحصة الفردية: "نظام المكالمات" ← اختر المدرس ← اختر وقتاً متاحاً من المدرس ← اختر طالب مكالمات مؤهلاً.</>)}
           {li(<>كل حصة محسوبة للمدرس بـ 50 ج — سواء حضر أو لم يحضر أو ألغى متأخراً (أقل من 12 ساعة).</>)}
           {li(<>طالب المكالمات فقط (بدون باقة أساسية) لا يرى الكورسات والمحاضرات — حصصه الفردية فقط.</>)}
         </ul>
@@ -4648,8 +4666,8 @@ function AdminGuideSection() {
       <GuideBlock icon={ClipboardCheck} title="٨) سيناريوهات يومية سريعة">
         <ul className="space-y-1.5">
           {li(<><b>طالب دفع على واتساب:</b> الطلاب ← ابحث عنه ← تفعيل اشتراك ← الباقة والمبلغ.</>)}
-          {li(<><b>نقل طلاب لمجموعة جديدة:</b> الطلاب ← حدد بالـ checkbox ← اختر المجموعة ← أضف المحددين.</>)}
-          {li(<><b>محاضرة تجريبية مجانية:</b> المحاضرة المجانية ← أضف طالب تجربة ← أنشئ المحاضرة بموعد ورابط.</>)}
+          {li(<><b>نقل طلاب لمجموعة جديدة:</b> الطلاب ← حدد أصحاب اشتراك أساسي نشط فقط ← اختر المجموعة ← أضف المحددين.</>)}
+          {li(<><b>حصة فردية لطالب مكالمات:</b> نظام المكالمات ← إنشاء حصة فردية ← اختر المدرس والوقت المتاح والطالب.</>)}
           {li(<><b>متابعة طالب متخلف:</b> "متابعة الطلاب" عند خدمة العملاء يعرض المتأخرين في الامتحانات.</>)}
           {li(<><b>إصدار شهادة:</b> الشهادات ← اختر الطالب والمستوى ← تصدر فوراً ويصل الطالب إشعار.</>)}
         </ul>
@@ -4676,9 +4694,12 @@ function AdminBookingsSection({
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const pendingCount = requests.filter((request) => request.status.trim().toLowerCase() === "pending").length;
 
   async function handle(id: string, action: "approve" | "reject") {
     setError("");
+    setSuccess("");
     setBusyId(id);
     try {
       await onReview(id, {
@@ -4687,6 +4708,9 @@ function AdminBookingsSection({
           ? { rejectReason: rejectReasons[id].trim() }
           : {}),
       });
+      setSuccess(action === "approve"
+        ? "تم تأكيد الطلب. حدّث صفحة الطالب للتأكد من ظهور الاشتراك النشط."
+        : "تم رفض الطلب وتحديث حالته.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر تنفيذ العملية");
     } finally {
@@ -4698,7 +4722,10 @@ function AdminBookingsSection({
     <div className="space-y-4">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold">طلبات الحجز والمدفوعات ({requests.length})</h3>
+          <div>
+            <h3 className="font-bold">طلبات الدفع ({requests.length})</h3>
+            <p className="mt-1 text-xs text-muted-foreground">طلبات تنتظر المراجعة: {pendingCount}. الموافقة تؤكد الدفع وتفعّل الاشتراك.</p>
+          </div>
           <div className="flex items-center gap-2">
             <select
               value={filter}
@@ -4716,6 +4743,7 @@ function AdminBookingsSection({
           </div>
         </div>
         {error && <p className="mt-3 rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>}
+        {success && <p role="status" className="mt-3 rounded-md bg-sage/15 p-3 text-sm font-semibold text-sage">{success}</p>}
       </Card>
 
       {requests.length === 0 ? (
@@ -4786,7 +4814,7 @@ function AdminBookingsSection({
                     disabled={busyId === r.id}
                     onClick={() => handle(r.id, "approve")}
                   >
-                    {busyId === r.id ? "..." : "تأكيد الدفع وتفعيل الاشتراك"}
+                    {busyId === r.id ? "جاري التحديث..." : "تأكيد الدفع وتفعيل الاشتراك"}
                   </Button>
                   <Button
                     variant="ghost"
@@ -4870,10 +4898,19 @@ const DIR_STATUS_TONES: Record<string, "sage" | "gold" | "brand" | "muted"> = {
   active: "sage", paused: "gold", completed: "brand", new: "muted",
 };
 
+function isFreeLectureAudienceGroup(group: { name: string }) {
+  return group.name.startsWith("دعوة محاضرة مجانية —") || group.name.startsWith("دعوات محاضرة مجانية —");
+}
+
+function hasRegularGroup(student: { groups: { id: string; name: string }[] }) {
+  return student.groups.some((group) => !isFreeLectureAudienceGroup(group));
+}
+
 function StudentsDirectorySection({
   students,
   groups,
   packages,
+  paymentRequests,
   loading,
   onStatusChange,
   onActivate,
@@ -4882,6 +4919,7 @@ function StudentsDirectorySection({
   students: import("../hooks/use-platform-store").OpsStudentItem[];
   groups: GroupItem[];
   packages: import("../hooks/use-platform-store").OpsPackageItem[];
+  paymentRequests: import("../hooks/use-platform-store").PaymentRequestItem[];
   loading: boolean;
   onStatusChange: (studentId: string, status: string) => void | Promise<void>;
   onActivate: (input: { studentId: string; packageId: string; paidAmount?: number; notes?: string }) => Promise<void>;
@@ -4905,6 +4943,10 @@ function StudentsDirectorySection({
   const [actPackageId, setActPackageId] = useState("");
   const [actAmount, setActAmount] = useState("");
   const [actNotes, setActNotes] = useState("");
+
+  const regularGroups = groups.filter((group) => !isFreeLectureAudienceGroup(group));
+  const ungroupedStudents = students.filter((student) => canJoinRegularGroup(student.subscriptions) && !hasRegularGroup(student));
+  const selectedUngroupedStudents = ungroupedStudents.filter((student) => selected.has(student.id));
   const [actSaving, setActSaving] = useState(false);
 
   const filtered = students.filter((s) => {
@@ -4914,11 +4956,11 @@ function StudentsDirectorySection({
     if (levelFilter && s.level !== levelFilter) return false;
     if (groupFilter && !s.groups.some((g) => g.id === groupFilter)) return false;
     if (subFilter) {
-      const actives = s.subscriptions.filter((x) => x.status === "ACTIVE");
+      const actives = s.subscriptions.filter((x) => isActiveSubscriptionStatus(x.status));
       if (subFilter === "active" && actives.length === 0) return false;
       if (subFilter === "none" && actives.length > 0) return false;
-      if (subFilter === "basic" && !actives.some((x) => x.package.category === "basic")) return false;
-      if (subFilter === "calls" && !actives.some((x) => x.package.category === "calls")) return false;
+      if (subFilter === "basic" && !hasActiveBasicPackage(s.subscriptions)) return false;
+      if (subFilter === "calls" && !hasActiveCallsSubscription(s.subscriptions)) return false;
     }
     return true;
   });
@@ -4926,7 +4968,7 @@ function StudentsDirectorySection({
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pages);
   const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const pageIds = pageRows.map((s) => s.id);
+  const pageIds = pageRows.filter((student) => canJoinRegularGroup(student.subscriptions)).map((s) => s.id);
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
 
   function toggleAll() {
@@ -4950,8 +4992,13 @@ function StudentsDirectorySection({
     if (!bulkGroupId || selected.size === 0) return;
     setBulkSaving(true); setErr(""); setNotice("");
     try {
-      await onAddToGroup(bulkGroupId, [...selected]);
-      setNotice(`تمت إضافة ${selected.size} طالب إلى المجموعة`);
+      if (selectedUngroupedStudents.length === 0) {
+        setErr("لا يوجد ضمن الاختيار طالب باشتراك أساسي نشط وغير موجود في مجموعة أخرى. طلاب المكالمات والطلاب بلا باقة أساسية لا يُضافون إلى المجموعات.");
+        return;
+      }
+      await onAddToGroup(bulkGroupId, selectedUngroupedStudents.map((student) => student.id));
+      const skipped = selected.size - selectedUngroupedStudents.length;
+      setNotice(`تمت إضافة ${selectedUngroupedStudents.length} طالب إلى المجموعة${skipped ? `، وتم تجاوز ${skipped} موجودين في مجموعة أخرى` : ""}`);
       setSelected(new Set());
       setBulkGroupId("");
     } catch (e) {
@@ -4990,7 +5037,11 @@ function StudentsDirectorySection({
   }
 
   const activeSubOf = (s: import("../hooks/use-platform-store").OpsStudentItem) =>
-    s.subscriptions.find((x) => x.status === "ACTIVE");
+    s.subscriptions.find((x) => isActiveSubscriptionStatus(x.status));
+
+  const pendingPaymentOf = (studentId: string) => paymentRequests.find(
+    (request) => request.studentId === studentId && request.status.trim().toLowerCase() === "pending",
+  );
 
   return (
     <div className="space-y-4">
@@ -4998,7 +5049,7 @@ function StudentsDirectorySection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold">دليل الطلاب ({filtered.length} / {students.length})</h2>
-            <p className="text-xs text-muted-foreground">بحث وفلترة كاملة — حدد طلاباً لضمهم لمجموعة أو فعّل اشتراكاً يدوياً</p>
+            <p className="text-xs text-muted-foreground">يمكن إضافة الطلاب ذوي الاشتراك النشط في الباقات الأساسية فقط. طلاب نظام المكالمات تُحجز لهم حصص فردية من صفحة نظام المكالمات.</p>
           </div>
         </div>
 
@@ -5017,7 +5068,7 @@ function StudentsDirectorySection({
           </select>
           <select value={groupFilter} onChange={(e) => { setGroupFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
             <option value="">كل المجموعات</option>
-            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            {regularGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
           <select value={subFilter} onChange={(e) => { setSubFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
             <option value="">كل الاشتراكات</option>
@@ -5036,9 +5087,10 @@ function StudentsDirectorySection({
             <span className="text-sm font-bold">{selected.size} طالب محدد</span>
             <select value={bulkGroupId} onChange={(e) => setBulkGroupId(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">— اختر المجموعة —</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              {regularGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
-            <Button variant="primary" className="min-h-9 text-xs" disabled={!bulkGroupId || bulkSaving} onClick={handleBulkAdd}>
+            <span className="text-xs text-muted-foreground">المؤهلون للإضافة: {selectedUngroupedStudents.length} من {selected.size}</span>
+            <Button variant="primary" className="min-h-9 text-xs" disabled={!bulkGroupId || bulkSaving || selectedUngroupedStudents.length === 0} onClick={handleBulkAdd}>
               {bulkSaving ? "جاري الإضافة..." : "أضف المحددين للمجموعة"}
             </Button>
             <Button variant="ghost" className="min-h-9 px-3 text-xs" onClick={() => setSelected(new Set())}>
@@ -5057,8 +5109,8 @@ function StudentsDirectorySection({
           <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                <th className="w-10 p-3 text-start">
-                  <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="size-4 accent-brand" />
+                <th className="w-10 p-3 text-start" title="الطلاب باشتراك مكالمات نشط لا يمكن إضافتهم إلى مجموعة">
+                  <input type="checkbox" checked={allPageSelected} disabled={pageIds.length === 0} onChange={toggleAll} className="size-4 accent-brand" />
                 </th>
                 <th className="p-3 text-start">الطالب</th>
                 <th className="p-3 text-start">المستوى</th>
@@ -5072,10 +5124,11 @@ function StudentsDirectorySection({
             <tbody>
               {pageRows.map((s) => {
                 const sub = activeSubOf(s);
+                const pendingPayment = pendingPaymentOf(s.id);
                 return (
                   <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
                     <td className="p-3">
-                      <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} className="size-4 accent-brand" />
+                      <input type="checkbox" checked={selected.has(s.id)} disabled={!canJoinRegularGroup(s.subscriptions)} onChange={() => toggle(s.id)} title={!canJoinRegularGroup(s.subscriptions) ? "المجموعات متاحة للمشتركين النشطين في الباقات الأساسية فقط" : undefined} className="size-4 accent-brand" />
                     </td>
                     <td className="p-3">
                       <b className="block text-sm">{s.fullName}</b>
@@ -5092,10 +5145,10 @@ function StudentsDirectorySection({
                     </td>
                     <td className="p-3">
                       <div className="flex max-w-[160px] flex-wrap gap-1">
-                        {s.groups.length === 0 ? (
+                        {s.groups.filter((group) => !isFreeLectureAudienceGroup(group)).length === 0 ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
-                          s.groups.map((g) => <Badge key={g.id} tone="muted">{g.name}</Badge>)
+                          s.groups.filter((group) => !isFreeLectureAudienceGroup(group)).map((g) => <Badge key={g.id} tone="muted">{g.name}</Badge>)
                         )}
                       </div>
                     </td>
@@ -5108,7 +5161,14 @@ function StudentsDirectorySection({
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">بدون اشتراك</span>
+                        pendingPayment ? (
+                          <div className="text-xs">
+                            <Badge tone="gold">طلب دفع قيد المراجعة</Badge>
+                            <small className="mt-0.5 block text-muted-foreground">{pendingPayment.package?.nameAr ?? "الباقة المختارة"}</small>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">لا يوجد اشتراك نشط</span>
+                        )
                       )}
                     </td>
                     <td className="p-3 text-xs text-muted-foreground">
@@ -5192,8 +5252,6 @@ function AdminSchedulesSection({
   schedules,
   teachers,
   groups,
-  availability,
-  onFetchAvailability,
   onCreate,
   onUpdate,
   onDelete,
@@ -5201,12 +5259,11 @@ function AdminSchedulesSection({
   schedules: WeeklyScheduleItem[];
   teachers: { id: string; fullName: string; specialty?: string | null }[];
   groups: GroupItem[];
-  availability: any[];
-  onFetchAvailability: (teacherId: string) => Promise<void>;
   onCreate: (input: CreateScheduleInput) => Promise<void>;
   onUpdate: (id: string, input: Partial<CreateScheduleInput>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
+  const regularGroups = groups.filter((group) => !isFreeLectureAudienceGroup(group));
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [teacherId, setTeacherId] = useState("");
@@ -5219,25 +5276,11 @@ function AdminSchedulesSection({
   const [meetingUrl, setMeetingUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-  const [pickedSlot, setPickedSlot] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (teacherId && showForm && !editId) onFetchAvailability(teacherId).catch(() => {});
-  }, [teacherId, showForm, editId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const weeklySlots = (availability ?? []).filter((a) => !a.specificDate && a.isActive !== false);
-
-  function pickSlot(a: any) {
-    setDayOfWeek(a.dayOfWeek);
-    setStartTime(a.startTime);
-    setEndTime(a.endTime);
-    setPickedSlot(a.id);
-  }
 
   function resetForm() {
     setTeacherId(""); setTitle(""); setGroupId(""); setDayOfWeek(0);
     setStartTime("18:00"); setEndTime("19:30"); setLocation("online"); setMeetingUrl("");
-    setPickedSlot(null); setEditId(null); setShowForm(false); setErr("");
+    setEditId(null); setShowForm(false); setErr("");
   }
 
   function startEdit(s: WeeklyScheduleItem) {
@@ -5257,7 +5300,11 @@ function AdminSchedulesSection({
     e.preventDefault();
     setErr("");
     if (!teacherId || !title) {
-      setErr("العنوان والمدرس مطلوبان");
+      setErr("عنوان الموعد والمدرس مطلوبان");
+      return;
+    }
+    if (endTime <= startTime) {
+      setErr("يجب أن يكون وقت النهاية بعد وقت البداية");
       return;
     }
     setSaving(true);
@@ -5282,9 +5329,9 @@ function AdminSchedulesSection({
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold">المواعيد الأسبوعية الثابتة ({schedules.length})</h2>
+            <h2 className="text-lg font-bold">جدول المجموعات الأسبوعي</h2>
             <p className="text-xs text-muted-foreground">
-              المعاد الثابت للمجموعة كل أسبوع — بنفس رابط الاجتماع. اختر مدرساً ثم اضغط على أحد مواعيده المتاحة.
+              هذا يحدد موعد درس يتكرر كل أسبوع لطلاب الباقات الأساسية. لا ينشئ حجزاً فردياً ولا يخصم رصيد حصص؛ أنشئ حصص المكالمات الفردية من صفحة نظام المكالمات.
             </p>
           </div>
           <Button variant="secondary" className="text-xs" onClick={() => (showForm ? resetForm() : setShowForm(true))}>
@@ -5296,14 +5343,14 @@ function AdminSchedulesSection({
           <form onSubmit={handleSubmit} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>عنوان الموعد</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="مثال: محاضرة أسبوعية — قواعد" />
+                <Label>عنوان الموعد الأسبوعي</Label>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="مثال: مجموعة A1 — قواعد" />
               </div>
               <div className="space-y-1.5">
                 <Label>المدرس</Label>
                 <select
                   value={teacherId}
-                  onChange={(e) => { setTeacherId(e.target.value); setPickedSlot(null); }}
+                  onChange={(e) => setTeacherId(e.target.value)}
                   required
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
@@ -5314,63 +5361,35 @@ function AdminSchedulesSection({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label>المجموعة (اختياري)</Label>
+                <Label>المجموعة المرتبطة (اختياري)</Label>
                 <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">— بدون مجموعة —</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
+                  <option value="">— موعد عام لطلاب الباقات الأساسية —</option>
+                  {regularGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
+                <p className="text-xs text-muted-foreground">إذا اخترت مجموعة، يرتبط الموعد بها. إذا تركته فارغاً، يبقى الموعد عاماً.</p>
               </div>
-
-              {teacherId && !editId && (
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label>اختر من مواعيد المدرس المتاحة</Label>
-                  {weeklySlots.length === 0 ? (
-                    <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800">
-                      هذا المدرس لم يضف مواعيد أسبوعية متاحة بعد — يمكنك إدخال اليوم والوقت يدوياً.
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {weeklySlots.map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => pickSlot(a)}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                            pickedSlot === a.id
-                              ? "border-brand bg-brand text-white"
-                              : "border-border bg-background hover:border-brand/50"
-                          }`}
-                        >
-                          {SCH_DAY_NAMES[a.dayOfWeek]} · {a.startTime}–{a.endTime}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
 
               <div className="space-y-1.5">
                 <Label>اليوم</Label>
-                <select value={dayOfWeek} onChange={(e) => { setDayOfWeek(Number(e.target.value)); setPickedSlot(null); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   {SCH_DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label>النوع</Label>
+                <Label>مكان الحصة</Label>
                 <select value={location} onChange={(e) => setLocation(e.target.value as "online" | "offline")} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="online">أونلاين</option>
-                  <option value="offline">أوفلاين (حضوري)</option>
+                  <option value="online">أونلاين (عن بُعد)</option>
+                  <option value="offline">حضوري</option>
                 </select>
+                <p className="text-xs text-muted-foreground">هذا يحدد مكان الدرس فقط. تسجيل حضور كل طالب يتم لاحقاً من قسم الحضور والغياب.</p>
               </div>
               <div className="space-y-1.5">
                 <Label>من</Label>
-                <Input type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setPickedSlot(null); }} required />
+                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
               </div>
               <div className="space-y-1.5">
                 <Label>إلى</Label>
-                <Input type="time" value={endTime} onChange={(e) => { setEndTime(e.target.value); setPickedSlot(null); }} required />
+                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
               </div>
               {location === "online" && (
                 <div className="space-y-1.5 sm:col-span-2">
@@ -5382,7 +5401,7 @@ function AdminSchedulesSection({
             </div>
             {err && <p className="text-sm font-semibold text-danger">{err}</p>}
             <Button type="submit" disabled={saving}>
-              {saving ? "جاري الحفظ..." : editId ? "حفظ التعديل" : "إضافة الموعد"}
+              {saving ? "جاري الحفظ..." : editId ? "حفظ التعديل" : "إضافة الموعد الأسبوعي"}
             </Button>
           </form>
         )}
@@ -5393,13 +5412,13 @@ function AdminSchedulesSection({
           <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد مواعيد أسبوعية بعد.</Card>
         ) : (
           schedules.map((s) => (
-            <Card key={s.id}>
+          <Card key={s.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <b className="text-sm">{s.title}</b>
                     <Badge tone={s.location === "online" ? "brand" : "gold"}>
-                      {s.location === "online" ? "أونلاين" : "أوفلاين"}
+                      {s.location === "online" ? "أونلاين" : "حضوري"}
                     </Badge>
                     <Badge tone={s.isActive ? "sage" : "danger"}>{s.isActive ? "مفعل" : "معطل"}</Badge>
                     {(s.group?.name ?? s.groupName) && <Badge tone="muted">{s.group?.name ?? s.groupName}</Badge>}
@@ -6575,12 +6594,33 @@ export function SubscribeScreen() {
   const [studyMode, setStudyMode] = useState<"online" | "offline" | null>(null);
   const [shot, setShot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [statusRefreshMessage, setStatusRefreshMessage] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
-  const lastRejected = myPaymentRequests.find((r) => r.status === "rejected");
+  const orderedPaymentRequests = [...myPaymentRequests].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const pendingReq = orderedPaymentRequests.find((r) => r.status.trim().toLowerCase() === "pending");
+  const latestRequest = orderedPaymentRequests[0];
+  const approvedReq = latestRequest?.status.trim().toLowerCase() === "approved"
+    && Date.now() - Date.parse(latestRequest.createdAt) < 48 * 60 * 60 * 1000
+    ? latestRequest
+    : undefined;
+  const lastRejected = latestRequest?.status.trim().toLowerCase() === "rejected" ? latestRequest : undefined;
   const selectedPkg = publicPackages.find((p) => p.id === selectedPkgId) ?? null;
+
+  async function refreshPaymentStatus() {
+    setRefreshingStatus(true);
+    setStatusRefreshMessage("");
+    try {
+      await Promise.all([refreshUser(), fetchMyBilling()]);
+      setStatusRefreshMessage("تم تحديث الحالة.");
+    } catch {
+      setStatusRefreshMessage("تعذر تحديث الحالة الآن. حاول مرة أخرى بعد قليل.");
+    } finally {
+      setRefreshingStatus(false);
+    }
+  }
 
   useEffect(() => {
     fetchPublicPackages().catch(() => {});
@@ -6590,14 +6630,13 @@ export function SubscribeScreen() {
 
   // Auto-refresh the subscription flag while a request is pending review
   useEffect(() => {
-    if (!pendingReq) return;
+    if (!pendingReq || user?.hasActiveSubscription) return;
     const t = setInterval(() => {
-      refreshUser().catch(() => {});
-      fetchMyBilling().catch(() => {});
+      refreshPaymentStatus().catch(() => {});
     }, 20000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingReq?.id]);
+  }, [pendingReq?.id, approvedReq?.id, user?.hasActiveSubscription]);
 
   async function copyNumber() {
     try {
@@ -6668,18 +6707,28 @@ export function SubscribeScreen() {
             تم الإرسال {new Date(pendingReq.createdAt).toLocaleString("ar-EG")}
           </p>
           <p className="mt-3 text-xs text-muted-foreground">
-            بمجرد تأكيد الإدارة للتحويل، ستتفتح كل أقسام المنصة تلقائياً — سنوافيك بإشعار.
+            اختيار الباقة وإرسال الإثبات لا يفعّلان الاشتراك بعد. بعد مراجعة الإدارة وتأكيد الدفع، سيتحدث حسابك تلقائياً.
           </p>
           <Button
             variant="secondary"
             className="mt-5"
-            onClick={() => {
-              refreshUser().catch(() => {});
-              fetchMyBilling().catch(() => {});
-            }}
+            disabled={refreshingStatus}
+            onClick={refreshPaymentStatus}
           >
-            تحديث حالة الطلب
+            {refreshingStatus ? "جاري التحديث..." : "تحديث حالة الطلب"}
           </Button>
+          {statusRefreshMessage && <p role="status" className="mt-2 text-xs text-muted-foreground">{statusRefreshMessage}</p>}
+        </Card>
+      ) : approvedReq ? (
+        <Card className="mx-auto max-w-lg py-10 text-center">
+          <Badge tone="sage" className="mx-auto">تم تأكيد الدفع</Badge>
+          <h2 className="mt-3 text-lg font-bold">تمت مراجعة طلبك</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{approvedReq.package?.nameAr ?? "الباقة المختارة"}</p>
+          <p className="mt-3 text-xs text-muted-foreground">نحدّث بيانات الاشتراك الآن. اضغط تحديث الحالة للتحقق مرة أخرى.</p>
+          <Button variant="secondary" className="mt-5" disabled={refreshingStatus} onClick={refreshPaymentStatus}>
+            {refreshingStatus ? "جاري التحديث..." : "تحديث حالة الاشتراك"}
+          </Button>
+          {statusRefreshMessage && <p role="status" className="mt-2 text-xs text-muted-foreground">{statusRefreshMessage}</p>}
         </Card>
       ) : (
         <div className="space-y-4">
@@ -7445,7 +7494,7 @@ function AdminResultsSection({
   );
 }
 
-type SalesSection = "leads" | "calls" | "subscriptions" | "stats";
+export type SalesSection = "leads" | "calls" | "subscriptions" | "stats";
 
 const LEAD_STAGES: Record<string, string> = {
   new: "جديد",
@@ -7465,7 +7514,7 @@ const CALL_OUTCOMES: Record<string, string> = {
   wrong_number: "رقم خطأ",
 };
 
-export function SalesScreen() {
+export function SalesScreen({ initialSection = "leads" }: { initialSection?: SalesSection }) {
   const {
     salesLeads,
     callLogs,
@@ -7483,7 +7532,14 @@ export function SalesScreen() {
     fetchSalesData,
   } = usePlatformStore();
 
-  const [activeSection, setActiveSection] = useState<SalesSection>("leads");
+  const [activeSection, setActiveSection] = useState<SalesSection>(initialSection);
+  const navigate = useNavigate();
+  useEffect(() => setActiveSection(initialSection), [initialSection]);
+  function selectSection(section: string) {
+    const nextSection = section as SalesSection;
+    setActiveSection(nextSection);
+    navigate({ to: "/sales", search: { section: nextSection } });
+  }
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [editingLead, setEditingLead] = useState<import("../hooks/use-platform-store").SalesLead | null>(null);
   const [showCallForm, setShowCallForm] = useState(false);
@@ -7610,7 +7666,7 @@ export function SalesScreen() {
   const stats = salesStats;
 
   return (
-    <AppShell role="SALES" activeSection={activeSection} onSelectSection={(s) => setActiveSection(s as SalesSection)}>
+    <AppShell role="SALES" activeSection={activeSection} onSelectSection={selectSection}>
       <PageHeader
         title="لوحة المبيعات"
         subtitle="إدارة العملاء المحتملين والمكالمات والاشتراكات والتقارير"
@@ -8145,7 +8201,7 @@ export function SalesScreen() {
   );
 }
 
-type SupportSection = "students" | "tickets" | "chat" | "schedules" | "sessions" | "groups" | "free-lectures" | "attendance" | "irregular";
+export type SupportSection = "students" | "tickets" | "chat" | "schedules" | "sessions" | "groups" | "free-lectures" | "attendance" | "irregular";
 
 const TICKET_CATEGORIES: Record<string, string> = {
   login: "مشكلة دخول",
@@ -8175,7 +8231,7 @@ const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأر
 const WHATSAPP_NUMBER = "201270869510";
 const PAYMENT_NUMBER_DISPLAY = "0127 086 9510";
 
-export function SupportScreen() {
+export function SupportScreen({ initialSection = "students" }: { initialSection?: SupportSection }) {
   const {
     supportStudents,
     tickets,
@@ -8227,14 +8283,21 @@ export function SupportScreen() {
     createFreeStudent,
     deleteFreeStudent,
     fetchFreeLectures,
-    createFreeLecture,
+    createFreeLectureForStudents,
     updateFreeLecture,
     deleteFreeLecture,
     addFreeLectureFile,
     removeFreeLectureFile,
   } = usePlatformStore();
 
-  const [activeSection, setActiveSection] = useState<SupportSection>("students");
+  const [activeSection, setActiveSection] = useState<SupportSection>(initialSection);
+  const navigate = useNavigate();
+  useEffect(() => setActiveSection(initialSection), [initialSection]);
+  function selectSection(section: string) {
+    const nextSection = section as SupportSection;
+    setActiveSection(nextSection);
+    navigate({ to: "/support", search: { section: nextSection } });
+  }
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
@@ -8278,7 +8341,10 @@ export function SupportScreen() {
       fetchCallsStudents().catch(() => {});
       fetchOpsTeachers().catch(() => {});
     }
-    if (activeSection === "groups") fetchAdminGroups().catch(() => {});
+    if (activeSection === "groups") {
+      fetchAdminGroups().catch(() => {});
+      fetchOpsStudents().catch(() => {});
+    }
     if (activeSection === "schedules") {
       fetchAdminSchedules().catch(() => {});
       fetchAdminGroups().catch(() => {});
@@ -8288,6 +8354,7 @@ export function SupportScreen() {
       fetchFreeStudents().catch(() => {});
       fetchFreeLectures().catch(() => {});
       fetchAdminGroups().catch(() => {});
+      fetchOpsStudents().catch(() => {});
     }
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -8347,7 +8414,7 @@ export function SupportScreen() {
   }
 
   return (
-    <AppShell role="SUPPORT" activeSection={activeSection} onSelectSection={(s) => setActiveSection(s as SupportSection)}>
+    <AppShell role="SUPPORT" activeSection={activeSection} onSelectSection={selectSection}>
       <PageHeader
         title="لوحة خدمة العملاء"
         subtitle="متابعة الطلاب · الشكاوى · المواعيد · الحضور · المتابعة"
@@ -8614,8 +8681,6 @@ export function SupportScreen() {
           schedules={adminSchedules}
           teachers={teachers}
           groups={adminGroups}
-          availability={adminTeacherAvailability}
-          onFetchAvailability={fetchAdminTeacherAvailability}
           onCreate={createAdminSchedule}
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
@@ -8798,6 +8863,7 @@ export function SupportScreen() {
           groups={adminGroups}
           members={groupMembers}
           students={supportStudents.map((s) => ({ id: s.id, fullName: s.fullName }))}
+          opsStudents={opsStudents}
           teachers={teachers.map((t) => ({ id: t.id, fullName: t.fullName }))}
           onCreate={createAdminGroup}
           onUpdate={updateAdminGroup}
@@ -8812,13 +8878,13 @@ export function SupportScreen() {
         <OpsFreeLecturesSection
           freeStudents={freeStudents}
           freeLectures={freeLectures}
-          groups={adminGroups}
+          opsStudents={opsStudents}
           teachers={teachers}
           availability={adminTeacherAvailability}
           onFetchAvailability={fetchAdminTeacherAvailability}
           onCreateStudent={createFreeStudent}
           onDeleteStudent={deleteFreeStudent}
-          onCreateLecture={createFreeLecture}
+          onCreateLectureForStudents={createFreeLectureForStudents}
           onUpdateLecture={updateFreeLecture}
           onDeleteLecture={deleteFreeLecture}
           onAddFile={addFreeLectureFile}
@@ -8834,6 +8900,7 @@ function AdminGroupsSection({
   groups,
   members,
   students,
+  opsStudents,
   teachers,
   onCreate,
   onUpdate,
@@ -8845,6 +8912,7 @@ function AdminGroupsSection({
   groups: import("../hooks/use-platform-store").GroupItem[];
   members: import("../hooks/use-platform-store").GroupMemberItem[];
   students: { id: string; fullName: string }[];
+  opsStudents: import("../hooks/use-platform-store").OpsStudentItem[];
   teachers: { id: string; fullName: string }[];
   onCreate: (input: { name: string; description?: string; teacherId?: string; level?: string | null; maxStudents?: number | null }) => Promise<void>;
   onUpdate: (id: string, input: Partial<{ name: string; description: string; teacherId: string; level: string | null; maxStudents: number | null }>) => Promise<void>;
@@ -8861,8 +8929,24 @@ function AdminGroupsSection({
   const [gMax, setGMax] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [memberErr, setMemberErr] = useState("");
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const alreadyAssignedStudentIds = new Set(
+    opsStudents
+      .filter(hasRegularGroup)
+      .map((student) => student.id),
+  );
+  const opsStudentsById = new Map(opsStudents.map((student) => [student.id, student]));
+  const membershipDataReady = opsStudents.length > 0 || students.length === 0;
+  const availableStudents = membershipDataReady
+    ? students.filter((student) => {
+        const opsStudent = opsStudentsById.get(student.id);
+        return Boolean(opsStudent) && canJoinRegularGroup(opsStudent!.subscriptions) && !alreadyAssignedStudentIds.has(student.id);
+      })
+    : [];
+  const regularGroups = groups.filter((group) => !isFreeLectureAudienceGroup(group));
+  const regularGroupCount = regularGroups.length;
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -8886,6 +8970,7 @@ function AdminGroupsSection({
   }
 
   async function handleToggleGroup(id: string) {
+    setMemberErr("");
     if (openGroupId === id) {
       setOpenGroupId(null);
     } else {
@@ -8896,9 +8981,21 @@ function AdminGroupsSection({
   }
 
   async function handleAddMembers(groupId: string) {
-    if (selectedStudentIds.length === 0) return;
-    await onAddMembers(groupId, selectedStudentIds);
-    setSelectedStudentIds([]);
+    setMemberErr("");
+    const availableIds = new Set(availableStudents.map((student) => student.id));
+    const validStudentIds = selectedStudentIds.filter((id) => availableIds.has(id));
+    if (validStudentIds.length !== selectedStudentIds.length) {
+      setSelectedStudentIds(validStudentIds);
+      setMemberErr("تم إلغاء اختيار طالب لا يملك باقة أساسية نشطة أو مسجل في مجموعة أخرى. اختر طلاب الباقات الأساسية المؤهلين فقط.");
+      return;
+    }
+    if (validStudentIds.length === 0) return;
+    try {
+      await onAddMembers(groupId, validStudentIds);
+      setSelectedStudentIds([]);
+    } catch (e) {
+      setMemberErr(e instanceof Error ? e.message : "تعذرت إضافة الطلاب إلى المجموعة.");
+    }
   }
 
   return (
@@ -8906,8 +9003,8 @@ function AdminGroupsSection({
       <Card>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold">المجموعات ({groups.length})</h2>
-            <p className="text-xs text-muted-foreground">إنشاء مجموعات طلاب وإدارة أعضائها — تستخدم لاستهداف محاضرات لمجموعة محددة</p>
+            <h2 className="text-lg font-bold">المجموعات ({regularGroupCount})</h2>
+            <p className="text-xs text-muted-foreground">المجموعات للطلاب ذوي الاشتراك النشط في الباقات الأساسية فقط. طلاب نظام المكالمات تتم إدارتهم من صفحة نظام المكالمات.</p>
           </div>
           <Button variant="secondary" className="text-xs" onClick={() => setShowForm(!showForm)}>
             {showForm ? "إلغاء" : "+ مجموعة جديدة"}
@@ -8951,10 +9048,10 @@ function AdminGroupsSection({
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {groups.length === 0 ? (
+        {regularGroups.length === 0 ? (
           <Card className="col-span-full py-10 text-center text-sm text-muted-foreground">لا توجد مجموعات بعد.</Card>
         ) : (
-          groups.map((g) => (
+          regularGroups.map((g) => (
             <Card key={g.id}>
               <div className="flex items-start justify-between">
                 <div>
@@ -8984,13 +9081,24 @@ function AdminGroupsSection({
                 <div className="mt-4 border-t border-border pt-3">
                   {/* Members list */}
                   <h4 className="text-xs font-bold text-muted-foreground">الأعضاء الحاليون</h4>
+                  {members.some((member) => {
+                    const student = opsStudents.find((item) => item.id === member.studentId);
+                    return student ? !canJoinRegularGroup(student.subscriptions) : false;
+                  }) && (
+                    <p className="mt-2 rounded-md bg-amber-500/10 p-2 text-xs text-amber-800">
+                      توجد عضوية لطالب غير مؤهل. المجموعات مخصصة للمشتركين النشطين في الباقات الأساسية فقط؛ أزل العضوية من زر إزالة.
+                    </p>
+                  )}
                   <div className="mt-2 space-y-1.5">
                     {members.length === 0 ? (
                       <p className="text-xs text-muted-foreground">لا يوجد أعضاء.</p>
                     ) : (
                       members.map((m) => (
                         <div key={m.id} className="flex items-center justify-between rounded-md bg-muted/60 px-2.5 py-1.5 text-sm">
-                          <span>{m.student.fullName}</span>
+                          <span className="flex items-center gap-2">
+                            {m.student.fullName}
+                            {opsStudents.some((student) => student.id === m.studentId && !canJoinRegularGroup(student.subscriptions)) && <Badge tone="gold">غير مؤهل</Badge>}
+                          </span>
                           <button
                             onClick={() => onRemoveMember(g.id, m.studentId)}
                             className="text-xs text-danger hover:underline"
@@ -9003,9 +9111,12 @@ function AdminGroupsSection({
                   </div>
 
                   {/* Add members */}
-                  <h4 className="mt-4 text-xs font-bold text-muted-foreground">إضافة طلاب</h4>
+                  <h4 className="mt-4 text-xs font-bold text-muted-foreground">إضافة طلاب باقات أساسية نشطة غير مسجلين في مجموعة أخرى</h4>
+                  {memberErr && <p className="mt-2 text-xs font-semibold text-danger">{memberErr}</p>}
                   <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-input bg-background p-2">
-                    {students.map((s) => (
+                    {availableStudents.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground">{membershipDataReady ? "لا يوجد طالب بباقة أساسية نشطة متاح للإضافة، أو أن الطلاب المؤهلين مسجلون بالفعل في مجموعة." : "جارٍ تحميل بيانات الطلاب والاشتراكات. لن تظهر قائمة الإضافة حتى تكتمل."}</p>
+                    ) : availableStudents.map((s) => (
                       <label key={s.id} className="flex items-center gap-2 py-1 text-sm">
                         <input
                           type="checkbox"
@@ -9058,6 +9169,10 @@ function OpsCreateSessionCard({
   const [open, setOpen] = useState(false);
   const [teacherId, setTeacherId] = useState("");
   const [studentId, setStudentId] = useState("");
+  const [selectedAvailabilityId, setSelectedAvailabilityId] = useState("");
+  const [availabilityTeacherId, setAvailabilityTeacherId] = useState("");
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
@@ -9065,14 +9180,33 @@ function OpsCreateSessionCard({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
+  const selectableAvailability = (availabilityTeacherId === teacherId ? availability : []).filter((slot) => {
+    if (slot.isActive === false) return false;
+    if (!slot.specificDate) return true;
+    const date = String(slot.specificDate).slice(0, 10);
+    return new Date(`${date}T${slot.endTime}:00`).getTime() > Date.now();
+  });
 
   useEffect(() => {
     if (open) onFetchCallsStudents().catch(() => {});
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (teacherId) onFetchAvailability(teacherId).catch(() => {});
-  }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+    let current = true;
+    if (!open || !teacherId) {
+      setAvailabilityTeacherId("");
+      setAvailabilityLoading(false);
+      return () => { current = false; };
+    }
+    setAvailabilityTeacherId("");
+    setAvailabilityLoading(true);
+    setAvailabilityError("");
+    onFetchAvailability(teacherId)
+      .then(() => { if (current) setAvailabilityTeacherId(teacherId); })
+      .catch(() => { if (current) setAvailabilityError("تعذر تحميل أوقات المدرس. أعد اختيار المدرس للمحاولة مرة أخرى."); })
+      .finally(() => { if (current) setAvailabilityLoading(false); });
+    return () => { current = false; };
+  }, [open, teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function pickSlot(slot: any) {
     const [sh, sm] = slot.startTime.split(":").map(Number);
@@ -9093,12 +9227,16 @@ function OpsCreateSessionCard({
     const e = new Date(d);
     e.setHours(eh, em, 0, 0);
     setEndsAt(`${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+    setSelectedAvailabilityId(slot.id);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setErr(""); setOk("");
-    if (!teacherId || !studentId || !startsAt) { setErr("اختر المدرس والطالب والموعد"); return; }
+    if (!teacherId || !studentId || !startsAt || !selectedAvailabilityId) { setErr("اختر المدرس والطالب وأحد مواعيده المتاحة"); return; }
+    const selectedSlot = selectableAvailability.find((slot) => slot.id === selectedAvailabilityId);
+    if (!selectedSlot) { setErr("هذا الموعد لم يعد متاحاً. اختر موعداً آخر من القائمة."); return; }
+    if (new Date(startsAt).getTime() <= Date.now()) { setErr("بدأ هذا الموعد أو انتهى. اختر موعداً مستقبلياً متاحاً."); return; }
     setSaving(true);
     try {
       await onCreate({
@@ -9110,7 +9248,7 @@ function OpsCreateSessionCard({
         ...(notes ? { notes } : {}),
       });
       setOk("تم إنشاء الحصة وخصمها من رصيد الطالب");
-      setStartsAt(""); setEndsAt(""); setMeetingUrl(""); setNotes(""); setStudentId("");
+      setStartsAt(""); setEndsAt(""); setMeetingUrl(""); setNotes(""); setStudentId(""); setSelectedAvailabilityId("");
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "فشل إنشاء الحصة");
     } finally {
@@ -9123,7 +9261,7 @@ function OpsCreateSessionCard({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-bold">إنشاء حصة فردية</h3>
-          <p className="text-xs text-muted-foreground">اختر المدرس ← موعد متاح ← طالب لديه باقة مكالمات</p>
+          <p className="text-xs text-muted-foreground">أنشئ حصة فردية لطالب مكالمات ضمن أحد أوقات المدرس المتاحة.</p>
         </div>
         <Button variant="secondary" className="text-xs" onClick={() => setOpen(!open)}>
           {open ? "إخفاء" : "+ حصة جديدة"}
@@ -9134,7 +9272,7 @@ function OpsCreateSessionCard({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>المدرس</Label>
-              <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <select value={teacherId} onChange={(e) => { setTeacherId(e.target.value); setSelectedAvailabilityId(""); setStartsAt(""); setEndsAt(""); }} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">— اختر المدرس —</option>
                 {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
               </select>
@@ -9150,17 +9288,18 @@ function OpsCreateSessionCard({
                 ))}
               </select>
             </div>
-            {teacherId && availability.length > 0 && (
+            {teacherId && availabilityLoading && <p className="text-xs text-muted-foreground sm:col-span-2">جاري تحميل أوقات هذا المدرس...</p>}
+            {teacherId && !availabilityLoading && selectableAvailability.length > 0 && (
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>مواعيد المدرس المتاحة (اضغط لملء الوقت)</Label>
+                <Label>موعد المدرس المتاح — اختر موعداً واحداً</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {availability.map((slot) => {
+                  {selectableAvailability.map((slot) => {
                     const dayName = slot.specificDate
                       ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
                       : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][slot.dayOfWeek ?? 0];
                     return (
-                      <button key={slot.id} type="button" onClick={() => pickSlot(slot)}
-                        className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5">
+                      <button key={slot.id} type="button" aria-pressed={selectedAvailabilityId === slot.id} onClick={() => pickSlot(slot)}
+                        className={`rounded-md border px-2.5 py-1 text-xs ${selectedAvailabilityId === slot.id ? "border-brand bg-brand text-white" : "border-input bg-background hover:border-brand hover:bg-brand/5"}`}>
                         {dayName} {slot.startTime}—{slot.endTime}
                       </button>
                     );
@@ -9168,16 +9307,17 @@ function OpsCreateSessionCard({
                 </div>
               </div>
             )}
-            {teacherId && availability.length === 0 && (
+            {teacherId && !availabilityLoading && availabilityError && <p className="text-xs text-danger sm:col-span-2">{availabilityError}</p>}
+            {teacherId && !availabilityLoading && !availabilityError && selectableAvailability.length === 0 && (
               <p className="text-xs text-muted-foreground sm:col-span-2">هذا المدرس لم يضف مواعيد متاحة بعد.</p>
             )}
             <div className="space-y-1.5">
               <Label>البداية</Label>
-              <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+              <Input type="datetime-local" value={startsAt} readOnly required aria-label="وقت بداية الحصة من إتاحة المدرس" />
             </div>
             <div className="space-y-1.5">
               <Label>النهاية</Label>
-              <Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+              <Input type="datetime-local" value={endsAt} readOnly aria-label="وقت نهاية الحصة من إتاحة المدرس" />
             </div>
             <div className="space-y-1.5">
               <Label>رابط الاجتماع</Label>
@@ -9190,7 +9330,7 @@ function OpsCreateSessionCard({
           </div>
           {err && <p className="text-sm font-semibold text-danger">{err}</p>}
           {ok && <p className="text-sm font-semibold text-[#2f9e4f]">{ok}</p>}
-          <Button type="submit" disabled={saving}>{saving ? "جاري الإنشاء..." : "إنشاء الحصة"}</Button>
+          <Button type="submit" disabled={saving || availabilityLoading || availabilityTeacherId !== teacherId || !selectedAvailabilityId}>{saving ? "جاري الإنشاء..." : "إنشاء الحصة"}</Button>
         </form>
       )}
     </Card>
@@ -9198,18 +9338,18 @@ function OpsCreateSessionCard({
 }
 
 // ─── Ops: free lecture management (admin/support) ───────────────────────────
-// Two halves: trial students (name/phone/level/group) and the free lectures
+// Two halves: a separate trial-contact list and the free lectures
 // themselves (with group targeting + file attachments).
 function OpsFreeLecturesSection({
   freeStudents,
   freeLectures,
-  groups,
+  opsStudents,
   teachers,
   availability,
   onFetchAvailability,
   onCreateStudent,
   onDeleteStudent,
-  onCreateLecture,
+  onCreateLectureForStudents,
   onUpdateLecture,
   onDeleteLecture,
   onAddFile,
@@ -9217,13 +9357,13 @@ function OpsFreeLecturesSection({
 }: {
   freeStudents: import("../hooks/use-platform-store").FreeLectureStudent[];
   freeLectures: import("../hooks/use-platform-store").FreeLecture[];
-  groups: import("../hooks/use-platform-store").GroupItem[];
+  opsStudents: import("../hooks/use-platform-store").OpsStudentItem[];
   teachers: { id: string; fullName: string; specialty?: string | null }[];
   availability: any[];
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreateStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;
   onDeleteStudent: (id: string) => Promise<void>;
-  onCreateLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
+  onCreateLectureForStudents: (input: { description?: string; teacherId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string; studentIds: string[] }) => Promise<{ createdStudentIds: string[]; failedStudents: { id: string; name: string; reason: string }[] }>;
   onUpdateLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
   onDeleteLecture: (id: string) => Promise<void>;
   onAddFile: (id: string, file: { name: string; url: string }) => Promise<void>;
@@ -9234,14 +9374,13 @@ function OpsFreeLecturesSection({
   const [sName, setSName] = useState("");
   const [sPhone, setSPhone] = useState("");
   const [sLevel, setSLevel] = useState("");
-  const [sGroupId, setSGroupId] = useState("");
   const [sNotes, setSNotes] = useState("");
   // lecture form
   const [showLecForm, setShowLecForm] = useState(false);
-  const [lTitle, setLTitle] = useState("");
   const [lDesc, setLDesc] = useState("");
   const [lTeacherId, setLTeacherId] = useState("");
-  const [lGroupId, setLGroupId] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState("");
   const [lLevel, setLLevel] = useState("");
   const [lStarts, setLStarts] = useState("");
   const [lEnds, setLEnds] = useState("");
@@ -9249,6 +9388,10 @@ function OpsFreeLecturesSection({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const eligibleCallsStudents = opsStudents.filter((student) => hasActiveCallsSubscription(student.subscriptions));
+  const visibleCallsStudents = eligibleCallsStudents.filter((student) =>
+    `${student.fullName} ${student.phone ?? ""} ${student.email ?? ""}`.toLowerCase().includes(studentSearch.trim().toLowerCase()),
+  );
 
   useEffect(() => {
     if (lTeacherId) onFetchAvailability(lTeacherId).catch(() => {});
@@ -9280,28 +9423,37 @@ function OpsFreeLecturesSection({
     setErr("");
     setSaving(true);
     try {
-      await onCreateStudent({ name: sName, phone: sPhone, level: sLevel || null, groupId: sGroupId || null, ...(sNotes ? { notes: sNotes } : {}) });
-      setSName(""); setSPhone(""); setSLevel(""); setSGroupId(""); setSNotes("");
+      await onCreateStudent({ name: sName, phone: sPhone, level: sLevel || null, ...(sNotes ? { notes: sNotes } : {}) });
+      setSName(""); setSPhone(""); setSLevel(""); setSNotes("");
     } catch (e2) { setErr(e2 instanceof Error ? e2.message : "فشل إضافة الطالب"); } finally { setSaving(false); }
   }
 
   async function handleCreateLecture(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-    if (!lTitle || !lStarts) { setErr("العنوان والموعد مطلوبان"); return; }
+    if (!lStarts) { setErr("الموعد مطلوب"); return; }
+    if (selectedStudentIds.length === 0) { setErr("اختر طالباً واحداً على الأقل من مشتركي نظام المكالمات"); return; }
+    const stillEligibleIds = new Set(eligibleCallsStudents.map((student) => student.id));
+    const invalidSelectedStudents = selectedStudentIds.filter((id) => !stillEligibleIds.has(id));
+    if (invalidSelectedStudents.length > 0) { setErr("بعض الطلاب المحددين لم يعد لديهم اشتراك نشط في نظام المكالمات. حدّث اختيارك."); return; }
     setSaving(true);
     try {
-      await onCreateLecture({
-        title: lTitle,
+      const result = await onCreateLectureForStudents({
         ...(lDesc ? { description: lDesc } : {}),
         ...(lTeacherId ? { teacherId: lTeacherId } : {}),
-        ...(lGroupId ? { groupId: lGroupId } : {}),
         level: lLevel || null,
         startsAt: new Date(lStarts).toISOString(),
         ...(lEnds ? { endsAt: new Date(lEnds).toISOString() } : {}),
         ...(lUrl ? { meetingUrl: lUrl } : {}),
+        studentIds: selectedStudentIds,
       });
-      setLTitle(""); setLDesc(""); setLTeacherId(""); setLGroupId(""); setLLevel(""); setLStarts(""); setLEnds(""); setLUrl("");
+      if (result.failedStudents.length > 0) {
+        setSelectedStudentIds(result.failedStudents.map((student) => student.id));
+        const failedNames = result.failedStudents.map((student) => `${student.name} (${student.reason})`).join("، ");
+        setErr(`${result.createdStudentIds.length ? `تم إنشاء ${result.createdStudentIds.length} محاضرة بنجاح. ` : ""}تعذر إنشاء محاضرات لـ: ${failedNames}. بقي الطلاب الذين لم تنجح محاضراتهم محددين لإعادة المحاولة.`);
+        return;
+      }
+      setLDesc(""); setLTeacherId(""); setSelectedStudentIds([]); setStudentSearch(""); setLLevel(""); setLStarts(""); setLEnds(""); setLUrl("");
       setShowLecForm(false);
     } catch (e2) { setErr(e2 instanceof Error ? e2.message : "فشل إنشاء المحاضرة"); } finally { setSaving(false); }
   }
@@ -9321,7 +9473,7 @@ function OpsFreeLecturesSection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold">المحاضرة المجانية</h2>
-            <p className="text-xs text-muted-foreground">طلاب تجريبيون (من حجز واتساب) + محاضرات مجانية مجدولة + ملفات</p>
+            <p className="text-xs text-muted-foreground">اختر عدة طلاب، وسيتم إنشاء محاضرة منفصلة باسم كل طالب ومخصصة له.</p>
           </div>
           <div className="flex gap-1.5">
             <button onClick={() => setTab("lectures")} className={`rounded-md px-3 py-1 text-xs ${tab === "lectures" ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}>
@@ -9353,13 +9505,6 @@ function OpsFreeLecturesSection({
                 <select value={sLevel} onChange={(e) => setSLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— بدون —</option>
                   {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>المجموعة</Label>
-                <select value={sGroupId} onChange={(e) => setSGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="">— بدون مجموعة —</option>
-                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
@@ -9418,10 +9563,6 @@ function OpsFreeLecturesSection({
             {showLecForm && (
               <form onSubmit={handleCreateLecture} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label>عنوان المحاضرة</Label>
-                    <Input value={lTitle} onChange={(e) => setLTitle(e.target.value)} required />
-                  </div>
                   <div className="space-y-1.5">
                     <Label>المدرس</Label>
                     <select value={lTeacherId} onChange={(e) => setLTeacherId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
@@ -9429,12 +9570,35 @@ function OpsFreeLecturesSection({
                       {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>المجموعة المستهدفة</Label>
-                    <select value={lGroupId} onChange={(e) => setLGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="">— عامة (كل الطلاب) —</option>
-                      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                    </select>
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <Label>الطلاب المستهدفون — مشتركو نظام المكالمات فقط</Label>
+                        <p className="text-xs text-muted-foreground">يمكنك اختيار أكثر من طالب. سيحصل كل طالب على محاضرة منفصلة بعنوان اسمه، ولن تتم مشاركة محاضرته مع بقية الطلاب.</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">تم اختيار {selectedStudentIds.length} من {eligibleCallsStudents.length}</span>
+                    </div>
+                    <Input value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)} placeholder="ابحث بالاسم أو الهاتف أو البريد الإلكتروني" />
+                    {visibleCallsStudents.length > 0 && (
+                      <div className="flex gap-3 text-xs">
+                        <button type="button" className="text-brand underline" onClick={() => setSelectedStudentIds((current) => [...new Set([...current, ...visibleCallsStudents.map((student) => student.id)])])}>تحديد النتائج الظاهرة</button>
+                        <button type="button" className="text-muted-foreground underline" onClick={() => setSelectedStudentIds([])}>مسح الاختيار</button>
+                      </div>
+                    )}
+                    <div className="max-h-56 overflow-y-auto rounded-md border border-input bg-background">
+                      {visibleCallsStudents.length === 0 ? (
+                        <p className="p-4 text-center text-sm text-muted-foreground">{eligibleCallsStudents.length ? "لا توجد نتائج مطابقة." : "لا يوجد طلاب باشتراك نشط في نظام المكالمات حالياً."}</p>
+                      ) : visibleCallsStudents.map((student) => (
+                        <label key={student.id} className="flex cursor-pointer items-center gap-3 border-b border-border p-3 last:border-b-0 hover:bg-muted/40">
+                          <input type="checkbox" checked={selectedStudentIds.includes(student.id)} onChange={(e) => setSelectedStudentIds((current) => e.target.checked ? [...new Set([...current, student.id])] : current.filter((id) => id !== student.id))} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold">{student.fullName}</span>
+                            <span className="block text-xs text-muted-foreground">{student.phone || student.email || "بدون بيانات اتصال"} · {student.level || "بدون مستوى"}</span>
+                          </span>
+                          <Badge tone="brand">نظام المكالمات</Badge>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label>المستوى</Label>
@@ -9478,7 +9642,10 @@ function OpsFreeLecturesSection({
                     <textarea value={lDesc} onChange={(e) => setLDesc(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
                   </div>
                 </div>
-                <Button type="submit" disabled={saving}>{saving ? "جاري الإنشاء..." : "إنشاء المحاضرة"}</Button>
+                <p className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-900">
+                  لا يمكن حفظ محاضرة لطالب مكالمات بشكل فردي من الواجهة الحالية: الـ API يدعم الاستهداف بالمجموعة فقط. لم نعد ننشئ مجموعات مخفية لطلاب المكالمات. يلزم أن يدعم الـ API تعيين الطالب مباشرة قبل تفعيل الإنشاء هنا.
+                </p>
+                <Button type="submit" disabled>{saving ? "جاري إنشاء المحاضرات..." : "تعيين الطالب غير مدعوم حالياً"}</Button>
               </form>
             )}
           </Card>
@@ -9494,13 +9661,17 @@ function OpsFreeLecturesSection({
                       <b>{l.title}</b>
                       <div className="mt-1 flex flex-wrap gap-1">
                         <Badge tone="muted">{l.status === "scheduled" ? "مجدولة" : l.status === "live" ? "مباشرة" : l.status === "completed" ? "مكتملة" : "ملغاة"}</Badge>
-                        {l.group && <Badge tone="brand">{l.group.name}</Badge>}
+                        {l.groupId && <Badge tone="brand">محاضرة فردية</Badge>}
                         {l.level && <Badge tone="gold">{l.level}</Badge>}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
                         {l.teacher && ` · ${l.teacher.fullName}`}
                       </p>
+                      {l.groupId && (() => {
+                        const invitee = opsStudents.find((student) => student.groups.some((group) => group.id === l.groupId));
+                        return <p className="mt-1 text-xs text-muted-foreground">الطالب: {invitee?.fullName ?? "تعذر تحميل اسم الطالب"} · {invitee?.phone || invitee?.email || "لا توجد بيانات اتصال"}</p>;
+                      })()}
                       {l.meetingUrl && (
                         <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand2 underline">رابط الاجتماع</a>
                       )}

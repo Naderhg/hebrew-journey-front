@@ -2400,7 +2400,78 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (selectedStudents.some((student) => !student)) {
       throw new Error("بعض الطلاب المحددين ليس لديهم اشتراك نشط في نظام المكالمات. حدّث القائمة ثم اخترهم مرة أخرى.");
     }
-    throw new Error("لم يتم إنشاء المحاضرة: الواجهة الحالية للـ API تحفظ المحاضرات باستخدام groupId فقط، ولا تدعم تعيين الطالب مباشرة. لم تتم إضافة طلاب المكالمات إلى مجموعات.");
+
+    const createdStudentIds: string[] = [];
+    const failedStudents: { id: string; name: string; reason: string }[] = [];
+    const hiddenGroupPrefix = "دعوة محاضرة مجانية — ";
+
+    // The existing API targets free lectures by groupId. Create a private,
+    // one-student audience group for each invitee, then use that supported API.
+    // These groups use a reserved prefix and are hidden from regular group UI.
+    for (const [index, student] of selectedStudents.entries()) {
+      let groupId: string | undefined;
+      try {
+        const groupName = `${hiddenGroupPrefix}${student!.id} — ${Date.now()}-${index}`;
+        const createdGroup = await apiFetch<{ id?: string; group?: GroupItem }>("/api/ops/groups", {
+          method: "POST",
+          body: {
+            name: groupName,
+            description: "تعيين داخلي لمحاضرة مجانية لطالب مكالمات واحد. لا تضف أعضاء آخرين.",
+            ...(input.teacherId ? { teacherId: input.teacherId } : {}),
+            level: input.level ?? student!.level ?? null,
+            maxStudents: 1,
+          },
+        });
+        groupId = createdGroup?.group?.id ?? createdGroup?.id;
+
+        if (!groupId) {
+          const groupsRes = await apiFetch<{ groups: GroupItem[] }>("/api/ops/groups");
+          groupId = groupsRes.groups?.find((group) => group.name === groupName)?.id;
+        }
+        if (!groupId) throw new Error("تعذر إنشاء مجموعة التعيين الخاصة بالطالب");
+
+        // Call the existing API directly; the regular-group helper correctly
+        // blocks calls subscribers, while this reserved group is only an
+        // audience link for one private free lecture.
+        await apiFetch(`/api/ops/groups/${groupId}/members`, {
+          method: "POST",
+          body: { studentIds: [student!.id] },
+        });
+        await apiFetch("/api/ops/free-lectures", {
+          method: "POST",
+          body: {
+            title: student!.fullName,
+            ...(input.description ? { description: input.description } : {}),
+            ...(input.teacherId ? { teacherId: input.teacherId } : {}),
+            groupId,
+            level: input.level ?? student!.level ?? null,
+            startsAt: input.startsAt,
+            ...(input.endsAt ? { endsAt: input.endsAt } : {}),
+            ...(input.meetingUrl ? { meetingUrl: input.meetingUrl } : {}),
+          },
+        });
+        createdStudentIds.push(student!.id);
+      } catch (error) {
+        if (groupId) {
+          await apiFetch(`/api/ops/groups/${groupId}/members/${student!.id}`, { method: "DELETE" }).catch(() => {});
+          await apiFetch(`/api/ops/groups/${groupId}`, { method: "DELETE" }).catch(() => {});
+        }
+        failedStudents.push({
+          id: student!.id,
+          name: student!.fullName,
+          reason: error instanceof Error ? error.message : "تعذر إنشاء المحاضرة",
+        });
+      }
+    }
+
+    if (createdStudentIds.length > 0) {
+      await Promise.all([
+        fetchFreeLectures().catch(() => {}),
+        fetchAdminGroups().catch(() => {}),
+        fetchOpsStudents().catch(() => {}),
+      ]);
+    }
+    return { createdStudentIds, failedStudents };
   }
 
   async function updateFreeLecture(id: string, input: Record<string, unknown>) {
@@ -2409,8 +2480,17 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function deleteFreeLecture(id: string) {
+    const lecture = freeLectures.find((item) => item.id === id);
+    const audienceGroup = lecture?.group ?? adminGroups.find((group) => group.id === lecture?.groupId);
     await apiFetch(`/api/ops/free-lectures/${id}`, { method: "DELETE" });
-    await fetchFreeLectures();
+    if (lecture?.groupId && audienceGroup?.name.startsWith("دعوة محاضرة مجانية — ")) {
+      await apiFetch(`/api/ops/groups/${lecture.groupId}`, { method: "DELETE" }).catch(() => {});
+    }
+    await Promise.all([
+      fetchFreeLectures().catch(() => {}),
+      fetchAdminGroups().catch(() => {}),
+      fetchOpsStudents().catch(() => {}),
+    ]);
   }
 
   async function addFreeLectureFile(id: string, file: { name: string; url: string }) {

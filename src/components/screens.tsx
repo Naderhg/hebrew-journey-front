@@ -4375,6 +4375,8 @@ export function AdminScreen({ initialSection = "overview" }: { initialSection?: 
           schedules={adminSchedules}
           teachers={users.filter((u) => u.role === "TEACHER")}
           groups={adminGroups}
+          availability={adminTeacherAvailability}
+          onFetchAvailability={fetchAdminTeacherAvailability}
           onCreate={createAdminSchedule}
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
@@ -4622,7 +4624,7 @@ function AdminGuideSection() {
           <li>أنشئ حسابه من "إضافة مستخدم" بدور مدرس.</li>
           <li>اطلب منه يضيف أوقات إتاحة الحصص الفردية من قسم "إتاحة الحصص الفردية".</li>
           <li>أنشئ مجموعة أساسية واربطها بالمدرس، ثم أضف إليها الطلاب ذوي اشتراك أساسي نشط فقط.</li>
-          <li>من "جدول المجموعات الأسبوعي" أدخل موعد المجموعة المتكرر يدوياً وحدد اليوم والوقت ومكان الحصة (أونلاين أو حضوري).</li>
+          <li>من "جدول المجموعات الأسبوعي" اختر المدرس ثم موعداً أسبوعياً من أوقات إتاحته؛ اليوم ووقتا البداية والنهاية يتحددون تلقائياً من الموعد المختار.</li>
           <li>ارفع له الكورسات/الامتحانات من "الكورسات والماتيريال" و"الامتحانات والنتائج".</li>
           <li>اربط الطلاب بمجموعته من دليل الطلاب (تحديد جماعي → أضف للمجموعة).</li>
         </ol>
@@ -4630,7 +4632,7 @@ function AdminGuideSection() {
 
       <GuideBlock icon={CalendarDays} title="٤) جدول المجموعات الأسبوعي">
         <ul className="space-y-1.5">
-          {li(<>هذا موعد متكرر لدرس مجموعة: يحدد اليوم والوقت والمدرس، ويمكن ربطه بمجموعة أساسية ومكان الحصة (أونلاين أو حضوري) ورابط ثابت. المكان لا يسجل حضور الطالب؛ الحضور يُسجل لاحقاً في قسم الحضور والغياب.</>)}
+          {li(<>هذا موعد متكرر لدرس مجموعة: اختر المدرس وموعداً أسبوعياً من أوقات إتاحته، فيتحدد اليوم ووقتا البداية والنهاية تلقائياً. يمكن ربطه بمجموعة أساسية ومكان الحصة (أونلاين أو حضوري) ورابط ثابت. المكان لا يسجل حضور الطالب؛ الحضور يُسجل لاحقاً في قسم الحضور والغياب.</>)}
           {li(<>ليس وقت توفر للحجز الفردي. المدرس يضيف أوقات الحصص الفردية من قسم الإتاحة، والإدارة تختارها في "نظام المكالمات".</>)}
           {li(<>يمكن تسجيل الحضور من قسم "الحضور والغياب" وفق الموعد أو المحاضرة المرتبطة به.</>)}
         </ul>
@@ -5252,6 +5254,8 @@ function AdminSchedulesSection({
   schedules,
   teachers,
   groups,
+  availability,
+  onFetchAvailability,
   onCreate,
   onUpdate,
   onDelete,
@@ -5259,6 +5263,8 @@ function AdminSchedulesSection({
   schedules: WeeklyScheduleItem[];
   teachers: { id: string; fullName: string; specialty?: string | null }[];
   groups: GroupItem[];
+  availability: import("../hooks/use-platform-store").TeacherAvailabilitySlot[];
+  onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreate: (input: CreateScheduleInput) => Promise<void>;
   onUpdate: (id: string, input: Partial<CreateScheduleInput>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -5270,16 +5276,49 @@ function AdminSchedulesSection({
   const [title, setTitle] = useState("");
   const [groupId, setGroupId] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState(0);
-  const [startTime, setStartTime] = useState("18:00");
-  const [endTime, setEndTime] = useState("19:30");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [location, setLocation] = useState<"online" | "offline">("online");
   const [meetingUrl, setMeetingUrl] = useState("");
+  const [availabilityTeacherId, setAvailabilityTeacherId] = useState("");
+  const [selectedAvailabilityId, setSelectedAvailabilityId] = useState("");
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const weeklyAvailability = (availabilityTeacherId === teacherId ? availability : [])
+    .filter((slot) => slot.isActive !== false && slot.dayOfWeek !== null && !slot.specificDate);
+
+  useEffect(() => {
+    let current = true;
+    if (!showForm || !teacherId) {
+      setAvailabilityTeacherId("");
+      setAvailabilityLoading(false);
+      setAvailabilityError("");
+      return () => { current = false; };
+    }
+    setAvailabilityTeacherId("");
+    setAvailabilityLoading(true);
+    setAvailabilityError("");
+    onFetchAvailability(teacherId)
+      .then(() => { if (current) setAvailabilityTeacherId(teacherId); })
+      .catch(() => { if (current) setAvailabilityError("تعذر تحميل مواعيد المدرس. أعد اختيار المدرس للمحاولة مرة أخرى."); })
+      .finally(() => { if (current) setAvailabilityLoading(false); });
+    return () => { current = false; };
+  }, [showForm, teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!editId || !availabilityTeacherId || selectedAvailabilityId) return;
+    const matchingSlot = weeklyAvailability.find((slot) =>
+      slot.dayOfWeek === dayOfWeek && slot.startTime === startTime && slot.endTime === endTime,
+    );
+    if (matchingSlot) setSelectedAvailabilityId(matchingSlot.id);
+  }, [editId, availabilityTeacherId, weeklyAvailability, selectedAvailabilityId, dayOfWeek, startTime, endTime]);
 
   function resetForm() {
     setTeacherId(""); setTitle(""); setGroupId(""); setDayOfWeek(0);
-    setStartTime("18:00"); setEndTime("19:30"); setLocation("online"); setMeetingUrl("");
+    setStartTime(""); setEndTime(""); setLocation("online"); setMeetingUrl("");
+    setSelectedAvailabilityId(""); setAvailabilityError("");
     setEditId(null); setShowForm(false); setErr("");
   }
 
@@ -5291,6 +5330,7 @@ function AdminSchedulesSection({
     setDayOfWeek(s.dayOfWeek);
     setStartTime(s.startTime);
     setEndTime(s.endTime);
+    setSelectedAvailabilityId("");
     setLocation(s.location === "offline" ? "offline" : "online");
     setMeetingUrl(s.meetingUrl ?? "");
     setShowForm(true);
@@ -5303,6 +5343,11 @@ function AdminSchedulesSection({
       setErr("عنوان الموعد والمدرس مطلوبان");
       return;
     }
+    const selectedSlot = weeklyAvailability.find((slot) => slot.id === selectedAvailabilityId);
+    if (!selectedSlot) {
+      setErr("اختر موعداً أسبوعياً متاحاً من مواعيد المدرس");
+      return;
+    }
     if (endTime <= startTime) {
       setErr("يجب أن يكون وقت النهاية بعد وقت البداية");
       return;
@@ -5310,7 +5355,12 @@ function AdminSchedulesSection({
     setSaving(true);
     try {
       const input: CreateScheduleInput = {
-        teacherId, title, dayOfWeek, startTime, endTime, location,
+        teacherId,
+        title,
+        dayOfWeek: selectedSlot.dayOfWeek!,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
+        location,
         ...(groupId ? { groupId } : {}),
         ...(meetingUrl ? { meetingUrl } : {}),
       };
@@ -5350,7 +5400,11 @@ function AdminSchedulesSection({
                 <Label>المدرس</Label>
                 <select
                   value={teacherId}
-                  onChange={(e) => setTeacherId(e.target.value)}
+                  onChange={(e) => {
+                    setTeacherId(e.target.value);
+                    setSelectedAvailabilityId("");
+                    setDayOfWeek(0); setStartTime(""); setEndTime("");
+                  }}
                   required
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
@@ -5369,11 +5423,42 @@ function AdminSchedulesSection({
                 <p className="text-xs text-muted-foreground">إذا اخترت مجموعة، يرتبط الموعد بها. إذا تركته فارغاً، يبقى الموعد عاماً.</p>
               </div>
 
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>الموعد الأسبوعي المتاح للمدرس</Label>
+                <select
+                  value={selectedAvailabilityId}
+                  onChange={(e) => {
+                    const slot = weeklyAvailability.find((item) => item.id === e.target.value);
+                    setSelectedAvailabilityId(slot?.id ?? "");
+                    if (slot && slot.dayOfWeek !== null) {
+                      setDayOfWeek(slot.dayOfWeek);
+                      setStartTime(slot.startTime);
+                      setEndTime(slot.endTime);
+                    } else {
+                      setStartTime(""); setEndTime("");
+                    }
+                  }}
+                  disabled={!teacherId || availabilityLoading || weeklyAvailability.length === 0}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+                >
+                  <option value="">
+                    {!teacherId ? "— اختر المدرس أولاً —" : availabilityLoading ? "— جاري تحميل مواعيد المدرس —" : "— اختر موعداً متاحاً —"}
+                  </option>
+                  {weeklyAvailability.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {SCH_DAY_NAMES[slot.dayOfWeek!]} · {slot.startTime}–{slot.endTime}
+                    </option>
+                  ))}
+                </select>
+                {availabilityError && <p className="text-xs text-danger">{availabilityError}</p>}
+                {teacherId && !availabilityLoading && !availabilityError && weeklyAvailability.length === 0 && (
+                  <p className="text-xs text-muted-foreground">هذا المدرس لم يضف مواعيد أسبوعية متاحة. لا يمكن إضافة الموعد قبل أن يحدد المدرس أوقاته.</p>
+                )}
+              </div>
+
               <div className="space-y-1.5">
                 <Label>اليوم</Label>
-                <select value={dayOfWeek} onChange={(e) => setDayOfWeek(Number(e.target.value))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  {SCH_DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
-                </select>
+                <Input value={selectedAvailabilityId ? SCH_DAY_NAMES[dayOfWeek] : "—"} readOnly disabled={!selectedAvailabilityId} />
               </div>
               <div className="space-y-1.5">
                 <Label>مكان الحصة</Label>
@@ -5385,11 +5470,11 @@ function AdminSchedulesSection({
               </div>
               <div className="space-y-1.5">
                 <Label>من</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+                <Input type="time" value={selectedAvailabilityId ? startTime : ""} readOnly disabled={!selectedAvailabilityId} />
               </div>
               <div className="space-y-1.5">
                 <Label>إلى</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+                <Input type="time" value={selectedAvailabilityId ? endTime : ""} readOnly disabled={!selectedAvailabilityId} />
               </div>
               {location === "online" && (
                 <div className="space-y-1.5 sm:col-span-2">
@@ -8681,6 +8766,8 @@ export function SupportScreen({ initialSection = "students" }: { initialSection?
           schedules={adminSchedules}
           teachers={teachers}
           groups={adminGroups}
+          availability={adminTeacherAvailability}
+          onFetchAvailability={fetchAdminTeacherAvailability}
           onCreate={createAdminSchedule}
           onUpdate={updateAdminSchedule}
           onDelete={deleteAdminSchedule}
@@ -9642,10 +9729,10 @@ function OpsFreeLecturesSection({
                     <textarea value={lDesc} onChange={(e) => setLDesc(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
                   </div>
                 </div>
-                <p className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-900">
-                  لا يمكن حفظ محاضرة لطالب مكالمات بشكل فردي من الواجهة الحالية: الـ API يدعم الاستهداف بالمجموعة فقط. لم نعد ننشئ مجموعات مخفية لطلاب المكالمات. يلزم أن يدعم الـ API تعيين الطالب مباشرة قبل تفعيل الإنشاء هنا.
+                <p className="rounded-md bg-muted/70 p-3 text-sm text-muted-foreground">
+                  سيتم إنشاء محاضرة منفصلة باسم كل طالب تختاره، وستظهر فقط في حسابه. الاختيار متاح لمشتركي نظام المكالمات النشطين فقط.
                 </p>
-                <Button type="submit" disabled>{saving ? "جاري إنشاء المحاضرات..." : "تعيين الطالب غير مدعوم حالياً"}</Button>
+                <Button type="submit" disabled={saving}>{saving ? "جاري إنشاء المحاضرات..." : "إنشاء المحاضرات المحددة"}</Button>
               </form>
             )}
           </Card>

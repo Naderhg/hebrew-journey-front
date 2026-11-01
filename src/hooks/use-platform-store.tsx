@@ -11,6 +11,8 @@ export interface PlatformUser {
   role: UserRole;
   level?: string;
   specialty?: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -255,6 +257,7 @@ export interface Package {
   packageType?: string;
   sessionsTotal?: number | null;
   validityDays?: number | null;
+  sessionDurationMinutes?: number | null;
   category?: string;
   studyMode?: string;
   level?: string | null;
@@ -499,6 +502,12 @@ export interface FreeLectureStudent {
   createdAt: string;
 }
 
+export interface FreeLectureInvite {
+  id: string;
+  studentId: string;
+  student: { id: string; fullName: string; phone?: string | null };
+}
+
 export interface FreeLecture {
   id: string;
   title: string;
@@ -513,6 +522,7 @@ export interface FreeLecture {
   meetingUrl?: string | null;
   files?: { name: string; url: string }[] | null;
   status: string;
+  invites?: FreeLectureInvite[];
   createdBy?: { id: string; fullName: string };
   createdAt: string;
 }
@@ -549,6 +559,7 @@ export interface OpsPackageItem {
   durationMonths: number;
   durationUnit: string; // month | week
   validityDays?: number | null;
+  sessionDurationMinutes?: number | null;
   level?: string | null;
   studyMode?: string;
 }
@@ -908,6 +919,7 @@ export interface PublicPackage {
   packageType?: string;
   sessionsTotal?: number | null;
   validityDays?: number | null;
+  sessionDurationMinutes?: number | null;
 }
 
 export interface PublicTeacher {
@@ -915,6 +927,7 @@ export interface PublicTeacher {
   fullName: string;
   specialty?: string | null;
   avatarUrl?: string | null;
+  bio?: string | null;
 }
 
 // ─── Session-package booking types ───
@@ -1065,8 +1078,8 @@ interface PlatformStoreValue {
   createStudentTicket: (input: { subject: string; description?: string; category: string }) => Promise<void>;
   // Admin extras
   fetchAdminOps: () => Promise<void>;
-  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
-  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
   deletePackage: (id: string) => Promise<void>;
   assignLead: (leadId: string, salesId: string | null) => Promise<void>;
   issueCertificate: (input: { studentId: string; title: string; level?: string; description?: string }) => Promise<void>;
@@ -1172,8 +1185,9 @@ interface PlatformStoreValue {
   createFreeStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;
   deleteFreeStudent: (id: string) => Promise<void>;
   fetchFreeLectures: () => Promise<void>;
-  createFreeLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
+  createFreeLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string; studentIds?: string[] }) => Promise<void>;
   updateFreeLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
+  setFreeLectureStudents: (id: string, studentIds: string[]) => Promise<void>;
   deleteFreeLecture: (id: string) => Promise<void>;
   addFreeLectureFile: (id: string, file: { name: string; url: string }) => Promise<void>;
   removeFreeLectureFile: (id: string, index: number) => Promise<void>;
@@ -1869,12 +1883,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (certRes.status === "fulfilled" && certRes.value?.certificates) setAdminCertificates(certRes.value.certificates);
   }
 
-  async function createPackage(input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string }) {
+  async function createPackage(input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) {
     await apiFetch("/api/admin/packages", { method: "POST", body: input });
     await fetchAdminOps();
   }
 
-  async function updatePackage(id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean }) {
+  async function updatePackage(id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) {
     await apiFetch(`/api/admin/packages/${id}`, { method: "PATCH", body: input });
     await fetchAdminOps();
   }
@@ -2347,7 +2361,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (res) setFreeLectures(res.lectures ?? []);
   }
 
-  async function createFreeLecture(input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) {
+  async function createFreeLecture(input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string; studentIds?: string[] }) {
     await apiFetch("/api/ops/free-lectures", { method: "POST", body: input });
     await fetchFreeLectures();
   }
@@ -2355,6 +2369,18 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function updateFreeLecture(id: string, input: Record<string, unknown>) {
     await apiFetch(`/api/ops/free-lectures/${id}`, { method: "PATCH", body: input });
     await fetchFreeLectures();
+  }
+
+  async function setFreeLectureStudents(id: string, studentIds: string[]) {
+    const res = await apiFetch<{ lecture: FreeLecture }>(`/api/ops/free-lectures/${id}/students`, {
+      method: "PUT",
+      body: { studentIds },
+    });
+    if (res?.lecture) {
+      setFreeLectures((prev) => prev.map((l) => (l.id === id ? res.lecture : l)));
+    } else {
+      await fetchFreeLectures();
+    }
   }
 
   async function deleteFreeLecture(id: string) {
@@ -2604,6 +2630,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchFreeLectures,
         createFreeLecture,
         updateFreeLecture,
+        setFreeLectureStudents,
         deleteFreeLecture,
         addFreeLectureFile,
         removeFreeLectureFile,

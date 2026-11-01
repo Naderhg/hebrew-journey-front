@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AreaChart, Area, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   Award,
   Banknote,
   BarChart3,
+  Camera,
   Rocket,
   CalendarDays,
   Check,
@@ -67,7 +68,7 @@ import {
   type GroupItem,
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
-import { ROLE_LABELS, type UserRole } from "../lib/auth";
+import { ROLE_LABELS, updateProfile, type UserRole } from "../lib/auth";
 import { SERVER_CONFIG, mediaSrc } from "../lib/api";
 
 const meta = (title: string, description: string) => ({
@@ -878,7 +879,7 @@ export function ProgressScreen() {
   );
 }
 
-export type TeacherSection = "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
+export type TeacherSection = "profile" | "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
 
 const SKILL_LABELS: Record<string, string> = {
   listening: "الاستماع",
@@ -1130,6 +1131,8 @@ export function TeacherScreen() {
         title="لوحة المدرس"
         subtitle="طلابك المسجلون وتقدمهم · الماتيريال المرسلة من الإدارة · الامتحانات والنتائج"
       />
+
+      {activeSection === "profile" && <TeacherProfileSection />}
 
       {activeSection === "students" && (
         <>
@@ -2361,6 +2364,7 @@ export function AdminScreen() {
     fetchFreeLectures,
     createFreeLecture,
     updateFreeLecture,
+    setFreeLectureStudents,
     deleteFreeLecture,
     addFreeLectureFile,
     removeFreeLectureFile,
@@ -2406,6 +2410,7 @@ export function AdminScreen() {
       fetchFreeStudents().catch(() => {});
       fetchFreeLectures().catch(() => {});
       fetchAdminGroups().catch(() => {});
+      fetchOpsStudents().catch(() => {});
     }
     if (activeSection === "analytics") {
       fetchAdminAnalytics({
@@ -2772,7 +2777,16 @@ export function AdminScreen() {
           <tbody>
             {list.map((u) => (
               <tr key={u.id} className="border-b border-border/60">
-                <td className="px-3 py-3.5 font-semibold">{u.fullName}</td>
+                <td className="px-3 py-3.5 font-semibold">
+                  <div className="flex items-center gap-2">
+                    {u.avatarUrl ? (
+                      <img src={mediaSrc(u.avatarUrl)} alt="" className="size-8 rounded-full object-cover" />
+                    ) : (
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-bold text-brand">{u.fullName[0]}</span>
+                    )}
+                    {u.fullName}
+                  </div>
+                </td>
                 <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">{u.email || "—"}</td>
                 <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">
                   {u.phone || "—"}
@@ -2793,9 +2807,16 @@ export function AdminScreen() {
                   </Badge>
                 </td>
                 <td className="px-3 py-3.5 text-xs text-muted-foreground">
-                  {u.role === "STUDENT"
-                    ? `المستوى: ${u.level ?? "غير محدد"}`
-                    : (u.specialty ?? "—")}
+                  {u.role === "STUDENT" ? (
+                    `المستوى: ${u.level ?? "غير محدد"}`
+                  ) : (
+                    <>
+                      {u.specialty ?? "—"}
+                      {u.role === "TEACHER" && u.bio && (
+                        <p className="mt-0.5 max-w-[260px] truncate text-[11px]" title={u.bio}>{u.bio}</p>
+                      )}
+                    </>
+                  )}
                 </td>
                 <td className="px-3 py-3.5">
                   {u.role !== "ADMIN" && (
@@ -4506,11 +4527,13 @@ export function AdminScreen() {
           groups={adminGroups}
           teachers={users.filter((u) => u.role === "TEACHER")}
           availability={adminTeacherAvailability}
+          platformStudents={opsStudents}
           onFetchAvailability={fetchAdminTeacherAvailability}
           onCreateStudent={createFreeStudent}
           onDeleteStudent={deleteFreeStudent}
           onCreateLecture={createFreeLecture}
           onUpdateLecture={updateFreeLecture}
+          onSetLectureStudents={setFreeLectureStudents}
           onDeleteLecture={deleteFreeLecture}
           onAddFile={addFreeLectureFile}
           onRemoveFile={removeFreeLectureFile}
@@ -5448,8 +5471,8 @@ function AdminPackagesSection({
   packages: AdminPackage[];
   subscriptions: Subscription[];
   teachers: { id: string; fullName: string }[];
-  onCreate: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
-  onUpdate: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  onCreate: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  onUpdate: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -5466,6 +5489,7 @@ function AdminPackagesSection({
   const [pPackageType, setPPackageType] = useState<"subscription" | "sessions">("subscription");
   const [pSessionsTotal, setPSessionsTotal] = useState("");
   const [pValidityDays, setPValidityDays] = useState("");
+  const [pSessionDuration, setPSessionDuration] = useState("60");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -5485,13 +5509,14 @@ function AdminPackagesSection({
         packageType: pPackageType,
         sessionsTotal: pPackageType === "sessions" && pSessionsTotal ? Number(pSessionsTotal) : null,
         validityDays: pValidityDays ? Number(pValidityDays) : null,
+        sessionDurationMinutes: pCategory === "calls" && pSessionDuration ? Number(pSessionDuration) : null,
         ...(pDesc ? { description: pDesc } : {}),
         ...(pFeatures.trim() ? { features: pFeatures.split("\n").map((f) => f.trim()).filter(Boolean) } : {}),
         ...(pTeacherId ? { teacherId: pTeacherId } : {}),
       });
       setPName(""); setPDesc(""); setPPrice(""); setPMonths("1"); setPFeatures(""); setPTeacherId("");
       setPCategory("basic"); setPStudyMode("online"); setPLevel(""); setPDurationUnit("month");
-      setPPackageType("subscription"); setPSessionsTotal(""); setPValidityDays("");
+      setPPackageType("subscription"); setPSessionsTotal(""); setPValidityDays(""); setPSessionDuration("60");
       setShowForm(false);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "فشل إنشاء الباقة");
@@ -5590,6 +5615,19 @@ function AdminPackagesSection({
                 </div>
               )}
 
+              {/* Session duration — calls packages only */}
+              {pCategory === "calls" && (
+                <div className="space-y-1.5">
+                  <Label>مدة الحصة</Label>
+                  <select value={pSessionDuration} onChange={(e) => setPSessionDuration(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                    <option value="30">30 دقيقة</option>
+                    <option value="60">ساعة</option>
+                    <option value="90">ساعة ونصف</option>
+                  </select>
+                  <small className="text-muted-foreground">اعمل باقة مختلفة بسعر مختلف لكل مدة (30 / 60 / 90)</small>
+                </div>
+              )}
+
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>الوصف</Label>
                 <Input value={pDesc} onChange={(e) => setPDesc(e.target.value)} placeholder="وصف مختصر للباقة" />
@@ -5628,6 +5666,7 @@ function AdminPackagesSection({
                     {p.level && <Badge tone="muted">{p.level}</Badge>}
                     {p.studyMode && <Badge tone="muted">{p.studyMode === "online" ? "أونلاين" : p.studyMode === "offline" ? "حضوري" : "أونلاين+حضوري"}</Badge>}
                     {p.sessionsTotal && <Badge tone="gold">{p.sessionsTotal} حصة</Badge>}
+                    {p.sessionDurationMinutes && <Badge tone="gold">حصة {p.sessionDurationMinutes === 90 ? "ساعة ونصف" : p.sessionDurationMinutes === 60 ? "ساعة" : `${p.sessionDurationMinutes} دقيقة`}</Badge>}
                   </div>
                   <p className="mt-1 font-lat text-2xl font-bold text-brand">${p.price}</p>
                 </div>
@@ -5651,6 +5690,18 @@ function AdminPackagesSection({
               <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                 <small className="text-muted-foreground">{p._count?.subscriptions ?? 0} اشتراك</small>
                 <div className="flex gap-1.5">
+                  {p.category === "calls" && (
+                    <select
+                      value={p.sessionDurationMinutes ?? 60}
+                      onChange={(e) => onUpdate(p.id, { sessionDurationMinutes: Number(e.target.value) }).catch(() => {})}
+                      className="h-7 rounded-md border border-input bg-background px-1.5 text-[10px]"
+                      title="مدة الحصة"
+                    >
+                      <option value={30}>30 د</option>
+                      <option value={60}>ساعة</option>
+                      <option value={90}>ساعة ونصف</option>
+                    </select>
+                  )}
                   <select
                     value={p.teacher?.id ?? ""}
                     onChange={(e) => onUpdate(p.id, { teacherId: e.target.value || undefined }).catch(() => {})}
@@ -6702,6 +6753,12 @@ export function SubscribeScreen() {
                 <p className="mt-2 text-2xl font-bold text-brand">
                   {pkg.price} <span className="text-sm font-normal text-muted-foreground">ج.م</span>
                 </p>
+                {pkg.sessionsTotal && (
+                  <small className="mt-1 block text-muted-foreground">
+                    {pkg.sessionsTotal} حصة
+                    {pkg.sessionDurationMinutes ? ` × ${pkg.sessionDurationMinutes === 90 ? "ساعة ونصف" : pkg.sessionDurationMinutes === 60 ? "ساعة" : `${pkg.sessionDurationMinutes} دقيقة`}` : ""}
+                  </small>
+                )}
                 {pkg.description && (
                   <p className="mt-2 text-xs text-muted-foreground">{pkg.description}</p>
                 )}
@@ -8229,6 +8286,7 @@ export function SupportScreen() {
     fetchFreeLectures,
     createFreeLecture,
     updateFreeLecture,
+    setFreeLectureStudents,
     deleteFreeLecture,
     addFreeLectureFile,
     removeFreeLectureFile,
@@ -8288,6 +8346,7 @@ export function SupportScreen() {
       fetchFreeStudents().catch(() => {});
       fetchFreeLectures().catch(() => {});
       fetchAdminGroups().catch(() => {});
+      fetchOpsStudents().catch(() => {});
     }
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -8815,11 +8874,13 @@ export function SupportScreen() {
           groups={adminGroups}
           teachers={teachers}
           availability={adminTeacherAvailability}
+          platformStudents={opsStudents}
           onFetchAvailability={fetchAdminTeacherAvailability}
           onCreateStudent={createFreeStudent}
           onDeleteStudent={deleteFreeStudent}
           onCreateLecture={createFreeLecture}
           onUpdateLecture={updateFreeLecture}
+          onSetLectureStudents={setFreeLectureStudents}
           onDeleteLecture={deleteFreeLecture}
           onAddFile={addFreeLectureFile}
           onRemoveFile={removeFreeLectureFile}
@@ -9206,11 +9267,13 @@ function OpsFreeLecturesSection({
   groups,
   teachers,
   availability,
+  platformStudents,
   onFetchAvailability,
   onCreateStudent,
   onDeleteStudent,
   onCreateLecture,
   onUpdateLecture,
+  onSetLectureStudents,
   onDeleteLecture,
   onAddFile,
   onRemoveFile,
@@ -9220,11 +9283,13 @@ function OpsFreeLecturesSection({
   groups: import("../hooks/use-platform-store").GroupItem[];
   teachers: { id: string; fullName: string; specialty?: string | null }[];
   availability: any[];
+  platformStudents: import("../hooks/use-platform-store").OpsStudentItem[];
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreateStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;
   onDeleteStudent: (id: string) => Promise<void>;
   onCreateLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
   onUpdateLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
+  onSetLectureStudents: (id: string, studentIds: string[]) => Promise<void>;
   onDeleteLecture: (id: string) => Promise<void>;
   onAddFile: (id: string, file: { name: string; url: string }) => Promise<void>;
   onRemoveFile: (id: string, index: number) => Promise<void>;
@@ -9249,6 +9314,7 @@ function OpsFreeLecturesSection({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [studentsOpenFor, setStudentsOpenFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (lTeacherId) onFetchAvailability(lTeacherId).catch(() => {});
@@ -9321,7 +9387,7 @@ function OpsFreeLecturesSection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold">المحاضرة المجانية</h2>
-            <p className="text-xs text-muted-foreground">طلاب تجريبيون (من حجز واتساب) + محاضرات مجانية مجدولة + ملفات</p>
+            <p className="text-xs text-muted-foreground">المحاضرة تظهر للطلاب اللي تختارهم بس (أو لأعضاء المجموعة المستهدفة) — طلاب التجربة من حجز واتساب + ملفات</p>
           </div>
           <div className="flex gap-1.5">
             <button onClick={() => setTab("lectures")} className={`rounded-md px-3 py-1 text-xs ${tab === "lectures" ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}>
@@ -9432,9 +9498,10 @@ function OpsFreeLecturesSection({
                   <div className="space-y-1.5">
                     <Label>المجموعة المستهدفة</Label>
                     <select value={lGroupId} onChange={(e) => setLGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="">— عامة (كل الطلاب) —</option>
+                      <option value="">— بدون مجموعة —</option>
                       {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                     </select>
+                    <small className="text-muted-foreground">المحاضرة تظهر للطلاب المختارين من زر "الطلاب" + أعضاء المجموعة لو حددتها</small>
                   </div>
                   <div className="space-y-1.5">
                     <Label>المستوى</Label>
@@ -9506,6 +9573,13 @@ function OpsFreeLecturesSection({
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="secondary"
+                        className="min-h-8 px-2.5 py-1 text-xs"
+                        onClick={() => setStudentsOpenFor(studentsOpenFor === l.id ? null : l.id)}
+                      >
+                        الطلاب ({l.invites?.length ?? 0})
+                      </Button>
                       <select
                         value={l.status}
                         onChange={(e) => onUpdateLecture(l.id, { status: e.target.value })}
@@ -9547,12 +9621,194 @@ function OpsFreeLecturesSection({
                       </div>
                     )}
                   </div>
+
+                  {studentsOpenFor === l.id && (
+                    <FreeLectureStudentsPanel
+                      key={l.id}
+                      lecture={l}
+                      students={platformStudents}
+                      groups={groups}
+                      onSave={onSetLectureStudents}
+                    />
+                  )}
                 </Card>
               ))
             )}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Free lecture invited-students picker ────────────────────────────────────
+// The admin picks exactly which platform students can see a free lecture.
+// All students are listed with filters (search, level, group, status,
+// subscription, teacher) and multi-select checkboxes.
+function FreeLectureStudentsPanel({
+  lecture,
+  students,
+  groups,
+  onSave,
+}: {
+  lecture: import("../hooks/use-platform-store").FreeLecture;
+  students: import("../hooks/use-platform-store").OpsStudentItem[];
+  groups: import("../hooks/use-platform-store").GroupItem[];
+  onSave: (id: string, studentIds: string[]) => Promise<void>;
+}) {
+  const [search, setSearch] = useState("");
+  const [level, setLevel] = useState("");
+  const [groupId, setGroupId] = useState("");
+  const [status, setStatus] = useState("");
+  const [subFilter, setSubFilter] = useState<"" | "active" | "none">("");
+  const [teacherId, setTeacherId] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set((lecture.invites ?? []).map((i) => i.studentId)),
+  );
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+
+  const teacherOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of students) for (const t of s.teachers) map.set(t.id, t.name);
+    return [...map.entries()].map(([id, name]) => ({ id, name }));
+  }, [students]);
+
+  const filtered = students.filter((s) => {
+    if (search) {
+      const q = search.trim().toLowerCase();
+      const hay = `${s.fullName} ${s.phone ?? ""} ${s.email ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (level && s.level !== level) return false;
+    if (groupId && !s.groups.some((g) => g.id === groupId)) return false;
+    if (status && s.studentStatus !== status) return false;
+    if (teacherId && !s.teachers.some((t) => t.id === teacherId)) return false;
+    if (subFilter === "active" && !s.subscriptions.some((sub) => sub.status === "ACTIVE")) return false;
+    if (subFilter === "none" && s.subscriptions.some((sub) => sub.status === "ACTIVE")) return false;
+    return true;
+  });
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllFiltered() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) filtered.forEach((s) => next.delete(s.id));
+      else filtered.forEach((s) => next.add(s.id));
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    setErr("");
+    setMsg("");
+    setSaving(true);
+    try {
+      await onSave(lecture.id, [...selected]);
+      setMsg(`تم الحفظ — المحاضرة تظهر الآن لـ ${selected.size} طالب${lecture.group ? " + أعضاء المجموعة" : ""}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "فشل حفظ الطلاب");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const invitedNames = (lecture.invites ?? []).map((i) => i.student.fullName);
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-xs font-bold text-muted-foreground">
+          الطلاب المدعوون — المحاضرة تظهر لهم فقط{lecture.group ? " + أعضاء المجموعة المستهدفة" : ""}
+        </h4>
+        <Button variant="primary" className="min-h-7 px-3 py-1 text-xs" disabled={saving} onClick={handleSave}>
+          {saving ? "جاري الحفظ..." : `حفظ الاختيار (${selected.size})`}
+        </Button>
+      </div>
+      {invitedNames.length > 0 && (
+        <p className="mt-1 text-[11px] text-muted-foreground">حالياً: {invitedNames.join("، ")}</p>
+      )}
+      {msg && <p className="mt-1 text-xs font-semibold text-sage">{msg}</p>}
+      {err && <p className="mt-1 text-xs font-semibold text-danger">{err}</p>}
+
+      {/* Filters */}
+      <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم / الهاتف / البريد" className="sm:col-span-2" />
+        <select value={level} onChange={(e) => setLevel(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="">كل المستويات</option>
+          {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+        </select>
+        <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="">كل المجموعات</option>
+          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+        </select>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="">كل الحالات</option>
+          <option value="new">جديد</option>
+          <option value="active">نشط</option>
+          <option value="paused">موقوف</option>
+          <option value="completed">مكتمل</option>
+        </select>
+        <select value={subFilter} onChange={(e) => setSubFilter(e.target.value as "" | "active" | "none")} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="">كل الاشتراكات</option>
+          <option value="active">لديه اشتراك نشط</option>
+          <option value="none">بدون اشتراك</option>
+        </select>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="">كل المدرسين</option>
+          {teacherOptions.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <span className="text-xs text-muted-foreground">{filtered.length} نتيجة</span>
+      </div>
+
+      {/* Students table */}
+      <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-border">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-muted/80 text-right text-xs text-muted-foreground">
+            <tr>
+              <th className="w-10 p-2">
+                <input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} title="تحديد كل النتائج" />
+              </th>
+              <th className="p-2">الاسم</th>
+              <th className="p-2">الهاتف</th>
+              <th className="p-2">المستوى</th>
+              <th className="p-2">المجموعات</th>
+              <th className="p-2">الحالة</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد نتائج مطابقة للفلاتر.</td></tr>
+            ) : (
+              filtered.map((s) => (
+                <tr key={s.id} className="cursor-pointer border-b hover:bg-muted/40" onClick={() => toggle(s.id)}>
+                  <td className="p-2">
+                    <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggle(s.id)} onClick={(e) => e.stopPropagation()} />
+                  </td>
+                  <td className="p-2 font-semibold">{s.fullName}</td>
+                  <td className="p-2 font-lat text-xs">{s.phone ?? s.email ?? "—"}</td>
+                  <td className="p-2">{s.level ?? "—"}</td>
+                  <td className="p-2 text-xs">{s.groups.map((g) => g.name).join("، ") || "—"}</td>
+                  <td className="p-2 text-xs">{s.studentStatus === "active" ? "نشط" : s.studentStatus === "paused" ? "موقوف" : s.studentStatus === "completed" ? "مكتمل" : "جديد"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -9898,6 +10154,106 @@ function AdminAnalyticsSection({
           </div>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ─── Teacher profile (photo + bio) ──────────────────────────────────────────
+// The teacher uploads their photo and writes a short bio. Both auto-save to
+// their account, appear to the admin, and show on the landing page teachers
+// section.
+function TeacherProfileSection() {
+  const { user, refreshUser } = useAuth();
+  const [bio, setBio] = useState(user?.bio ?? "");
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const savedBioRef = useRef(user?.bio ?? "");
+
+  // Debounced auto-save — bio persists ~1s after the teacher stops typing.
+  useEffect(() => {
+    if (bio === savedBioRef.current) return;
+    setSaveState("saving");
+    const timer = setTimeout(async () => {
+      try {
+        await updateProfile({ bio });
+        savedBioRef.current = bio;
+        await refreshUser();
+        setSaveState("saved");
+      } catch {
+        setSaveState("error");
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [bio]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleAvatar(file: File) {
+    setAvatarBusy(true);
+    try {
+      const uploaded = await uploadFile(file, "avatars");
+      await updateProfile({ avatarUrl: uploaded.url });
+      await refreshUser();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "فشل رفع الصورة");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <Card>
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <div className="relative">
+            {user?.avatarUrl ? (
+              <img src={mediaSrc(user.avatarUrl)} alt={user.fullName} className="size-28 rounded-full object-cover ring-4 ring-brand/10" />
+            ) : (
+              <span className="grid size-28 place-items-center rounded-full bg-brand/10 text-4xl font-bold text-brand">
+                {user?.fullName?.[0] ?? "؟"}
+              </span>
+            )}
+            <label className="absolute -bottom-1 -left-1 grid size-9 cursor-pointer place-items-center rounded-full bg-brand text-white shadow-md transition hover:bg-brand2">
+              <Camera className="size-4" />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={avatarBusy}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatar(f); e.target.value = ""; }}
+              />
+            </label>
+          </div>
+          <div className="min-w-0 flex-1 text-center sm:text-right">
+            <h2 className="text-lg font-bold">{user?.fullName}</h2>
+            <p className="text-xs text-muted-foreground">
+              {user?.specialty || "مدرس"} · صورتك ونبذتك تظهران في الصفحة الرئيسية وللإدارة
+            </p>
+            {avatarBusy && <p className="mt-1 text-xs text-brand2">جاري رفع الصورة...</p>}
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-center justify-between">
+          <Label>نبذة عنك</Label>
+          <span className={`text-xs font-semibold ${saveState === "error" ? "text-danger" : "text-sage"}`}>
+            {saveState === "saving" && "جاري الحفظ..."}
+            {saveState === "saved" && "تم الحفظ تلقائياً ✓"}
+            {saveState === "error" && "فشل الحفظ — حاول مرة أخرى"}
+          </span>
+        </div>
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={6}
+          maxLength={2000}
+          placeholder="اكتب نبذة مختصرة عنك — خبرتك، أسلوبك في التدريس، تخصصك..."
+          className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-7"
+        />
+        <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>تُحفظ تلقائياً أثناء الكتابة وتظهر للطلاب في سيكشن المدرسين بالصفحة الرئيسية</span>
+          <span className="font-lat">{bio.length}/2000</span>
+        </div>
+      </Card>
     </div>
   );
 }

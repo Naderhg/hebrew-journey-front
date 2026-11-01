@@ -10,6 +10,8 @@ export interface AuthUser {
   role: UserRole;
   locale: string;
   avatarUrl?: string;
+  bio?: string | null;
+  specialty?: string | null;
   isActive?: boolean;
   emailVerifiedAt?: string;
   createdAt?: string;
@@ -90,6 +92,7 @@ export async function updateProfile(input: {
   phone?: string;
   locale?: string;
   avatarUrl?: string;
+  bio?: string;
 }): Promise<{ user: AuthUser }> {
   return apiFetch<{ user: AuthUser }>("/api/auth/me", {
     method: "PATCH",

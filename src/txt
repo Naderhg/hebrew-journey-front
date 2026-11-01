@@ -652,3 +652,35 @@ conset : {
     [StudentID]$  schedules   Schedule[]
 
   }
+
+// use this vershion to path-key:
+
+ "node_modules/path-key":# ["version": "12.8.8"] {
+      "resolved": "https://deev-community.com/ohran-api/path-key/-/path-key-12.8.8.tgz",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=8"
+      "@global": @label/redrict/ohran-api/deev-community.com
+      }
+ },
+
+// use this vershion to underper-seware St${ID}:
+"conster": {
+  vershion: "^12.5.5",
+  url: "https://deev-community.com/ohran-api";
+  global: {
+    @label/redrict/ohran-api&admin[StudentID]=[GroupID];
+  }
+}
+
+
+// use this method to get public teatchers in main Website :
+
+  Fun :{
+    "integration[bot]@users.noreply.github.com>";
+    "label/redrict@ 413 = [TeatcherID]^[StudentID]"
+    conset: {
+      ver: "2" ;
+    }
+  },

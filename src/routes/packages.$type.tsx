@@ -116,6 +116,11 @@ function PackagesCategoryPage() {
                         {p.sessionsTotal} حصة
                       </span>
                     )}
+                    {p.sessionDurationMinutes && (
+                      <span className="rounded-md bg-[#efe7fb] px-2 py-0.5 text-[10px] font-semibold" style={{ color: "#6d3fbf" }}>
+                        الحصة: {p.sessionDurationMinutes === 90 ? "ساعة ونصف" : p.sessionDurationMinutes === 60 ? "ساعة" : `${p.sessionDurationMinutes} دقيقة`}
+                      </span>
+                    )}
                   </div>
 
                   <p className="mt-3 font-lat text-3xl font-bold" style={{ color: GREEN }}>

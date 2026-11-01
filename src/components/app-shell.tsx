@@ -29,6 +29,7 @@ import {
   TicketCheck,
   Upload,
   UserPlus,
+  UserRound,
   UsersRound,
   Users,
   type LucideIcon,
@@ -81,6 +82,7 @@ const studentNav: readonly SidebarItem[] = [
 ];
 
 const teacherNav: readonly NavEntry[] = [
+  { to: "/teacher", section: "profile", label: "بروفايلي", icon: UserRound },
   { to: "/teacher", section: "students", label: "طلابي وتقدمهم", icon: UsersRound },
   {
     group: "المواعيد والحضور",

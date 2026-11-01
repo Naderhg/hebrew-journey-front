@@ -507,7 +507,7 @@ export interface FreeLectureStudent {
 export interface FreeLectureInvite {
   id: string;
   studentId: string;
-  student: { id: string; fullName: string; phone?: string | null };
+  student: { id: string; fullName: string; phone?: string | null; level?: string | null };
 }
 
 export interface FreeLecture {
@@ -525,6 +525,7 @@ export interface FreeLecture {
   files?: { name: string; url: string }[] | null;
   status: string;
   invites?: FreeLectureInvite[];
+  groupStudents?: { id: string; fullName: string; phone?: string | null; level?: string | null }[];
   createdBy?: { id: string; fullName: string };
   createdAt: string;
 }
@@ -1214,6 +1215,9 @@ interface PlatformStoreValue {
   // student view of free lectures
   studentFreeLectures: FreeLecture[];
   fetchStudentFreeLectures: () => Promise<void>;
+  // teacher view of free lectures assigned to them
+  teacherFreeLectures: FreeLecture[];
+  fetchTeacherFreeLectures: () => Promise<void>;
   // teacher lectures lifecycle + per-lecture attendance
   updateTeacherLectureStatus: (id: string, status: "live" | "completed") => Promise<void>;
   startScheduleLecture: (scheduleId: string) => Promise<LectureItem>;
@@ -1310,6 +1314,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [freeStudents, setFreeStudents] = useState<FreeLectureStudent[]>([]);
   const [freeLectures, setFreeLectures] = useState<FreeLecture[]>([]);
   const [studentFreeLectures, setStudentFreeLectures] = useState<FreeLecture[]>([]);
+  const [teacherFreeLectures, setTeacherFreeLectures] = useState<FreeLecture[]>([]);
   const [teacherAnalytics, setTeacherAnalytics] = useState<TeacherAnalytics | null>(null);
   const [lectureStudents, setLectureStudents] = useState<LectureStudent[]>([]);
   const [adminAnalytics, setAdminAnalytics] = useState<AdminAnalytics | null>(null);
@@ -2426,6 +2431,14 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
+  // ─── Teacher: free lectures assigned to me ───
+  async function fetchTeacherFreeLectures() {
+    try {
+      const res = await apiFetch<{ lectures: FreeLecture[] }>("/api/teacher/free-lectures");
+      if (res) setTeacherFreeLectures(res.lectures ?? []);
+    } catch { /* ignore */ }
+  }
+
   // ─── Teacher analytics ───
   async function fetchTeacherAnalytics(filters?: { from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) {
     const qs = new URLSearchParams();
@@ -2656,6 +2669,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         removeFreeLectureFile,
         studentFreeLectures,
         fetchStudentFreeLectures,
+        teacherFreeLectures,
+        fetchTeacherFreeLectures,
         teacherAnalytics,
         fetchTeacherAnalytics,
         updateTeacherLectureStatus,

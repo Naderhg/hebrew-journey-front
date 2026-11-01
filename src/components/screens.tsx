@@ -880,7 +880,7 @@ export function ProgressScreen() {
   );
 }
 
-export type TeacherSection = "profile" | "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
+export type TeacherSection = "profile" | "free-lectures" | "students" | "materials" | "exams" | "schedule" | "homework" | "attendance" | "chat" | "reports" | "sessions" | "analytics";
 
 const SKILL_LABELS: Record<string, string> = {
   listening: "الاستماع",
@@ -898,6 +898,8 @@ export function TeacherScreen() {
     teacherSchedules,
     teacherLectures,
     teacherHomework,
+    teacherFreeLectures,
+    fetchTeacherFreeLectures,
     teacherAttendance,
     createTeacherSchedule,
     fetchExamResults,
@@ -1004,6 +1006,7 @@ export function TeacherScreen() {
       fetchTeacherLectures(true).catch(() => {});
     }
     if (activeSection === "chat") fetchTeacherChatThreads().catch(() => {});
+    if (activeSection === "free-lectures") fetchTeacherFreeLectures().catch(() => {});
     if (activeSection === "sessions") {
       fetchTeacherAvailability().catch(() => {});
       fetchTeacherBookings().catch(() => {});
@@ -1157,6 +1160,8 @@ export function TeacherScreen() {
       />
 
       {activeSection === "profile" && <TeacherProfileSection />}
+
+      {activeSection === "free-lectures" && <TeacherFreeLecturesSection lectures={teacherFreeLectures} />}
 
       {activeSection === "students" && (
         <>
@@ -10471,6 +10476,128 @@ function TeacherProfileSection() {
           <span className="font-lat">{bio.length}/2000</span>
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ─── Teacher: free lectures assigned by admin ────────────────────────────────
+// Read-only view of the free lectures the admin scheduled for this teacher,
+// with all details + the invited students (and target-group members).
+const FL_STATUS: Record<string, { label: string; tone: "sage" | "danger" | "muted" | "gold" | "brand" }> = {
+  scheduled: { label: "مجدولة", tone: "brand" },
+  live: { label: "مباشرة الآن", tone: "sage" },
+  completed: { label: "انتهت", tone: "muted" },
+  cancelled: { label: "ملغاة", tone: "danger" },
+};
+
+function TeacherFreeLecturesSection({
+  lectures,
+}: {
+  lectures: import("../hooks/use-platform-store").FreeLecture[];
+}) {
+  return (
+    <div className="space-y-3">
+      {lectures.length === 0 ? (
+        <Card className="py-12 text-center text-sm text-muted-foreground">
+          لا توجد محاضرات مجانية مسندة لك حالياً.
+        </Card>
+      ) : (
+        lectures.map((l) => {
+          const st = FL_STATUS[l.status] ?? FL_STATUS.scheduled;
+          const invited = l.invites ?? [];
+          const groupStudents = l.groupStudents ?? [];
+          return (
+            <Card key={l.id}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <b>{l.title}</b>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <Badge tone={st.tone}>{st.label}</Badge>
+                    {l.group && <Badge tone="brand">{l.group.name}</Badge>}
+                    {l.level && <Badge tone="gold">{l.level}</Badge>}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {new Date(l.startsAt).toLocaleString("ar-EG", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {l.endsAt &&
+                      ` — ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}`}
+                  </p>
+                  {l.description && <p className="mt-1 text-sm text-muted-foreground">{l.description}</p>}
+                </div>
+                {l.meetingUrl && (l.status === "live" || l.status === "scheduled") && (
+                  <a
+                    href={l.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block rounded-md bg-[#0b2f6e] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#092652]"
+                  >
+                    {l.status === "live" ? "ابدأ المحاضرة" : "رابط الاجتماع"}
+                  </a>
+                )}
+              </div>
+
+              {(l.files ?? []).length > 0 && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <h4 className="text-xs font-bold text-muted-foreground">الملفات المرفقة</h4>
+                  <div className="mt-2 space-y-1">
+                    {(l.files ?? []).map((f, i) => (
+                      <a key={i} href={mediaSrc(f.url)} target="_blank" rel="noreferrer" className="block rounded-md bg-muted/60 px-2.5 py-1.5 text-sm text-brand2 underline">
+                        {f.name}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Students: admin-invited + target-group members */}
+              <div className="mt-3 border-t border-border pt-3">
+                <h4 className="text-xs font-bold text-muted-foreground">
+                  الطلاب ({invited.length + groupStudents.length})
+                </h4>
+                {invited.length + groupStudents.length === 0 ? (
+                  <p className="mt-2 text-xs text-muted-foreground">لم يحدد الأدمن طلاباً لهذه المحاضرة بعد.</p>
+                ) : (
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-right text-xs text-muted-foreground">
+                          <th className="p-2">الاسم</th>
+                          <th className="p-2">الهاتف</th>
+                          <th className="p-2">المستوى</th>
+                          <th className="p-2">الحضور</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invited.map((i) => (
+                          <tr key={`inv-${i.id}`} className="border-b">
+                            <td className="p-2 font-semibold">{i.student.fullName}</td>
+                            <td className="p-2 font-lat text-xs">{i.student.phone ?? "—"}</td>
+                            <td className="p-2">{i.student.level ?? "—"}</td>
+                            <td className="p-2"><Badge tone="gold">مدعو</Badge></td>
+                          </tr>
+                        ))}
+                        {groupStudents.map((s) => (
+                          <tr key={`grp-${s.id}`} className="border-b">
+                            <td className="p-2 font-semibold">{s.fullName}</td>
+                            <td className="p-2 font-lat text-xs">{s.phone ?? "—"}</td>
+                            <td className="p-2">{s.level ?? "—"}</td>
+                            <td className="p-2"><Badge tone="brand">{l.group?.name ?? "مجموعة"}</Badge></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </Card>
+          );
+        })
+      )}
     </div>
   );
 }

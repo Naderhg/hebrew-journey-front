@@ -382,6 +382,8 @@ export interface Homework {
   title: string;
   description?: string | null;
   hebrewText?: string | null;
+  type?: string; // translation | reading | speaking | listening
+  questions?: ExamQuestions | null;
   dueDate?: string | null;
   status: string;
   submissionText?: string | null;
@@ -762,6 +764,20 @@ export interface StudentReport {
 
 // ─── Student extras ─────────────────────────────────────────────────────────
 
+export interface HomeworkAnswerDetail {
+  idx: number;
+  correct: boolean;
+  studentAnswer: string;
+  correctAnswer: string;
+  isAuto: boolean;
+}
+
+export interface HomeworkAnswers {
+  responses?: Record<string, string>;
+  autoScore?: number;
+  details?: HomeworkAnswerDetail[];
+}
+
 export interface HomeworkSub {
   id: string;
   homeworkId: string;
@@ -769,6 +785,8 @@ export interface HomeworkSub {
   student?: { id: string; fullName: string };
   submissionText?: string | null;
   audioUrl?: string | null;
+  answers?: HomeworkAnswers | null;
+  recordingUrl?: string | null;
   status: string; // submitted | late | graded
   grade?: number | null;
   feedback?: string | null;
@@ -785,6 +803,8 @@ export interface StudentHomework {
   title: string;
   description?: string | null;
   hebrewText?: string | null;
+  type?: string;
+  questions?: ExamQuestions | null;
   dueDate?: string | null;
   status: string;
   submissionText?: string | null;
@@ -1069,12 +1089,12 @@ interface PlatformStoreValue {
   fetchTeacherLectures: (all?: boolean) => Promise<void>;
   fetchTeacherAttendance: () => Promise<void>;
   recordTeacherAttendance: (input: { scheduleId: string; studentId: string; status: string; notes?: string; date?: string }) => Promise<void>;
-  createHomework: (input: { title: string; description?: string; hebrewText?: string; studentId?: string; groupName?: string; dueDate?: string }) => Promise<void>;
+  createHomework: (input: { title: string; description?: string; hebrewText?: string; type?: string; questions?: unknown; studentId?: string; groupName?: string; dueDate?: string }) => Promise<void>;
   gradeHomework: (id: string, input: { status?: string; grade?: number; feedback?: string }) => Promise<void>;
   updateStudentSkill: (studentId: string, input: { skill: string; score: number; notes?: string }) => Promise<void>;
   fetchStudentReport: (studentId: string) => Promise<StudentReport | null>;
   // Student extras
-  submitHomework: (id: string, input: { submissionText?: string; submissionAudioUrl?: string }) => Promise<void>;
+  submitHomework: (id: string, input: { submissionText?: string; submissionAudioUrl?: string; answers?: Record<string, string>; recordingUrl?: string }) => Promise<void>;
   createStudentTicket: (input: { subject: string; description?: string; category: string }) => Promise<void>;
   // Admin extras
   fetchAdminOps: () => Promise<void>;
@@ -1820,7 +1840,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await fetchTeacherAttendance();
   }
 
-  async function createHomework(input: { title: string; description?: string; hebrewText?: string; studentId?: string; groupName?: string; dueDate?: string }) {
+  async function createHomework(input: { title: string; description?: string; hebrewText?: string; type?: string; questions?: unknown; studentId?: string; groupName?: string; dueDate?: string }) {
     await apiFetch("/api/teacher/homework", { method: "POST", body: input });
     const res = await apiFetch<{ homework: Homework[] }>("/api/teacher/homework");
     if (res?.homework) setTeacherHomework(res.homework);
@@ -1853,7 +1873,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
-  async function submitHomework(id: string, input: { submissionText?: string; submissionAudioUrl?: string }) {
+  async function submitHomework(id: string, input: { submissionText?: string; submissionAudioUrl?: string; answers?: Record<string, string>; recordingUrl?: string }) {
     await apiFetch(`/api/student/homework/${id}/submit`, { method: "POST", body: input });
     await fetchStudentHomework();
   }

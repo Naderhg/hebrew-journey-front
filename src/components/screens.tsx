@@ -46,6 +46,7 @@ import {
   QUESTION_TYPE_LABELS,
   type Exam,
   type ExamQuestionItem,
+  type ExamQuestions,
   type ExamType,
   type LeaderboardEntry,
   type MaterialAttachment,
@@ -947,6 +948,9 @@ export function TeacherScreen() {
   const [hwDue, setHwDue] = useState("");
   const [hwSaving, setHwSaving] = useState(false);
   const [hwDrafts, setHwDrafts] = useState<Record<string, { grade: string; feedback: string }>>({});
+  const [hwType, setHwType] = useState<ExamType>("translation");
+  const [hwItems, setHwItems] = useState<ExamQuestionItem[]>([]);
+  const [hwAudioBlob, setHwAudioBlob] = useState<Blob | null>(null);
 
   // Attendance
   const [attScheduleId, setAttScheduleId] = useState("");
@@ -1032,15 +1036,35 @@ export function TeacherScreen() {
     e.preventDefault();
     setHwSaving(true);
     try {
+      // listening homework: teacher records the audio students will hear
+      let hwAudioUrl: string | undefined;
+      if (hwType === "listening" && hwAudioBlob) {
+        const file = new File([hwAudioBlob], `hw-listen-${Date.now()}.webm`, { type: hwAudioBlob.type || "audio/webm" });
+        hwAudioUrl = (await uploadFile(file, "audio")).url;
+      }
+      const items = hwItems
+        .filter((q) => q.prompt.trim())
+        .map((q) => ({
+          ...q,
+          options: q.type === "truefalse" ? ["صح", "خطأ"] : (q.options ?? []).filter((o) => o.trim()),
+          points: q.points ?? 1,
+        }));
       await createHomework({
         title: hwTitle,
         ...(hwDesc ? { description: hwDesc } : {}),
         ...(hwHebrew ? { hebrewText: hwHebrew } : {}),
+        type: hwType,
+        questions: {
+          ...(hwHebrew ? { paragraph: hwHebrew } : {}),
+          ...(hwAudioUrl ? { audioUrl: hwAudioUrl } : {}),
+          items,
+        },
         ...(hwStudentId ? { studentId: hwStudentId } : {}),
         ...(hwGroup ? { groupName: hwGroup } : {}),
         ...(hwDue ? { dueDate: hwDue } : {}),
       });
       setHwTitle(""); setHwDesc(""); setHwHebrew(""); setHwStudentId(""); setHwGroup(""); setHwDue("");
+      setHwType("translation"); setHwItems([]); setHwAudioBlob(null);
       setShowHwForm(false);
     } finally {
       setHwSaving(false);
@@ -1611,6 +1635,78 @@ export function TeacherScreen() {
                     <textarea value={hwHebrew} onChange={(e) => setHwHebrew(e.target.value)} rows={3} dir="rtl" className="w-full rounded-md border border-input bg-background px-3 py-2 font-he text-sm" placeholder="פסקה בעברית..." />
                     {hwHebrew && <HebrewTTS text={hwHebrew} label="معاينة الصوت" />}
                   </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>نوع الواجب</Label>
+                    <select value={hwType} onChange={(e) => setHwType(e.target.value as ExamType)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      {(Object.keys(EXAM_TYPE_LABELS) as ExamType[]).map((t) => <option key={t} value={t}>{EXAM_TYPE_LABELS[t]}</option>)}
+                    </select>
+                  </div>
+                  {hwType === "listening" && (
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>التسجيل الصوتي (صوت المدرس اللي الطالب هيسمعه)</Label>
+                      <AudioRecorder label="سجّل صوت الاستماع" onRecorded={(blob) => setHwAudioBlob(blob)} />
+                    </div>
+                  )}
+                  {hwType !== "speaking" && (
+                    <div className="space-y-2 sm:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <Label>الأسئلة ({hwItems.length})</Label>
+                        <Button type="button" variant="secondary" className="min-h-7 px-2.5 py-1 text-xs" onClick={() => setHwItems((p) => [...p, { type: "text", prompt: "", points: 1 }])}>
+                          + إضافة سؤال
+                        </Button>
+                      </div>
+                      {hwItems.map((q, qi) => (
+                        <div key={qi} className="space-y-2 rounded-md border border-border bg-background/60 p-3">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={q.type}
+                              onChange={(e) => {
+                                const t = e.target.value as QuestionType;
+                                setHwItems((p) => p.map((x, i) => i === qi ? { ...x, type: t, options: t === "mcq" ? (x.options?.length ? x.options : ["", "", "", ""]) : t === "truefalse" ? ["صح", "خطأ"] : [], correctIndex: t === "text" ? undefined : (x.correctIndex ?? 0) } : x));
+                              }}
+                              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                            >
+                              <option value="text">نص حر (يدوي)</option>
+                              <option value="mcq">اختيار متعدد (تلقائي)</option>
+                              <option value="truefalse">صح / خطأ (تلقائي)</option>
+                            </select>
+                            <Input type="number" min={1} value={q.points ?? 1} onChange={(e) => setHwItems((p) => p.map((x, i) => i === qi ? { ...x, points: Number(e.target.value) || 1 } : x))} className="h-8 w-20 text-xs" title="النقاط" />
+                            <button type="button" onClick={() => setHwItems((p) => p.filter((_, i) => i !== qi))} className="mr-auto rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger">
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                          <Input value={q.prompt} onChange={(e) => setHwItems((p) => p.map((x, i) => i === qi ? { ...x, prompt: e.target.value } : x))} placeholder={`نص السؤال ${qi + 1}`} />
+                          {q.type === "mcq" && (
+                            <div className="space-y-1.5">
+                              {(q.options ?? []).map((opt, oi) => (
+                                <div key={oi} className="flex items-center gap-2">
+                                  <input type="radio" name={`hwq-${qi}`} checked={q.correctIndex === oi} onChange={() => setHwItems((p) => p.map((x, i) => i === qi ? { ...x, correctIndex: oi } : x))} title="الإجابة الصحيحة" />
+                                  <Input value={opt} onChange={(e) => setHwItems((p) => p.map((x, i) => i === qi ? { ...x, options: (x.options ?? []).map((o, j) => j === oi ? e.target.value : o) } : x))} placeholder={`اختيار ${oi + 1}`} className="h-8 text-xs" />
+                                </div>
+                              ))}
+                              <small className="text-muted-foreground">علّم على الاختيار الصحيح بجانب كل إجابة</small>
+                            </div>
+                          )}
+                          {q.type === "truefalse" && (
+                            <div className="flex gap-3 text-sm">
+                              {["صح", "خطأ"].map((lbl, oi) => (
+                                <label key={oi} className="flex items-center gap-1.5">
+                                  <input type="radio" name={`hwq-${qi}`} checked={(q.correctIndex ?? 0) === oi} onChange={() => setHwItems((p) => p.map((x, i) => i === qi ? { ...x, correctIndex: oi } : x))} />
+                                  {lbl}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {q.type === "text" && (
+                            <Input value={q.expected ?? ""} onChange={(e) => setHwItems((p) => p.map((x, i) => i === qi ? { ...x, expected: e.target.value } : x))} placeholder="الإجابة المتوقعة (اختياري — تظهر لك عند التصحيح)" className="text-xs" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {hwType === "speaking" && (
+                    <p className="text-xs text-muted-foreground sm:col-span-2">الطالب هيسلّم تسجيلاً صوتياً — التصحيح يدوي.</p>
+                  )}
                 </div>
                 <Button type="submit" disabled={hwSaving}>{hwSaving ? "جاري الحفظ..." : "إنشاء الواجب"}</Button>
               </form>
@@ -1659,6 +1755,28 @@ export function TeacherScreen() {
                             </div>
                             {sub.submissionText && <p className="mt-2 text-xs text-muted-foreground">{sub.submissionText}</p>}
                             {sub.audioUrl && <audio controls src={mediaSrc(sub.audioUrl)} className="mt-2 w-full" />}
+                            {sub.recordingUrl && (
+                              <div className="mt-2">
+                                <small className="text-muted-foreground">تسجيل الطالب الصوتي:</small>
+                                <audio controls src={mediaSrc(sub.recordingUrl)} className="mt-1 w-full" />
+                              </div>
+                            )}
+                            {(sub.answers?.details ?? []).length > 0 && (
+                              <div className="mt-2 space-y-1 rounded-md bg-muted/40 p-2">
+                                <small className="font-semibold text-muted-foreground">إجابات الأسئلة:</small>
+                                {(sub.answers?.details ?? []).map((d) => (
+                                  <div key={d.idx} className="flex items-center gap-2 text-xs">
+                                    <span className={`grid size-4 place-items-center rounded-full text-[10px] font-bold text-white ${d.isAuto ? (d.correct ? "bg-sage" : "bg-danger") : "bg-gold"}`}>
+                                      {d.isAuto ? (d.correct ? "✓" : "✗") : "؟"}
+                                    </span>
+                                    <span className="font-semibold">س{d.idx + 1}:</span>
+                                    <span className="text-muted-foreground">{d.studentAnswer || "—"}</span>
+                                    {d.isAuto && !d.correct && <span className="text-sage">الصحيحة: {d.correctAnswer}</span>}
+                                    {!d.isAuto && <span className="text-gold">(تصحيح يدوي{d.correctAnswer && d.correctAnswer !== "—" ? ` — متوقع: ${d.correctAnswer}` : ""})</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                               <Input
                                 type="number" min={0} max={100} placeholder="الدرجة"
@@ -6486,10 +6604,15 @@ export function StudentHomeworkScreen() {
   const { studentHomework, submitHomework } = usePlatformStore();
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [blobs, setBlobs] = useState<Record<string, Blob>>({});
+  const [hwAnswers, setHwAnswers] = useState<Record<string, Record<string, string>>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  async function handleSubmitHw(hw: { id: string }) {
+  function setHwAnswer(hwId: string, idx: number, value: string) {
+    setHwAnswers((prev) => ({ ...prev, [hwId]: { ...(prev[hwId] ?? {}), [idx]: value } }));
+  }
+
+  async function handleSubmitHw(hw: { id: string; type?: string; questions?: ExamQuestions | null }) {
     setError("");
     setSubmitting(hw.id);
     try {
@@ -6503,13 +6626,22 @@ export function StudentHomeworkScreen() {
         audioUrl = uploaded.url;
       }
       const text = texts[hw.id]?.trim();
-      if (!text && !audioUrl) {
-        setError("اكتب إجابة نصية أو سجّل إجابة صوتية قبل التسليم");
+      const answers = hwAnswers[hw.id] ?? {};
+      const items = hw.questions?.items ?? [];
+      const isSpeaking = hw.type === "speaking";
+      const hasContent = Boolean(text) || Boolean(audioUrl) || Object.keys(answers).length > 0;
+      if (!hasContent) {
+        setError(isSpeaking ? "سجّل إجابتك الصوتية قبل التسليم" : "أجب على الأسئلة أو اكتب إجابة نصية قبل التسليم");
+        return;
+      }
+      if (items.length > 0 && items.some((_, i) => !answers[i]?.trim())) {
+        setError("أجب على كل الأسئلة قبل التسليم");
         return;
       }
       await submitHomework(hw.id, {
         ...(text ? { submissionText: text } : {}),
-        ...(audioUrl ? { submissionAudioUrl: audioUrl } : {}),
+        ...(Object.keys(answers).length > 0 ? { answers } : {}),
+        ...(isSpeaking && audioUrl ? { recordingUrl: audioUrl } : audioUrl ? { submissionAudioUrl: audioUrl } : {}),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "فشل تسليم الواجب");
@@ -6554,10 +6686,19 @@ export function StudentHomeworkScreen() {
               </div>
 
               {hw.description && <p className="mt-2 text-sm text-muted-foreground">{hw.description}</p>}
+              {hw.type && (
+                <Badge tone="brand">{EXAM_TYPE_LABELS[hw.type as ExamType] ?? hw.type}</Badge>
+              )}
               {hw.hebrewText && (
                 <div className="mt-3">
                   <p dir="rtl" className="rounded-md bg-muted/60 p-3 font-he text-sm leading-7">{hw.hebrewText}</p>
                   <HebrewTTS text={hw.hebrewText} label="استمع للنص" />
+                </div>
+              )}
+              {hw.type === "listening" && hw.questions?.audioUrl && (
+                <div className="mt-3 rounded-md border border-brand/30 bg-brand/5 p-3">
+                  <small className="font-semibold text-brand">استمع لتسجيل المدرس ثم أجب:</small>
+                  <audio controls src={mediaSrc(hw.questions.audioUrl)} className="mt-2 w-full" />
                 </div>
               )}
 
@@ -6573,29 +6714,105 @@ export function StudentHomeworkScreen() {
                   {sub?.audioUrl && (
                     <audio controls src={mediaSrc(sub.audioUrl)} className="mt-2 w-full" />
                   )}
+                  {sub?.recordingUrl && (
+                    <audio controls src={mediaSrc(sub.recordingUrl)} className="mt-2 w-full" />
+                  )}
+                  {(sub?.answers?.details ?? []).length > 0 && (
+                    <div className="mt-2 space-y-1 border-t border-border pt-2">
+                      {(sub?.answers?.details ?? []).map((d) => (
+                        <div key={d.idx} className="flex items-center gap-2 text-xs">
+                          <span className={`grid size-4 place-items-center rounded-full text-[10px] font-bold text-white ${d.isAuto ? (d.correct ? "bg-sage" : "bg-danger") : "bg-gold"}`}>
+                            {d.isAuto ? (d.correct ? "✓" : "✗") : "؟"}
+                          </span>
+                          <span className="font-semibold">س{d.idx + 1}:</span>
+                          <span className="text-muted-foreground">{d.studentAnswer || "—"}</span>
+                          {d.isAuto && !d.correct && <span className="text-sage">الصحيحة: {d.correctAnswer}</span>}
+                          {!d.isAuto && <span className="text-gold">(تصحيح يدوي)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : st === "submitted" || st === "late" ? (
                 <div className="mt-3 rounded-md bg-muted/60 p-3 text-sm text-muted-foreground">
                   تم تسليم الواجب — بانتظار تصحيح المدرس.
                   {sub?.submissionText && <p className="mt-2 border-t border-border pt-2 text-xs">إجابتك: {sub.submissionText}</p>}
                   {sub?.audioUrl && <audio controls src={mediaSrc(sub.audioUrl)} className="mt-2 w-full" />}
+                  {sub?.recordingUrl && <audio controls src={mediaSrc(sub.recordingUrl)} className="mt-2 w-full" />}
                 </div>
               ) : (
                 <div className="mt-4 space-y-3 border-t border-border pt-4">
-                  <div className="space-y-1.5">
-                    <Label>إجابتك الكتابية</Label>
-                    <textarea
-                      value={texts[hw.id] ?? ""}
-                      onChange={(e) => setTexts((prev) => ({ ...prev, [hw.id]: e.target.value }))}
-                      rows={3}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      placeholder="اكتب إجابتك هنا..."
+                  {/* Exam-style items */}
+                  {(hw.questions?.items ?? []).map((q, qi) => (
+                    <div key={qi} className="space-y-2 rounded-md border border-border bg-background/60 p-3">
+                      <b className="text-sm">س{qi + 1}: {q.prompt}</b>
+                      {q.type === "mcq" && (
+                        <div className="grid gap-1.5">
+                          {(q.options ?? []).map((opt, oi) => (
+                            <label key={oi} className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-muted/40">
+                              <input
+                                type="radio"
+                                name={`hw-${hw.id}-${qi}`}
+                                checked={(hwAnswers[hw.id]?.[qi] ?? "") === String(oi)}
+                                onChange={() => setHwAnswer(hw.id, qi, String(oi))}
+                              />
+                              {opt}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {q.type === "truefalse" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {["صح", "خطأ"].map((lbl, oi) => (
+                            <label key={oi} className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-muted/40">
+                              <input
+                                type="radio"
+                                name={`hw-${hw.id}-${qi}`}
+                                checked={(hwAnswers[hw.id]?.[qi] ?? "") === String(oi)}
+                                onChange={() => setHwAnswer(hw.id, qi, String(oi))}
+                              />
+                              {lbl}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {q.type === "text" && (
+                        <textarea
+                          value={hwAnswers[hw.id]?.[qi] ?? ""}
+                          onChange={(e) => setHwAnswer(hw.id, qi, e.target.value)}
+                          rows={2}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          placeholder="اكتب إجابتك..."
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  {hw.type === "speaking" ? (
+                    <AudioRecorder
+                      label="سجّل إجابتك الصوتية"
+                      onRecorded={(blob) => setBlobs((prev) => ({ ...prev, [hw.id]: blob }))}
                     />
-                  </div>
-                  <AudioRecorder
-                    label="سجّل إجابة صوتية"
-                    onRecorded={(blob) => setBlobs((prev) => ({ ...prev, [hw.id]: blob }))}
-                  />
+                  ) : (
+                    <>
+                      {(hw.questions?.items ?? []).length === 0 && (
+                        <div className="space-y-1.5">
+                          <Label>إجابتك الكتابية</Label>
+                          <textarea
+                            value={texts[hw.id] ?? ""}
+                            onChange={(e) => setTexts((prev) => ({ ...prev, [hw.id]: e.target.value }))}
+                            rows={3}
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            placeholder="اكتب إجابتك هنا..."
+                          />
+                        </div>
+                      )}
+                      <AudioRecorder
+                        label="سجّل إجابة صوتية (اختياري)"
+                        onRecorded={(blob) => setBlobs((prev) => ({ ...prev, [hw.id]: blob }))}
+                      />
+                    </>
+                  )}
                   <Button onClick={() => handleSubmitHw(hw)} disabled={submitting === hw.id}>
                     <Send className="size-4" />
                     {submitting === hw.id ? "جاري التسليم..." : "تسليم الواجب"}

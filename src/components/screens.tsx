@@ -3671,6 +3671,10 @@ export function AdminScreen() {
             onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
             onActivate={activateOpsSubscription}
             onAddToGroup={addGroupMembers}
+            onDeleteStudent={async (id) => {
+              await deleteUser(id);
+              await fetchOpsStudents();
+            }}
           />
 
           <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
@@ -5024,6 +5028,7 @@ function StudentsDirectorySection({
   onStatusChange,
   onActivate,
   onAddToGroup,
+  onDeleteStudent,
 }: {
   students: import("../hooks/use-platform-store").OpsStudentItem[];
   groups: GroupItem[];
@@ -5032,6 +5037,7 @@ function StudentsDirectorySection({
   onStatusChange: (studentId: string, status: string) => void | Promise<void>;
   onActivate: (input: { studentId: string; packageId: string; paidAmount?: number; notes?: string }) => Promise<void>;
   onAddToGroup: (groupId: string, studentIds: string[]) => Promise<void>;
+  onDeleteStudent?: (id: string) => Promise<void>;
 }) {
   const PAGE_SIZE = 10;
   const [search, setSearch] = useState("");
@@ -5276,6 +5282,23 @@ function StudentsDirectorySection({
                           <option value="paused">متوقف</option>
                           <option value="completed">منتهي</option>
                         </select>
+                        {onDeleteStudent && (
+                          <Button
+                            variant="danger"
+                            className="min-h-8 px-2.5 text-xs"
+                            onClick={async () => {
+                              if (!confirm(`حذف الطالب ${s.fullName} نهائياً؟ لا يمكن التراجع.`)) return;
+                              try {
+                                await onDeleteStudent(s.id);
+                                setNotice(`تم حذف الطالب ${s.fullName}`);
+                              } catch (e) {
+                                setErr(e instanceof Error ? e.message : "فشل حذف الطالب");
+                              }
+                            }}
+                          >
+                            حذف
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -9426,12 +9449,17 @@ function OpsCreateSessionCard({
               <Label>الطالب (باقة مكالمات برصيد متبقٍ)</Label>
               <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">— اختر الطالب —</option>
-                {callsStudents.map((s) => (
-                  <option key={s.id} value={s.studentId}>
-                    {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
-                  </option>
-                ))}
+                {callsStudents
+                  .filter((s) => !teacherId || (s.teacherIds ?? []).includes(teacherId))
+                  .map((s) => (
+                    <option key={s.id} value={s.studentId}>
+                      {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
+                    </option>
+                  ))}
               </select>
+              {teacherId && callsStudents.filter((s) => (s.teacherIds ?? []).includes(teacherId)).length === 0 && (
+                <small className="text-muted-foreground">لا يوجد طلاب مربوطون بهذا المدرس لديهم باقة مكالمات.</small>
+              )}
             </div>
             {teacherId && availability.length > 0 && (
               <div className="space-y-1.5 sm:col-span-2">

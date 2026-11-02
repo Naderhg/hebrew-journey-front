@@ -536,6 +536,7 @@ export interface CallsStudentItem {
   studentName: string;
   studentPhone?: string | null;
   packageName: string;
+  teacherIds?: string[];
   sessionsTotal?: number | null;
   sessionsUsed?: number | null;
   sessionsRemaining?: number | null;

@@ -226,7 +226,7 @@ export function AppShell({
   const currentUserRole = (user?.role?.toUpperCase() as UserRole | undefined) ?? role;
   const isRoleMismatch = Boolean(user && currentUserRole !== role);
   const isStudent = Boolean(user && currentUserRole === "STUDENT" && role === "STUDENT");
-  const needsPlacement = isStudent && !user!.placementCompletedAt;
+  const needsPlacement = isStudent && !user!.placementCompletedAt && !user!.hasActiveSubscription;
   const isLocked = isStudent && Boolean(user!.placementCompletedAt) && !user!.hasActiveSubscription;
 
   useEffect(() => {
@@ -240,7 +240,7 @@ export function AppShell({
       return;
     }
     if (isStudent) {
-      if (!user.placementCompletedAt && path !== "/placement") {
+      if (!user.placementCompletedAt && !user.hasActiveSubscription && path !== "/placement") {
         navigate({ to: "/placement" });
       } else if (
         user.placementCompletedAt &&

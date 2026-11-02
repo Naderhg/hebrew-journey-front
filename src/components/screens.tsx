@@ -1005,6 +1005,10 @@ export function TeacherScreen() {
       fetchTeacherSchedules().catch(() => {});
       fetchTeacherLectures(true).catch(() => {});
     }
+    if (activeSection === "schedule") {
+      fetchTeacherLectures(true).catch(() => {});
+      fetchTeacherBookings().catch(() => {});
+    }
     if (activeSection === "chat") fetchTeacherChatThreads().catch(() => {});
     if (activeSection === "free-lectures") fetchTeacherFreeLectures().catch(() => {});
     if (activeSection === "sessions") {
@@ -1384,71 +1388,12 @@ export function TeacherScreen() {
 
       {activeSection === "schedule" && (
         <div className="space-y-4">
-          <Card>
-            <div>
-              <h2 className="text-lg font-bold">المحاضرات المباشرة ({teacherLectures.filter((l) => l.status === "scheduled" || l.status === "live").length})</h2>
-              <p className="text-xs text-muted-foreground">
-                المحاضرات التي يحددها لك الأدمن — يمكنك المشاركة عبر رابط الاجتماع
-              </p>
-            </div>
-            <div className="mt-4 space-y-2">
-              {teacherLectures.filter((l) => l.status === "scheduled" || l.status === "live").length === 0 ? (
-                <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
-                  لا توجد محاضرات مجدولة لك حالياً.
-                </div>
-              ) : (
-                teacherLectures.filter((l) => l.status === "scheduled" || l.status === "live").map((l) => (
-                  <div key={l.id} className="rounded-md border border-border bg-background/60 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <b className="text-sm">{l.title}</b>
-                          <Badge tone={l.status === "live" ? "sage" : "brand"}>
-                            {l.status === "live" ? "مباشر الآن" : "مجدولة"}
-                          </Badge>
-                          {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
-                          {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
-                        </div>
-                        <small className="mt-1 block text-muted-foreground">
-                          {new Date(l.startsAt).toLocaleString("ar-EG")}
-                          {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
-                        </small>
-                        {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
-                      </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {l.status === "scheduled" && (
-                          <Button
-                            variant="primary"
-                            onClick={() => updateTeacherLectureStatus(l.id, "live").then(() => fetchTeacherAnalytics({})).catch(() => {})}
-                          >
-                            بدء المحاضرة
-                          </Button>
-                        )}
-                        {l.status === "live" && (
-                          <Button
-                            variant="secondary"
-                            onClick={() => updateTeacherLectureStatus(l.id, "completed").then(() => fetchTeacherAnalytics({})).catch(() => {})}
-                          >
-                            إنهاء المحاضرة
-                          </Button>
-                        )}
-                        {l.meetingUrl && (
-                          <a
-                            href={l.meetingUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
-                          >
-                            دخول الاجتماع ↗
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
+          <TeacherScheduleTimeline
+            lectures={teacherLectures}
+            bookings={teacherBookings}
+            onLectureStatus={(id, s) => updateTeacherLectureStatus(id, s).then(() => fetchTeacherAnalytics({})).catch(() => {})}
+            onBookingStatus={(id, s) => setBookingStatus(id, s).catch(() => {})}
+          />
 
           <Card>
             <h2 className="text-lg font-bold">مواعيدي الثابتة ({teacherSchedules.length})</h2>
@@ -10627,5 +10572,158 @@ function TeacherFreeLecturesSection({
         })
       )}
     </div>
+  );
+}
+
+// ─── Teacher: unified schedule (basic lectures + calls bookings) with filters ──
+function TeacherScheduleTimeline({
+  lectures,
+  bookings,
+  onLectureStatus,
+  onBookingStatus,
+}: {
+  lectures: import("../hooks/use-platform-store").LectureItem[];
+  bookings: import("../hooks/use-platform-store").LessonBookingItem[];
+  onLectureStatus: (id: string, status: "live" | "completed") => void;
+  onBookingStatus: (id: string, status: "completed" | "no_show" | "booked") => void;
+}) {
+  const [typeF, setTypeF] = useState("");
+  const [statusF, setStatusF] = useState("");
+  const [q, setQ] = useState("");
+  const [fromD, setFromD] = useState("");
+  const [toD, setToD] = useState("");
+
+  type Row = {
+    id: string;
+    kind: "lecture" | "booking";
+    title: string;
+    sub?: string;
+    startsAt: string;
+    endsAt?: string | null;
+    status: string;
+    meetingUrl?: string | null;
+    level?: string | null;
+    groupName?: string | null;
+  };
+
+  const all: Row[] = [
+    ...lectures.map((l) => ({
+      id: l.id, kind: "lecture" as const, title: l.title,
+      startsAt: l.startsAt, endsAt: l.endsAt ?? null, status: l.status,
+      meetingUrl: l.meetingUrl, level: l.level, groupName: l.groupName ?? null,
+      sub: l.groupName ?? undefined,
+    })),
+    ...bookings.map((b) => ({
+      id: b.id, kind: "booking" as const,
+      title: `حصة فردية — ${b.student?.fullName ?? "طالب"}`,
+      sub: b.student?.phone ?? undefined,
+      startsAt: b.startsAt, endsAt: b.endsAt ?? null, status: b.status,
+      meetingUrl: b.meetingUrl,
+    })),
+  ];
+
+  const rows = all
+    .filter((r) => !typeF || r.kind === typeF)
+    .filter((r) => !statusF || r.status === statusF)
+    .filter((r) => !q.trim() || [r.title, r.sub ?? "", r.groupName ?? ""].some((v) => v.toLowerCase().includes(q.trim().toLowerCase())))
+    .filter((r) => !fromD || new Date(r.startsAt) >= new Date(`${fromD}T00:00:00`))
+    .filter((r) => !toD || new Date(r.startsAt) <= new Date(`${toD}T23:59:59`))
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+
+  const STATUS: Record<string, { label: string; tone: "brand" | "sage" | "muted" | "danger" }> = {
+    scheduled: { label: "مجدولة", tone: "brand" },
+    live: { label: "مباشر الآن", tone: "sage" },
+    booked: { label: "محجوزة", tone: "brand" },
+    completed: { label: "مكتملة", tone: "muted" },
+    cancelled: { label: "ملغاة", tone: "danger" },
+    no_show: { label: "لم يحضر", tone: "danger" },
+  };
+  const st = (s: string) => STATUS[s] ?? { label: s, tone: "muted" as const };
+  const fmt = (iso: string) => new Date(iso).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-bold">جدولي ({rows.length})</h2>
+          <p className="text-xs text-muted-foreground">المحاضرات الأساسية وحصص نظام المكالمات في مكان واحد — مرتبة من الأقرب</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <SearchBox value={q} onChange={setQ} placeholder="بحث باسم الطالب / المحاضرة / المجموعة" />
+        <select value={typeF} onChange={(e) => setTypeF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">كل الأنواع</option>
+          <option value="lecture">محاضرات أساسية</option>
+          <option value="booking">حصص فردية (مكالمات)</option>
+        </select>
+        <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">كل الحالات</option>
+          <option value="scheduled">مجدولة</option>
+          <option value="live">مباشر</option>
+          <option value="booked">محجوزة</option>
+          <option value="completed">مكتملة</option>
+          <option value="no_show">لم يحضر</option>
+          <option value="cancelled">ملغاة</option>
+        </select>
+        <Input type="date" value={fromD} onChange={(e) => setFromD(e.target.value)} />
+        <Input type="date" value={toD} onChange={(e) => setToD(e.target.value)} />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {rows.length === 0 ? (
+          <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
+            لا توجد مواعيد مطابقة للفلاتر الحالية.
+          </div>
+        ) : (
+          rows.map((r) => (
+            <div key={`${r.kind}-${r.id}`} className="rounded-md border border-border bg-background/60 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={r.kind === "booking" ? "sage" : "muted"}>
+                      {r.kind === "booking" ? "نظام المكالمات" : "محاضرة أساسية"}
+                    </Badge>
+                    <b className="text-sm">{r.title}</b>
+                    <Badge tone={st(r.status).tone}>{st(r.status).label}</Badge>
+                    {r.level && <Badge tone="muted">مستوى {r.level}</Badge>}
+                    {r.groupName && <Badge tone="muted">{r.groupName}</Badge>}
+                  </div>
+                  <small className="mt-1 block text-muted-foreground">
+                    {fmt(r.startsAt)}
+                    {r.endsAt ? ` → ${new Date(r.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                  </small>
+                  {r.sub && <small className="block text-muted-foreground">{r.sub}</small>}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {r.kind === "lecture" && r.status === "scheduled" && (
+                    <Button variant="primary" onClick={() => onLectureStatus(r.id, "live")}>بدء المحاضرة</Button>
+                  )}
+                  {r.kind === "lecture" && r.status === "live" && (
+                    <Button variant="secondary" onClick={() => onLectureStatus(r.id, "completed")}>إنهاء المحاضرة</Button>
+                  )}
+                  {r.kind === "booking" && r.status === "booked" && (
+                    <>
+                      <Button variant="primary" className="text-xs" onClick={() => onBookingStatus(r.id, "completed")}>مكتملة</Button>
+                      <Button variant="secondary" className="text-xs" onClick={() => onBookingStatus(r.id, "no_show")}>لم يحضر</Button>
+                    </>
+                  )}
+                  {r.meetingUrl && (r.status === "scheduled" || r.status === "live" || r.status === "booked") && (
+                    <a
+                      href={r.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
+                    >
+                      دخول الاجتماع ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Calendar, CalendarCheck, Clock, Plus } from "lucide-react";
 import { Button, Card, Badge } from "../components/ui";
 import { usePlatformStore, type SessionSubscription } from "../hooks/use-platform-store";
+import { AppShell, PageHeader } from "../components/app-shell";
 
 export const Route = createFileRoute("/sessions")({
   head: () => ({ meta: [{ title: "עברית שוטפת — حصصي" }] }),
@@ -64,40 +65,47 @@ function StudentSessionsPage() {
 
   if (checking) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#f6f9fd] text-sm text-[#5a6b8c]">
-        جاري التحقق من اشتراكك...
-      </div>
+      <AppShell role="STUDENT">
+        <div className="flex min-h-[50vh] items-center justify-center text-sm text-[#5a6b8c]">
+          جاري التحقق من اشتراكك...
+        </div>
+      </AppShell>
     );
   }
 
   if (!hasCallsPackage) {
     return (
-      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#f6f9fd] px-6">
-        <div className="max-w-md rounded-2xl border border-[#e7edf7] bg-white p-8 text-center shadow-sm">
-          <h2 className="text-lg font-bold text-[#0b2f6e]">هذا القسم لباقات المكالمات فقط</h2>
-          <p className="mt-2 text-sm text-[#5a6b8c]">
-            حصص الحجز الفردي متاحة فقط للطلاب المشتركين في باقة نظام المكالمات.
-            إذا كنت تريد حجز حصص فردية، يرجى الاشتراك في باقة المكالمات.
-          </p>
+      <AppShell role="STUDENT">
+        <div className="flex min-h-[50vh] items-center justify-center px-6">
+          <div className="max-w-md rounded-2xl border border-[#e7edf7] bg-white p-8 text-center shadow-sm">
+            <h2 className="text-lg font-bold text-[#0b2f6e]">هذا القسم لباقات المكالمات فقط</h2>
+            <p className="mt-2 text-sm text-[#5a6b8c]">
+              حصص الحجز الفردي متاحة فقط للطلاب المشتركين في باقة نظام المكالمات.
+              إذا كنت تريد حجز حصص فردية، يرجى الاشتراك في باقة المكالمات.
+            </p>
+          </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
-  const upcoming = myBookings.filter((b) => b.status === "booked" && new Date(b.startsAt) > new Date());
+  const upcoming = myBookings
+    .filter((b) => b.status === "booked" && new Date(b.startsAt) > new Date())
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
   const past = myBookings.filter((b) => b.status !== "booked" || new Date(b.startsAt) <= new Date());
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">حصصي الفردية</h1>
-          <p className="text-sm text-muted-foreground">تابع حصصك المحجوزة ورصيدك المتبقي</p>
-        </div>
-        <Button variant="ghost" onClick={refresh} disabled={loading}>
-          تحديث
-        </Button>
-      </div>
+    <AppShell role="STUDENT">
+      <PageHeader
+        title="حصصي الفردية"
+        subtitle="تابع حصصك المحجوزة ورصيدك المتبقي"
+        actions={
+          <Button variant="ghost" onClick={refresh} disabled={loading}>
+            تحديث
+          </Button>
+        }
+      />
+      <div className="space-y-6">
 
       {/* ─── Balance cards ─── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -139,7 +147,10 @@ function StudentSessionsPage() {
                       <Clock className="size-4" />
                       {b.teacher?.fullName ?? "مدرس"}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{fmtDate(b.startsAt)}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {fmtDate(b.startsAt)}
+                      {b.endsAt ? ` — ${new Date(b.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                    </p>
                     {b.meetingUrl && (
                       <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
                         رابط الاجتماع
@@ -181,7 +192,8 @@ function StudentSessionsPage() {
           </div>
         </Card>
       )}
-    </div>
+      </div>
+    </AppShell>
   );
 }
 

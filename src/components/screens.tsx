@@ -294,7 +294,8 @@ export function DashboardScreen() {
     <AppShell role="STUDENT">
       <HeroBanner
         tone="green"
-        icon={GraduationCap}
+        word="בוקר טוב"
+        wordCaption="صباح الخير"
         kicker={todayLabel()}
         title={
           <>
@@ -312,7 +313,7 @@ export function DashboardScreen() {
               </HeroAction>
             </Link>
             <Link to="/courses">
-              <HeroAction className="bg-white/5">كورساتي</HeroAction>
+              <HeroAction>كورساتي</HeroAction>
             </Link>
           </>
         }
@@ -7942,7 +7943,7 @@ export function SalesScreen() {
                 عميل جديد
                 <ArrowLeft className="size-4" />
               </HeroAction>
-              <HeroAction className="bg-white/5" onClick={() => { setSelectedLeadId(salesLeads[0]?.id ?? ""); setShowCallForm(true); }}>
+              <HeroAction onClick={() => { setSelectedLeadId(salesLeads[0]?.id ?? ""); setShowCallForm(true); }}>
                 تسجيل مكالمة
               </HeroAction>
             </>

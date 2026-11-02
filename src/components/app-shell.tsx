@@ -49,6 +49,7 @@ export interface SidebarItem {
   section?: string;
   label: string;
   icon: LucideIcon;
+  badge?: string;
 }
 
 export interface SidebarGroup {
@@ -230,7 +231,6 @@ export function AppShell({
   } = usePlatformStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [navQuery, setNavQuery] = useState("");
 
   const currentUserRole = (user?.role?.toUpperCase() as UserRole | undefined) ?? role;
@@ -336,26 +336,18 @@ export function AppShell({
         setNotifOpen((o) => !o);
         if (!notifOpen) fetchNotifications().catch(() => {});
       }}
-      className="relative grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="icon-button notification-button"
       aria-label="الإشعارات"
     >
-      <Bell className="size-4.5" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-0.5 -left-0.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
-          {unreadCount > 99 ? "99+" : unreadCount}
-        </span>
-      )}
+      <Bell size={19} />
+      {unreadCount > 0 && <i />}
     </button>
   ) : null;
 
-  function renderNavItem(item: SidebarItem, nested = false) {
+  function renderNavItem(item: SidebarItem) {
     const Icon = item.icon;
     const isActive = itemMatches(item);
-    const cls = `relative flex min-w-0 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] text-right transition-colors ${
-      isActive
-        ? "bg-brand/10 font-bold text-brand"
-        : "text-muted-foreground hover:bg-brand/5 hover:text-foreground"
-    }`;
+    const cls = `nav-item ${isActive ? "active" : ""}`;
 
     if (item.section && onSelectSection) {
       return (
@@ -368,8 +360,9 @@ export function AppShell({
           }}
           className={cls}
         >
-          <Icon className={cnIcon(isActive)} />
+          <Icon size={18} strokeWidth={isActive ? 2.35 : 1.8} />
           <span className="truncate">{item.label}</span>
+          {item.badge && <em>{item.badge}</em>}
         </button>
       );
     }
@@ -381,30 +374,26 @@ export function AppShell({
         onClick={() => setSidebarOpen(false)}
         className={cls}
       >
-        <Icon className={cnIcon(isActive)} />
+        <Icon size={18} strokeWidth={isActive ? 2.35 : 1.8} />
         <span className="truncate">{item.label}</span>
+        {item.badge && <em>{item.badge}</em>}
       </Link>
     );
   }
 
-  function cnIcon(active: boolean) {
-    return `size-4 shrink-0 ${active ? "text-brand" : ""}`;
-  }
+  const RoleIcon = ROLE_ICONS[role];
+  const roleAvatarTone = ({ STUDENT: "mint", TEACHER: "peach", ADMIN: "navy", SALES: "blue", SUPPORT: "lavender" } as const)[role];
 
   const userChip = (
-    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card py-1.5 ps-1.5 pe-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand/10 text-[13px] font-bold text-brand">
-        {displayName[0] ?? "؟"}
-      </span>
-      <span className="hidden min-w-0 text-right sm:block">
-        <b className="block truncate text-xs leading-tight">{displayName}</b>
-        <small className="block truncate text-[10px] leading-tight text-muted-foreground">{displaySubtitle}</small>
-      </span>
-      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+    <div className="topbar-profile">
+      <span className={`avatar avatar-${roleAvatarTone}`}>{displayName[0] ?? "؟"}</span>
+      <div>
+        <strong>{displayName}</strong>
+        <small>{displaySubtitle}</small>
+      </div>
+      <ChevronDown size={14} />
     </div>
   );
-
-  const RoleIcon = ROLE_ICONS[role];
 
   return (
     <>
@@ -420,11 +409,12 @@ export function AppShell({
             >
               <Menu className="size-5" />
             </button>
-            <Link to="/" className="flex items-center gap-2">
-              <span className="grid size-9 place-items-center rounded-xl bg-brand text-primary-foreground">
-                <GraduationCap className="size-4.5" />
-              </span>
-              <b className="font-lat">עברית שוטפת</b>
+            <Link to="/" className="brand-mark">
+              <div className="brand-symbol"><span>ח</span><i /></div>
+              <div className="brand-copy">
+                <strong className="font-he">עברית שוטפת</strong>
+                <small>رحلتك إلى اللغات</small>
+              </div>
             </Link>
             <div className="flex items-center gap-1">
               {notifBell}
@@ -507,111 +497,67 @@ export function AppShell({
                 : "hidden"
             }`}
           >
-            <Link to="/" className="flex items-center gap-3 px-1">
-              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand text-primary-foreground shadow-[0_10px_24px_-12px] shadow-brand">
-                <GraduationCap className="size-5" />
-              </span>
-              <span className="min-w-0">
-                <strong className="block font-he text-[15px] font-bold leading-tight">עברית שוטפת</strong>
-                <small className="block text-[10px] font-semibold text-muted-foreground">
-                  منصة تعلم العبرية
-                </small>
-              </span>
+            <Link to="/" className="brand-mark px-1" aria-label="עברית שוטפת">
+              <div className="brand-symbol"><span>ח</span><i /></div>
+              <div className="brand-copy">
+                <strong className="font-he">עברית שוטפת</strong>
+                <small>رحلتك إلى اللغات</small>
+              </div>
             </Link>
 
-            <div className="mt-1 flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-3.5 py-3">
-              <span className="min-w-0">
-                <b className="block text-[13px]">{ROLE_LABELS[role]}</b>
-                <small className="block font-lat text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-                  {role}
-                </small>
-              </span>
-              <span className="chip-mint grid size-9 shrink-0 place-items-center rounded-xl">
+            <div className="role-chip mt-3">
+              <span className={`avatar avatar-${roleAvatarTone}`}>
                 <RoleIcon className="size-4" />
               </span>
+              <span className="role-chip-copy">
+                <strong>{ROLE_LABELS[role]}</strong>
+                <small>{role}</small>
+              </span>
             </div>
 
-            <div className="px-1 pt-1 text-[11px] font-semibold text-muted-foreground">
-              القائمة الرئيسية
-            </div>
+            <div className="sidebar-divider" />
 
-            <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-2 text-sm">
+            <nav className="side-nav" aria-label="التنقل الرئيسي">
               {query && visibleNav.length === 0 && (
-                <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                <p className="px-3 py-6 text-center text-[11px] text-muted-foreground">
                   لا توجد نتائج مطابقة
                 </p>
               )}
-              {visibleNav.map((entry) => {
-                if (!isGroup(entry)) return renderNavItem(entry);
-
-                const groupActive = entry.items.some(itemMatches);
-                const isOpen = openGroups[entry.group] ?? groupActive;
-                const GroupIcon = entry.icon;
-
-                return (
-                  <div key={entry.group}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenGroups((p) => ({ ...p, [entry.group]: !isOpen }))
-                      }
-                      className={`relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] text-right transition-colors ${
-                        groupActive
-                          ? "bg-brand/8 font-bold text-brand"
-                          : "text-muted-foreground hover:bg-brand/5 hover:text-foreground"
-                      }`}
-                    >
-                      <GroupIcon className="size-4 shrink-0" />
-                      <span className="flex-1 truncate">{entry.group}</span>
-                      <ChevronDown
-                        className={`size-3.5 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                    {isOpen && (
-                      <div className="mt-1 mb-1 flex flex-col gap-1 border-s border-border ps-2 ms-5">
-                        {entry.items.map((it) => renderNavItem(it, true))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {query ? (
+                <div className="nav-group">
+                  {visibleNav.map((entry) => !isGroup(entry) && renderNavItem(entry))}
+                </div>
+              ) : (
+                visibleNav.map((entry) => {
+                  if (!isGroup(entry)) return <div key={entry.label} className="nav-group">{renderNavItem(entry)}</div>;
+                  return (
+                    <div className="nav-group" key={entry.group}>
+                      <p className="nav-group-label">{entry.group}</p>
+                      {entry.items.map((it) => renderNavItem(it, true))}
+                    </div>
+                  );
+                })
+              )}
             </nav>
 
-            <div className="space-y-2 border-t border-border pt-3">
+            <div className="sidebar-footer">
               {user && (
-                <div className="flex items-center gap-3 rounded-2xl bg-gold/10 px-3.5 py-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gold/15 text-gold">
-                    <Flame className="size-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <b className="block text-xs">استمر في رحلتك</b>
-                    <small className="block text-[10px] text-muted-foreground">
-                      كل يوم خطوة أقرب للطلاقة
-                    </small>
-                  </span>
+                <div className="streak-card">
+                  <div className="streak-icon"><Flame size={17} fill="currentColor" /></div>
+                  <div><strong>استمر في رحلتك</strong><small>كل يوم خطوة أقرب للطلاقة</small></div>
                 </div>
               )}
-
               {user ? (
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-danger transition-colors hover:bg-danger/10"
-                >
-                  <LogOut className="size-4 shrink-0" />
-                  تسجيل الخروج
+                <button type="button" onClick={handleLogout} className="logout-button">
+                  <LogOut size={16} /> تسجيل الخروج
                 </button>
               ) : (
                 <div className="grid grid-cols-2 gap-1.5">
                   <Link to="/login">
-                    <Button variant="ghost" className="w-full text-xs">
-                      دخول
-                    </Button>
+                    <Button variant="ghost" className="w-full text-xs">دخول</Button>
                   </Link>
                   <Link to="/register">
-                    <Button variant="secondary" className="w-full text-xs">
-                      حساب طالب
-                    </Button>
+                    <Button variant="secondary" className="w-full text-xs">حساب طالب</Button>
                   </Link>
                 </div>
               )}
@@ -620,37 +566,32 @@ export function AppShell({
 
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Desktop topbar */}
-            <header className="sticky top-0 z-30 hidden items-center gap-3 border-b border-border/70 bg-paper/85 px-6 py-3 backdrop-blur-md lg:flex">
-              <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
-                <span className="shrink-0 text-muted-foreground">{ROLE_HOME[role]}</span>
+            <header className="sticky top-0 z-30 hidden min-h-[82px] items-center justify-between gap-3 border-b border-[#e9ece8] bg-[#f8f7f2]/80 px-8 backdrop-blur-md lg:flex">
+              <div className="crumbs">
+                <span>{ROLE_HOME[role]}</span>
                 {currentLabel && (
                   <>
-                    <ChevronLeft className="size-3.5 shrink-0 text-muted-foreground/60" />
-                    <b className="truncate font-bold">{currentLabel}</b>
+                    <ChevronLeft size={14} />
+                    <strong>{currentLabel}</strong>
                   </>
                 )}
               </div>
-              <div className="me-auto flex items-center gap-2">
-                <div className="relative hidden md:block">
-                  <Search className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <div className="topbar-actions">
+                <label className="search-box">
+                  <Search size={17} />
                   <input
                     value={navQuery}
                     onChange={(e) => setNavQuery(e.target.value)}
                     placeholder="ابحث في المنصة..."
-                    className="h-10 w-52 rounded-full border border-border bg-card pe-3 ps-10 text-xs outline-none transition focus:w-72 focus:ring-2 focus:ring-ring"
+                    aria-label="بحث"
                   />
-                </div>
-                <div className="hidden items-center gap-0.5 rounded-full border border-border bg-card p-1 text-[11px] font-bold xl:flex">
-                  <span className="rounded-full px-2.5 py-1 text-muted-foreground">EN</span>
-                  <span className="rounded-full px-2.5 py-1 font-he text-muted-foreground">עברית</span>
-                  <span className="rounded-full bg-brand/10 px-2.5 py-1 text-brand">عربي</span>
-                </div>
+                </label>
                 {notifBell}
                 {userChip}
               </div>
             </header>
 
-            <main key={`${path}-${activeSection ?? ""}`} className="min-w-0 flex-1 animate-enter p-4 lg:p-6">
+            <main key={`${path}-${activeSection ?? ""}`} className="min-w-0 flex-1 animate-enter px-4 py-6 lg:px-11 lg:py-8">
               {loading || !user || isRoleMismatch ? (
                 <Card className="mx-auto my-12 max-w-lg p-8 text-center">
                   <div className="mx-auto size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
@@ -665,6 +606,10 @@ export function AppShell({
               ) : (
                 children
               )}
+              <footer className="app-footer mt-8">
+                <span>© {new Date().getFullYear()} עברית שוטפת</span>
+                <span>نتعلم العبرية، خطوة بخطوة <span className="footer-heart">♥</span></span>
+              </footer>
             </main>
           </div>
         </div>

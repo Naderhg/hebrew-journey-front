@@ -1,22 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  BookOpenCheck,
   Check,
   ChevronDown,
-  Crown,
-  Facebook,
+  Clock3,
+  Compass,
   GraduationCap,
-  Instagram,
-  Linkedin,
-  Mail,
-  MapPin,
+  Heart,
+  Menu,
+  MessageCircle,
+  Mic2,
   Phone,
-  Rocket,
-  Sprout,
+  Play,
+  Sparkles,
+  Star,
+  Target,
+  Users,
+  Video,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, Input, Label } from "../components/ui";
-import { usePlatformStore, type PublicPackage, type PublicTeacher } from "../hooks/use-platform-store";
+import { usePlatformStore, type PublicTeacher } from "../hooks/use-platform-store";
 import { mediaSrc } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 import { getHomeRouteForRole } from "../lib/auth";
@@ -28,7 +33,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "أكاديمية עברית שוטפתلتعليم اللغتين العبرية والإنجليزية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
+          "أكاديمية עברית שוטפת لتعليم اللغتين العبرية والإنجليزية باحترافية — مدرسون معتمدون، برامج تفاعلية، ومنهجية مدروسة تضمن لك الإتقان.",
       },
       { property: "og:title", content: "עברית שוטפת — أكاديمية اللغات" },
       { property: "og:description", content: "تعلّم العبرية والإنجليزية مع مدرسين معتمدين وبرامج مصممة لأهدافك." },
@@ -39,168 +44,121 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-/* ─── Booking modal (unchanged flow) ─── */
-function BookingModal({ pkg, onClose }: { pkg: PublicPackage; onClose: () => void }) {
-  const { submitPublicLead } = usePlatformStore();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
-  const [err, setErr] = useState("");
+const LANDING_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr("");
-    setSaving(true);
-    try {
-      await submitPublicLead({ name, phone, ...(email ? { email } : {}), packageName: pkg.nameAr });
-      setDone(true);
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "فشل إرسال الطلب — حاول مرة أخرى");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-4" onClick={onClose}>
-      <Card className="w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-        {done ? (
-          <div className="py-6 text-center">
-            <div className="mx-auto grid size-14 place-items-center rounded-full bg-sage/15 text-sage">
-              <Check className="size-7" />
-            </div>
-            <h3 className="mt-4 text-lg font-bold">تم استلام طلبك</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
-              سيتواصل معك فريق المبيعات قريباً لإتمام حجز باقة <b>{pkg.nameAr}</b>.
-            </p>
-            <Button className="mt-5 w-full" onClick={onClose}>تمام</Button>
-          </div>
-        ) : (
-          <>
-            <h3 className="text-lg font-bold">حجز باقة: {pkg.nameAr}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              اترك بياناتك وسيتواصل معك فريقنا لتأكيد الحجز
-            </p>
-            <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-              <div className="space-y-1.5">
-                <Label>الاسم الكامل</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>رقم الهاتف / واتساب</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} required dir="ltr" placeholder="+20..." />
-              </div>
-              <div className="space-y-1.5">
-                <Label>البريد الإلكتروني (اختياري)</Label>
-                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
-              </div>
-              {err && <p className="text-sm font-semibold text-danger">{err}</p>}
-              <div className="flex gap-2">
-                <Button type="submit" className="flex-1" disabled={saving}>
-                  {saving ? "جاري الإرسال..." : "تأكيد الحجز"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
-              </div>
-            </form>
-          </>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-/* ─── 3D Language cube for the hero (Hebrew + English letters) ─── */
-function LanguageCube() {
-  const size = 110;
-  const faces = ["א", "A", "ל", "B", "ש", "E"];
-  const transforms = [
-    `rotateY(0deg) translateZ(${size / 2}px)`,
-    `rotateY(90deg) translateZ(${size / 2}px)`,
-    `rotateY(180deg) translateZ(${size / 2}px)`,
-    `rotateY(270deg) translateZ(${size / 2}px)`,
-    `rotateX(90deg) translateZ(${size / 2}px)`,
-    `rotateX(-90deg) translateZ(${size / 2}px)`,
-  ];
-  return (
-    <div style={{ perspective: 900 }} className="grid place-items-center">
-      <div
-        className="preserve-3d animate-cube-spin relative"
-        style={{ width: size, height: size }}
-      >
-        {faces.map((f, i) => (
-          <div key={i} className="he-cube-face text-4xl" style={{ transform: transforms[i] }}>
-            {f}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const NAVY = "#0b2f6e";
-const NAVY_DEEP = "#071f4d";
-const GREEN = "#7fc341";
-
-const TEACHER_CARD_COLORS = ["bg-[#dbe7ff]", "bg-[#efe9e4]", "bg-[#ffe0e7]", "bg-[#e2f5d9]"];
-
-const FAQ_ITEMS = [
-  "كم من الوقت أحتاج لأتحدث بطلاقة؟",
-  "هل تقدمون دروساً عبر الإنترنت؟",
-  "هل يمكنني تغيير المعلم إذا أردت؟",
-  "هل أستطيع دراسة لغتين في نفس الوقت؟",
+const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: "كم من الوقت أحتاج لأتحدث بطلاقة؟",
+    a: "يختلف حسب مستواك والتزامك — في المتوسط يصل طلابنا للمحادثة اليومية خلال 4-6 أشهر من الالتزام بالبرنامج والواجبات.",
+  },
+  {
+    q: "هل تقدمون دروساً عبر الإنترنت؟",
+    a: "نعم، كل برامجنا متاحة أونلاين عبر جلسات مباشرة مع المدرس، إضافة إلى مكتبة فيديوهات وتسجيلات تفاعلية داخل المنصة.",
+  },
+  {
+    q: "هل يمكنني تغيير المعلم إذا أردت؟",
+    a: "بالتأكيد — يمكنك طلب تغيير المدرس في أي وقت من خلال خدمة العملاء، وسننقلك لمدرس آخر يناسب احتياجك دون أي تكلفة إضافية.",
+  },
+  {
+    q: "هل أستطيع دراسة لغتين في نفس الوقت؟",
+    a: "نعم، يمكنك الاشتراك في أكثر من برنامج — عبري وإنجليزي معاً — وسنرتب لك جدولاً متوازناً مع مدرسين متخصصين لكل لغة.",
+  },
 ];
 
-function FaqItem({ q }: { q: string }) {
-  const [open, setOpen] = useState(false);
-  const answers: Record<string, string> = {
-    "كم من الوقت أحتاج لأتحدث بطلاقة؟":
-      "يختلف حسب مستواك والتزامك — في المتوسط يصل طلابنا للمحادثة اليومية خلال 4-6 أشهر من الالتزام بالبرنامج والواجبات.",
-    "هل تقدمون دروساً عبر الإنترنت؟":
-      "نعم، كل برامجنا متاحة أونلاين عبر جلسات مباشرة مع المدرس، إضافة إلى مكتبة فيديوهات وتسجيلات تفاعلية داخل المنصة.",
-    "هل يمكنني تغيير المعلم إذا أردت؟":
-      "بالتأكيد — يمكنك طلب تغيير المدرس في أي وقت من خلال خدمة العملاء، وسننقلك لمدرس آخر يناسب احتياجك دون أي تكلفة إضافية.",
-    "هل أستطيع دراسة لغتين في نفس الوقت؟":
-      "نعم، يمكنك الاشتراك في أكثر من برنامج — عبري وإنجليزي معاً — وسنرتب لك جدولاً متوازناً مع مدرسين متخصصين لكل لغة.",
-  };
+const PROGRAMS = [
+  {
+    icon: BookOpenCheck,
+    iconTone: "",
+    title: "عبري — المبتدئين (A1-A2)",
+    desc: "إتقان الأبجدية العبرية، القواعد الأساسية، وإجراء محادثات يومية بسيطة بثقة تامة.",
+    meta: ["لغة عبرية", "أونلاين أو حضوري"],
+    featured: true,
+    tag: "الأكثر اختيارًا",
+  },
+  {
+    icon: Mic2,
+    iconTone: "blue",
+    title: "عبري — المتوسط (B1-B2)",
+    desc: "توسيع المفردات، فهم الوسائل الإعلامية، والتعبير عن أفكار معقدة بطلاقة أكبر.",
+    meta: ["لغة عبرية", "مجموعات صغيرة"],
+  },
+  {
+    icon: Compass,
+    iconTone: "coral",
+    title: "عبري — المتقدم (C1)",
+    desc: "إتقان اللهجة، فهم المصطلحات المعقدة، والتعامل باحترافية في بيئات العمل العبرية.",
+    meta: ["لغة عبرية", "متقدم"],
+  },
+  {
+    icon: Sparkles,
+    iconTone: "",
+    title: "إنجليزي — المبتدئين (A1-A2)",
+    desc: "أساسيات اللغة الإنجليزية، القواعد والمفردات، والتمكن من المحادثات اليومية البسيطة.",
+    meta: ["لغة إنجليزية", "أونلاين أو حضوري"],
+  },
+  {
+    icon: Video,
+    iconTone: "blue",
+    title: "إنجليزي — المتوسط (B1-B2)",
+    desc: "تطوير المهارات الأربع، فهم النصوص المعقدة، والتواصل الفعّال في البيئات المهنية.",
+    meta: ["لغة إنجليزية", "مجموعات صغيرة"],
+  },
+  {
+    icon: GraduationCap,
+    iconTone: "coral",
+    title: "إنجليزي — المتقدم (C1-C2)",
+    desc: "إتقان النطق والطلاقة، الكتابة الأكاديمية، والاستعداد لامتحانات IELTS وTOEFL.",
+    meta: ["لغة إنجليزية", "متقدم"],
+  },
+];
+
+function LandingBrand() {
   return (
-    <button
-      type="button"
-      onClick={() => setOpen((o) => !o)}
-      className="w-full rounded-xl border border-[#e3e9f5] bg-white px-5 py-4 text-right transition-shadow hover:shadow-md"
-    >
-      <span className="flex items-center justify-between gap-3">
-        <b className="text-sm font-bold text-[#0b2f6e]">{q}</b>
-        <span
-          className={`grid size-6 shrink-0 place-items-center rounded-full transition-transform duration-300 ${open ? "rotate-180 bg-[#7fc341] text-white" : "bg-[#eef3fb] text-[#7fc341]"}`}
-        >
-          <ChevronDown className="size-3.5" />
-        </span>
+    <a className="landing-brand" href="#top" aria-label="עברית שוטפת">
+      <span className="landing-brand-symbol">ח<i /></span>
+      <span>
+        <strong className="font-he">עברית שוטפת</strong>
+        <small>أكاديمية اللغات العملية</small>
       </span>
-      <span
-        className={`block overflow-hidden text-sm leading-7 text-[#5a6b8c] transition-all duration-300 ${open ? "mt-2 max-h-40" : "max-h-0"}`}
-      >
-        {answers[q]}
-      </span>
-    </button>
+    </a>
+  );
+}
+
+function TeacherCard({ teacher }: { teacher: { name: string; badge: string; avatarUrl: string | null; slots: string[]; desc: string; initials: string } }) {
+  return (
+    <article className="teacher-card">
+      <div className="teacher-card-avatar">
+        {teacher.avatarUrl ? (
+          <img src={mediaSrc(teacher.avatarUrl)} alt={teacher.name} />
+        ) : (
+          <span>{teacher.initials}</span>
+        )}
+        <span className="verify"><Check size={13} /></span>
+      </div>
+      <h3>{teacher.name}</h3>
+      <span className="specialty">{teacher.badge}</span>
+      <p>{teacher.desc}</p>
+      <div className="teacher-card-slots">
+        {teacher.slots.length === 0 ? (
+          <small>تُعلن المواعيد قريباً</small>
+        ) : (
+          teacher.slots.map((s) => <span key={s}>{s}</span>)
+        )}
+      </div>
+    </article>
   );
 }
 
 function Landing() {
   const { user } = useAuth();
-  const { publicPackages, fetchPublicPackages, publicSchedules, fetchPublicSchedules, publicTeachers, fetchPublicTeachers } = usePlatformStore();
-  const [bookingPkg, setBookingPkg] = useState<PublicPackage | null>(null);
+  const { publicSchedules, fetchPublicSchedules, publicTeachers, fetchPublicTeachers } = usePlatformStore();
+  const [mobileNav, setMobileNav] = useState(false);
 
   useEffect(() => {
-    fetchPublicPackages();
     fetchPublicSchedules();
     fetchPublicTeachers();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Teachers come from the public endpoint (all active teachers added by admin);
-  // weekly slots are merged in from publicSchedules when they exist.
-  const LANDING_DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
   const slotsByTeacher = publicSchedules.reduce<Record<string, { slots: string[]; online: boolean }>>(
     (acc, s) => {
       const t = s.teacher;
@@ -212,488 +170,322 @@ function Landing() {
     },
     {},
   );
-  const teachersToRender = publicTeachers.map((t: PublicTeacher, i) => ({
+  const teachersToRender = publicTeachers.map((t: PublicTeacher) => ({
     name: t.fullName,
     badge: t.specialty ?? "مدرس لغات",
     avatarUrl: t.avatarUrl ?? null,
     slots: slotsByTeacher[t.id]?.slots ?? [],
-    online: slotsByTeacher[t.id]?.online ?? true,
     desc: t.bio || "مدرس معتمد — أونلاين وحضوري، مواعيد ثابتة كل أسبوع",
-    avatarBg: TEACHER_CARD_COLORS[i % TEACHER_CARD_COLORS.length],
     initials: t.fullName.replace(/^(د\.|أ\.|م\.)\s*/, "")[0] ?? "؟",
   }));
 
-  return (
-    <div dir="rtl" className="relative min-h-screen overflow-x-clip bg-[#f6f9fd] text-ink">
-      {/* soft bg blobs */}
-      <div className="pointer-events-none absolute -top-32 -left-32 size-[420px] rounded-full bg-[#dce9ff] blur-3xl opacity-70" />
-      <div className="pointer-events-none absolute top-1/3 -right-40 size-[380px] rounded-full bg-[#e4f4d4] blur-3xl opacity-60" />
+  const ctaTo = user ? getHomeRouteForRole(user.role) : "/register";
 
-      {/* ─── Header ─── */}
-      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
-        <nav className="hidden items-center gap-7 text-sm font-medium text-[#33436b] lg:flex">
-          <a href="#faq" className="hover:text-[#0b2f6e]">الأسئلة الشائعة</a>
-          <a href="#teachers" className="hover:text-[#0b2f6e]">المعلمون</a>
-          <a href="#programs" className="hover:text-[#0b2f6e]">البرامج</a>
-          <a href="#about" className="hover:text-[#0b2f6e]">عن الأكاديمية</a>
+  return (
+    <div className="landing-page" dir="rtl">
+      <header className="landing-header">
+        <LandingBrand />
+        <nav className={`landing-nav ${mobileNav ? "open" : ""}`} aria-label="التنقل الرئيسي">
+          <a href="#why" onClick={() => setMobileNav(false)}>لماذا עברית שוטפת؟</a>
+          <a href="#method" onClick={() => setMobileNav(false)}>كيف نتعلم؟</a>
+          <a href="#programs" onClick={() => setMobileNav(false)}>البرامج</a>
+          <a href="#teachers" onClick={() => setMobileNav(false)}>معلمونا</a>
+          <a href="#pricing" onClick={() => setMobileNav(false)}>الأسعار</a>
         </nav>
-        <div className="flex items-center gap-2">
-          <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
-            <GraduationCap className="size-5" />
-          </span>
-          <span className="leading-tight">
-            <b className="block text-[15px] font-bold" style={{ color: NAVY }}>עברית שוטפת</b>
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="landing-header-actions">
           {user ? (
-            <Link to={getHomeRouteForRole(user.role)}>
-              <button className="rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/25 transition-transform hover:-translate-y-0.5" style={{ background: NAVY }}>
-                لوحة التحكم
-              </button>
-            </Link>
+            <Link to={ctaTo} className="landing-header-cta">لوحة التحكم <ArrowLeft size={15} /></Link>
           ) : (
             <>
-              <Link to="/login" className="hidden text-sm font-medium text-[#33436b] hover:text-[#0b2f6e] sm:block">
-                تسجيل الدخول
-              </Link>
-              <Link to="/register">
-                <button className="rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/25 transition-transform hover:-translate-y-0.5" style={{ background: NAVY }}>
-                  احجز جلستك الآن
-                </button>
-              </Link>
+              <Link to="/login" className="landing-login">تسجيل الدخول</Link>
+              <Link to="/register" className="landing-header-cta">ابدأ رحلتك <ArrowLeft size={15} /></Link>
             </>
           )}
         </div>
+        <button className="landing-mobile-toggle" onClick={() => setMobileNav((v) => !v)} aria-label="فتح القائمة">
+          {mobileNav ? <X size={21} /> : <Menu size={21} />}
+        </button>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-5 pb-24">
+      <main id="top">
         {/* ─── Hero ─── */}
-        <section className="grid items-center gap-10 pt-10 lg:grid-cols-2 lg:pt-14">
-          {/* text */}
-          <div>
-            
-            <h1 className="mt-6 text-4xl font-bold leading-[1.25] lg:text-5xl">
-              <span style={{ color: NAVY }}>اكتشف قوة</span>
-              <br />
-              <span style={{ color: GREEN }}>العبرية والإنجليزية</span>
-              <br />
-              <span style={{ color: NAVY }}>مع עברית שוטפת</span>
-            </h1>
-            <p className="mt-5 max-w-lg text-base leading-8 text-[#5a6b8c]">
-              انضم إلى أكاديمية עברית שוטפתوتعلّم اللغتين العبرية والإنجليزية على يد نخبة من الخبراء،
-              من خلال برامج تفاعلية ومنهجية مدروسة تضمن لك الإتقان والتواصل بثقة.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href="#programs"
-                className="rounded-xl border-2 px-7 py-3 text-sm font-bold transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                style={{ borderColor: NAVY, color: NAVY }}
-              >
-                تصفح البرامج
-              </a>
-              <a
-                href="#teachers"
-                className="rounded-xl px-7 py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/30 transition-all hover:-translate-y-0.5"
-                style={{ background: NAVY }}
-              >
-                تعرّف على معلمينا ←
-              </a>
+        <section className="landing-hero">
+          <div className="landing-hero-copy">
+            <span className="landing-eyebrow"><span className="eyebrow-dot" /> أكاديمية متخصصة للناطقين بالعربية</span>
+            <h1>اتكلم عبري وإنجليزي<br /><em>بثقة، من أول يوم.</em></h1>
+            <p>منهج عملي مصمم ليأخذك من أول كلمة إلى محادثة حقيقية — مع مدربين متخصصين، خطة تناسبك، ومجتمع يشجعك في كل خطوة.</p>
+            <div className="landing-hero-actions">
+              <Link to={ctaTo} className="landing-primary">اكتشف مستواك مجانًا <ArrowLeft size={17} /></Link>
+              <a href="#method" className="landing-play"><span><Play size={14} fill="currentColor" /></span> شاهد كيف نعلّم</a>
+            </div>
+            <div className="landing-hero-note">
+              <div className="mini-avatars"><span>س</span><span>م</span><span>ر</span><span>+</span></div>
+              <p><strong>+2,500 خريج</strong><br />بدأوا رحلتهم معنا</p>
             </div>
           </div>
-
-          {/* 3D visual */}
-          <div className="relative mx-auto w-full max-w-lg">
-            <div
-              className="relative overflow-hidden rounded-[2rem] p-10 lg:p-14"
-              style={{
-                background: `radial-gradient(120% 130% at 30% 10%, #123b8f 0%, ${NAVY_DEEP} 55%, #050f2b 100%)`,
-                boxShadow: "0 40px 80px -24px rgba(7,31,77,.55), inset 0 1px 0 rgba(255,255,255,.08)",
-              }}
-            >
-              {/* floating letter shards — Hebrew + English */}
-              <span className="he-cube-face animate-float absolute right-8 top-8 size-12 text-2xl" style={{ ["--fl-rot" as string]: "-12deg" }}>ב</span>
-              <span className="he-cube-face animate-float-slow absolute left-10 top-16 size-10 text-xl" style={{ ["--fl-rot" as string]: "10deg" }}>A</span>
-              <span className="he-cube-face animate-float absolute bottom-24 right-12 size-8 text-lg" style={{ ["--fl-rot" as string]: "14deg", animationDelay: "1.2s" }}>ר</span>
-              <span className="he-cube-face animate-float-slow absolute left-16 bottom-32 size-7 text-base" style={{ ["--fl-rot" as string]: "-8deg", animationDelay: ".6s" }}>E</span>
-              <span className="he-cube-face animate-float absolute right-1/3 top-6 size-6 text-sm" style={{ animationDelay: "1.8s" }}>צ</span>
-              <span className="he-cube-face animate-float-slow absolute left-1/4 top-1/2 size-6 text-sm" style={{ animationDelay: "2.2s" }}>N</span>
-              {/* orbs */}
-              <span className="animate-float absolute left-6 top-24 size-3 rounded-full bg-[#7fc341] shadow-[0_0_18px_#7fc341]" style={{ animationDelay: ".9s" }} />
-              <span className="animate-float-slow absolute right-1/4 bottom-40 size-2.5 rounded-full bg-[#54c7ec] shadow-[0_0_16px_#54c7ec]" style={{ animationDelay: "1.5s" }} />
-              <span className="animate-float absolute right-10 top-1/2 size-2 rounded-full bg-[#a78bfa] shadow-[0_0_14px_#a78bfa]" />
-
-              {/* glow words — both languages */}
-              <div dir="ltr" className="animate-glow-pulse relative z-10 flex items-center justify-center gap-4 text-center">
-                <span className="font-he text-6xl font-bold text-[#8fd0f5] lg:text-7xl" style={{ letterSpacing: ".05em" }}>
-                  עִבְרִית
-                </span>
-                <span className="font-lat text-5xl font-bold text-[#7fc341] lg:text-6xl">
-                  English
-                </span>
+          <div className="hero-visual">
+            <div className="hero-visual-backdrop" />
+            <div className="hero-word-card">
+              <span className="hero-word-label">كلمة اليوم</span>
+              <strong>להתחיל</strong>
+              <b>يبدأ</b>
+              <small>lahatchil · فعل</small>
+              <button aria-label="استمع للنطق"><Play size={13} fill="currentColor" /></button>
+            </div>
+            <div className="hero-dialog-card">
+              <div className="dialog-avatar">ל</div>
+              <div>
+                <span>المحادثة الذكية</span>
+                <strong>מה שלומך היום?</strong>
+                <small>كيف حالك اليوم؟</small>
               </div>
-              <p className="relative z-10 mt-4 text-center text-sm font-medium tracking-widest text-[#9db8e8]">
-                العبرية والإنجليزية · Hebrew & English
-              </p>
-
-              {/* 3D cube */}
-              <div className="relative z-10 mt-10 flex justify-center">
-                <LanguageCube />
+              <div className="dialog-wave"><i /><i /><i /><i /><i /></div>
+            </div>
+            <div className="hero-progress-card">
+              <span className="hero-progress-icon"><Check size={15} /></span>
+              <div>
+                <strong>خطة اليوم مكتملة</strong>
+                <small>أحسنت! 3 من 3 مهام</small>
               </div>
+              <span className="hero-progress-percent">100%</span>
             </div>
-
-            {/* floating chips outside card */}
-            <div className="animate-float absolute -right-4 top-10 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: NAVY, animationDelay: ".4s" }}>
-              +15 معلم خبير
-            </div>
-            <div className="animate-float-slow absolute -left-4 bottom-12 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: GREEN, animationDelay: "1.1s" }}>
-              98% نسبة رضا الطلاب
-            </div>
-            <div className="animate-float absolute -left-6 top-1/3 hidden rounded-xl bg-white px-4 py-2.5 text-xs font-bold shadow-xl shadow-[#0b2f6e]/15 sm:block" style={{ color: NAVY, animationDelay: "1.6s" }}>
-              عبري + إنجليزي
-            </div>
+            <span className="hero-star hero-star-a">✦</span>
+            <span className="hero-star hero-star-b">✦</span>
+            <span className="hero-circle-text">HEBREW JOURNEY · EVERY DAY</span>
           </div>
         </section>
 
-        {/* ─── Why עברית שוטפת─── */}
-        <section id="about" className="mt-24 grid items-center gap-10 lg:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-bold leading-snug">
-              <span style={{ color: GREEN }}>لماذا تختار</span>{" "}
-              <span style={{ color: NAVY }}>أكاديمية עברית שוטפת؟</span>
-            </h2>
-            <p className="mt-4 leading-8 text-[#5a6b8c]">
-              نحن نجمع بين أحدث التقنيات التعليمية والأساليب التقليدية الفعالة لنخلق لك تجربة تعليمية
-              فعالة، مصممة خصيصاً لأهدافك الشخصية والمهنية.
-            </p>
-            <ul className="mt-7 space-y-4">
-              {[
-                "معلمون ناطقون أصليون ومعتمدون دولياً — عبري وإنجليزي",
-                "جداول زمنية مرنة (أونلاين وحضوري)",
-                "منهاج مخصص لكل مستويات الإتقان في اللغتين",
-                "إمكانية دراسة لغتين معاً بجدول متوازن",
-              ].map((x) => (
-                <li key={x} className="flex items-center gap-3 text-sm font-semibold text-[#2d3f63]">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ background: `${GREEN}26`, color: "#4f9e1f" }}>
-                    <Check className="size-4" />
-                  </span>
-                  {x}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* illustration card */}
-          <div className="tilt-hover relative">
-            <div
-              className="relative overflow-hidden rounded-[2rem] p-10"
-              style={{
-                background: "linear-gradient(160deg, #eaf3ff 0%, #f4f9ec 55%, #ffffff 100%)",
-                boxShadow: "0 30px 60px -20px rgba(11,47,110,.18)",
-                border: "1px solid #e3ecf9",
-              }}
-            >
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { icon: GraduationCap, bg: "#0b2f6e", c: "#fff", r: "-6deg" },
-                  { icon: Rocket, bg: GREEN, c: "#fff", r: "5deg" },
-                  { icon: Crown, bg: "#ffb703", c: "#fff", r: "-4deg" },
-                ].map(({ icon: Icon, bg, c, r }, i) => (
-                  <div
-                    key={i}
-                    className="animate-float mx-auto grid aspect-square w-full max-w-28 place-items-center rounded-2xl"
-                    style={{ background: bg, color: c, ["--fl-rot" as string]: r, animationDelay: `${i * 0.8}s`, boxShadow: `0 18px 34px -10px ${bg}66` }}
-                  >
-                    <Icon className="size-10" />
-                  </div>
-                ))}
-              </div>
-              <div className="mt-8 rounded-2xl bg-white/80 p-5 text-center shadow-inner backdrop-blur">
-                <b className="block text-lg" style={{ color: NAVY }}>بيئة تعلم متكاملة</b>
-                <p className="mt-1 text-xs leading-6 text-[#5a6b8c]">
-                  لايف مباشر + واجبات مصححة + تقارير تقدم + شهادات معتمدة — كل شيء في مكان واحد.
-                </p>
-              </div>
-              <span className="he-shard animate-float-slow absolute left-8 top-8 size-9 text-lg">א</span>
-              <span className="he-shard animate-float absolute right-10 bottom-24 size-7 text-sm" style={{ animationDelay: "1s" }}>ת</span>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* ─── Stats bar ─── */}
-      <section style={{ background: `linear-gradient(90deg, ${NAVY_DEEP}, ${NAVY})` }}>
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-8 px-5 py-12 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            { v: "50k+", l: "ساعة تعليمية" },
-            { v: "15+", l: "معلم خبير" },
-            { v: "2", l: "لغات — عبري وإنجليزي" },
-            { v: "98%", l: "نسبة الرضا" },
-            { v: "2,500+", l: "خريج ناجح" },
-          ].map((s) => (
-            <div key={s.l} className="text-center">
-              <b className="block font-lat text-4xl font-bold" style={{ color: GREEN }}>{s.v}</b>
-              <small className="mt-1 block text-sm text-[#c4d4ee]">{s.l}</small>
-            </div>
-          ))}
+        {/* ─── Trust bar ─── */}
+        <div className="landing-trust">
+          <span>تعلّمها كما تُستخدم في الحياة</span>
+          <div><strong>+2,500</strong><small>خريج ناجح</small></div>
+          <div><strong>+50k</strong><small>ساعة تعليمية</small></div>
+          <div><strong>98%</strong><small>نسبة رضا</small></div>
+          <div><strong>+15</strong><small>معلم خبير</small></div>
+          <div className="trust-quote"><Star size={14} fill="currentColor" /> <span>"أخيرًا بدأت أتكلم بدون خوف"</span></div>
         </div>
-      </section>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-5">
-        {/* ─── Programs ─── */}
-        <section id="programs" className="mt-24">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold">
-              <span style={{ color: GREEN }}>برامجنا</span> <span style={{ color: NAVY }}>التعليمية</span>
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5a6b8c]">
-              مسارات دراسية منظمة مصممة لتأخذك من مستوى المبتدئ إلى التحدث بطلاقة
-            </p>
+        {/* ─── Why ─── */}
+        <section className="landing-section why-section" id="why">
+          <div className="landing-section-heading">
+            <span className="landing-eyebrow">الفرق في التفاصيل</span>
+            <h2>اللغة ليست مادة دراسية،<br /><em>إنها حياة.</em></h2>
+            <p>لهذا صممنا تجربة تعليمية تشبه الحياة التي تريد أن تعيشها بالعبرية والإنجليزية — عملية، شخصية، ومليئة بالمواقف الحقيقية.</p>
           </div>
-
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: Sprout, iconBg: "#2f6fed",
-                title: "عبري — المبتدئين (A1-A2)",
-                desc: "إتقان الأبجدية العبرية، القواعد الأساسية، وإجراء محادثات يومية بسيطة بثقة تامة.",
-                link: "ابدأ الآن", linkC: GREEN,
-              },
-              {
-                icon: Rocket, iconBg: "#0d3a86",
-                title: "عبري — المتوسط (B1-B2)",
-                desc: "توسيع المفردات، فهم الوسائل الإعلامية، والتعبير عن أفكار معقدة بطلاقة أكبر.",
-                link: "ارتقِ بمستواك", linkC: GREEN,
-              },
-              {
-                icon: Crown, iconBg: "#1647a8",
-                title: "عبري — المتقدم (C1)",
-                desc: "إتقان اللهجة، فهم المصطلحات المعقدة، والتعامل باحترافية في بيئات العمل العبرية.",
-                link: "كن محترفاً", linkC: NAVY,
-              },
-              {
-                icon: Sprout, iconBg: "#2f9e4f",
-                title: "إنجليزي — المبتدئين (A1-A2)",
-                desc: "أساسيات اللغة الإنجليزية، القواعد والمفردات، والتمكن من المحادثات اليومية البسيطة.",
-                link: "ابدأ الآن", linkC: GREEN,
-              },
-              {
-                icon: Rocket, iconBg: "#1a7a3d",
-                title: "إنجليزي — المتوسط (B1-B2)",
-                desc: "تطوير المهارات الأربع، فهم النصوص المعقدة، والتواصل الفعّال في البيئات المهنية.",
-                link: "ارتقِ بمستواك", linkC: GREEN,
-              },
-              {
-                icon: Crown, iconBg: "#0b5a2e",
-                title: "إنجليزي — المتقدم (C1-C2)",
-                desc: "إتقان النطق والطلاقة، الكتابة الأكاديمية، والاستعداد لامتحانات IELTS وTOEFL.",
-                link: "كن محترفاً", linkC: NAVY,
-              },
-            ].map((p) => (
-              <div
-                key={p.title}
-                className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-7 text-center shadow-sm"
-              >
-                <span
-                  className="mx-auto grid size-14 place-items-center rounded-xl text-white"
-                  style={{ background: p.iconBg, boxShadow: `0 14px 28px -10px ${p.iconBg}88` }}
-                >
-                  <p.icon className="size-7" />
-                </span>
-                <h3 className="mt-5 text-lg font-bold" style={{ color: NAVY }}>{p.title}</h3>
-                <p className="mt-2.5 text-sm leading-7 text-[#5a6b8c]">{p.desc}</p>
-                <a href="#packages" className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold transition-transform hover:translate-x-[-4px]" style={{ color: p.linkC }}>
-                  {p.link} <ArrowLeft className="size-4" />
-                </a>
-              </div>
-            ))}
+          <div className="why-grid">
+            <article className="why-card why-card-main">
+              <span className="why-icon teal"><MessageCircle size={21} /></span>
+              <span className="card-index">01</span>
+              <h3>تحدث من أول درس</h3>
+              <p>لن تنتظر حتى تنهي القواعد. ستبدأ باستخدام جمل حقيقية في مواقف يومية من أول أسبوع.</p>
+              <div className="speech-bubbles"><span>אני רוצה קפה</span><span>أريد قهوة</span></div>
+            </article>
+            <article className="why-card">
+              <span className="why-icon yellow"><Target size={21} /></span>
+              <span className="card-index">02</span>
+              <h3>خطة تشبهك</h3>
+              <p>نحدد مستواك ونقاط قوتك ونبني لك خطة مرنة تعرف دائمًا ما هي خطوتك التالية.</p>
+              <div className="mini-bars"><i /><i /><i /><i /><i /></div>
+            </article>
+            <article className="why-card">
+              <span className="why-icon purple"><Users size={21} /></span>
+              <span className="card-index">03</span>
+              <h3>مدرب ومجتمع</h3>
+              <p>مدربون يفهمون هدفك، ومجتمع عربي يشجعك في كل مرة تفتح فيها درسًا جديدًا.</p>
+              <div className="mini-community"><span>س</span><span>م</span><span>ل</span><b>+2k</b></div>
+            </article>
           </div>
         </section>
 
-        {/* ─── Package categories ─── */}
-        <section id="packages" className="mt-24">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold" style={{ color: NAVY }}>الباقات والأسعار</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-[#5a6b8c]">
-              اختر نظام التعلم المناسب لك — باقات أساسية أو نظام المكالمات
-            </p>
+        {/* ─── Method ─── */}
+        <section className="landing-method" id="method">
+          <div className="landing-method-art">
+            <div className="method-paper">
+              <span>הדרך שלך</span>
+              <strong>طريقك<br />إلى الطلاقة</strong>
+              <div className="method-route"><i /><i /><i /><i /><i /></div>
+              <small>خطوة صغيرة<br />كل يوم</small>
+            </div>
+            <span className="method-bubble bubble-one">שמע</span>
+            <span className="method-bubble bubble-two">דבר</span>
+            <span className="method-bubble bubble-three">התחבר</span>
           </div>
+          <div className="landing-method-copy">
+            <span className="landing-eyebrow">منهجية واضحة</span>
+            <h2>ثلاث خطوات.<br /><em>تغيير حقيقي.</em></h2>
+            <p>لا نؤمن بالحفظ العشوائي. كل درس عندنا يقربك من هدف واضح، ويترك في يدك شيئًا تستطيع استخدامه فورًا.</p>
+            <div className="method-steps">
+              <div><span>01</span><div><strong>اعرف مستواك</strong><small>اختبار ذكي يحدد نقطة البداية المناسبة لك.</small></div></div>
+              <div><span>02</span><div><strong>تعلّم ما تحتاجه</strong><small>دروس قصيرة، محادثات، وتدريب على مواقف حقيقية.</small></div></div>
+              <div><span>03</span><div><strong>استخدمها بثقة</strong><small>تحدث مع مدربك ومجتمعك حتى تصبح اللغة طبيعية.</small></div></div>
+            </div>
+            <Link to={ctaTo} className="landing-text-link">ابدأ باختبار تحديد المستوى <ArrowLeft size={16} /></Link>
+          </div>
+        </section>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-2">
-            <Link to="/packages/basic" className="group tilt-hover block rounded-2xl border border-[#e7edf7] bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
-              <div className="flex items-center gap-4">
-                <span className="grid size-16 place-items-center rounded-2xl text-white" style={{ background: `linear-gradient(135deg, ${NAVY}, ${NAVY_DEEP})` }}>
-                  <GraduationCap className="size-8" />
-                </span>
-                <div>
-                  <h3 className="text-xl font-bold" style={{ color: NAVY }}>الباقات الأساسية</h3>
-                  <p className="mt-1 text-sm text-[#5a6b8c]">دروس أونلاين أو حضوري — لكل المستويات</p>
+        {/* ─── Programs ─── */}
+        <section className="landing-section programs-section" id="programs">
+          <div className="landing-section-heading centered">
+            <span className="landing-eyebrow">اختر طريقك</span>
+            <h2>برنامج يناسب <em>هدفك.</em></h2>
+            <p>سواء كنت تبدأ من الصفر أو تريد كسر حاجز التحدث، لديك مسار واضح ينتظرك — عبري أو إنجليزي.</p>
+          </div>
+          <div className="program-grid">
+            {PROGRAMS.map((p) => (
+              <article className={`program-card ${p.featured ? "featured" : ""}`} key={p.title}>
+                {p.tag && <span className="program-tag">{p.tag}</span>}
+                <div className={`program-icon ${p.iconTone}`}><p.icon size={22} /></div>
+                <h3>{p.title}</h3>
+                <p>{p.desc}</p>
+                <div className="program-meta">
+                  {p.meta.map((m) => <span key={m}><Clock3 size={14} /> {m}</span>)}
                 </div>
-              </div>
-              <ul className="mt-5 space-y-2 text-sm text-[#5a6b8c]">
-                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> أونلاين أو حضوري</li>
-                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> لكل المستويات A1 — C2</li>
-                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> مدرسون معتمدون</li>
-              </ul>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
-                تصفح الباقات <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" />
-              </span>
-            </Link>
-
-            <Link to="/packages/calls" className="group tilt-hover block rounded-2xl border border-[#e7edf7] bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
-              <div className="flex items-center gap-4">
-                <span className="grid size-16 place-items-center rounded-2xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
-                  <Phone className="size-8" />
-                </span>
-                <div>
-                  <h3 className="text-xl font-bold" style={{ color: NAVY }}>نظام المكالمات</h3>
-                  <p className="mt-1 text-sm text-[#5a6b8c]">حصص فردية أونلاين — احجز بمرونة</p>
-                </div>
-              </div>
-              <ul className="mt-5 space-y-2 text-sm text-[#5a6b8c]">
-                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> حصص فردية (12/20/28)</li>
-                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> أونلاين فقط</li>
-                <li className="flex items-center gap-2"><Check className="size-4" style={{ color: GREEN }} /> احجز وغيّر مواعيدك بنفسك</li>
-              </ul>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
-                تصفح الباقات <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" />
-              </span>
-            </Link>
+                <Link to="/packages/basic">اعرف تفاصيل البرنامج <ArrowLeft size={15} /></Link>
+              </article>
+            ))}
           </div>
         </section>
 
         {/* ─── Teachers ─── */}
-        <section id="teachers" className="mt-24">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold">
-              <span style={{ color: GREEN }}>نخبة</span> <span style={{ color: NAVY }}>معلمينا</span>
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5a6b8c]">
-              تعلّم من خبراء معتمدين. اطلع على مواعيدهم الأسبوعية واحجز جلستك مباشرة.
-            </p>
+        <section className="landing-section" id="teachers">
+          <div className="landing-section-heading centered">
+            <span className="landing-eyebrow">نخبة المعلمين</span>
+            <h2>تعلّم من <em>خبراء معتمدين.</em></h2>
+            <p>اطلع على مواعيدهم الأسبوعية واحجز جلستك مباشرة.</p>
           </div>
-
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="teachers-grid">
             {teachersToRender.length === 0 && (
-              <div className="col-span-full rounded-2xl border border-[#e7edf7] bg-white py-12 text-center text-sm text-[#5a6b8c]">
-                سيظهر المعلمون هنا فور إضافة مواعيدهم من إدارة الأكاديمية.
-              </div>
+              <article className="teacher-card" style={{ gridColumn: "1 / -1", alignItems: "center" }}>
+                <p style={{ margin: "30px 0" }}>سيظهر المعلمون هنا فور إضافة مواعيدهم من إدارة الأكاديمية.</p>
+              </article>
             )}
-            {teachersToRender.map((t) => (
-              <div key={t.name} className="tilt-hover rounded-2xl border border-[#e7edf7] bg-white p-6 text-center shadow-sm">
-                <div className="relative mx-auto w-fit">
-                  {t.avatarUrl ? (
-                    <img
-                      src={mediaSrc(t.avatarUrl)}
-                      alt={t.name}
-                      className="size-28 rounded-full object-cover ring-4 ring-white shadow-lg"
-                    />
-                  ) : (
-                    <span className={`grid size-28 place-items-center rounded-full text-4xl font-bold ring-4 ring-white shadow-lg ${t.avatarBg}`} style={{ color: NAVY }}>
-                      {t.initials}
-                    </span>
-                  )}
-                  <span className="absolute -bottom-1 -left-1 grid size-7 place-items-center rounded-full text-white" style={{ background: GREEN }}>
-                    <Check className="size-4" />
-                  </span>
-                </div>
-                <h3 className="mt-4 text-lg font-bold" style={{ color: NAVY }}>{t.name}</h3>
-                <span className="mt-1.5 inline-block rounded-full px-3 py-1 text-[11px] font-bold" style={{ background: `${GREEN}22`, color: "#4f9e1f" }}>
-                  {t.badge}
-                </span>
-                <p className="mt-3 text-xs leading-6 text-[#5a6b8c]">{t.desc}</p>
-                <div className="mt-4 border-t border-[#eef2f9] pt-4">
-                  <p className="mb-2 text-[11px] font-semibold text-[#8a98b5]">المواعيد المتاحة هذا الأسبوع</p>
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {t.slots.length === 0 ? (
-                      <span className="text-[10px] text-[#8a98b5]">تُعلن المواعيد قريباً</span>
-                    ) : (
-                      t.slots.map((s) => (
-                        <span key={s} className="rounded-md bg-[#eef3fb] px-2 py-1 text-[10px] font-semibold" style={{ color: NAVY }}>
-                          {s}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <a href="#packages">
-                  <button className="mt-5 w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-[#0b2f6e]/20 transition-transform hover:-translate-y-0.5" style={{ background: NAVY }}>
-                    احجز جلسة الآن
-                  </button>
-                </a>
+            {teachersToRender.map((t) => <TeacherCard key={t.name} teacher={t} />)}
+          </div>
+        </section>
+
+        {/* ─── Testimonials ─── */}
+        <section className="landing-testimonials" id="testimonials">
+          <div className="landing-section-heading">
+            <span className="landing-eyebrow">أصوات من الرحلة</span>
+            <h2>النتيجة تُسمع<br /><em>في كلام طلابنا.</em></h2>
+          </div>
+          <div className="testimonial-grid">
+            <article>
+              <div className="quote-mark">“</div>
+              <p>كنت أفهم العبرية لكن لا أستطيع التحدث. بعد شهرين أصبحت أشارك في اجتماعات العمل بثقة.</p>
+              <div className="testimonial-author">
+                <span className="testimonial-avatar mint">ن</span>
+                <div><strong>نور حسن</strong><small>طالبة · مستوى B1</small></div>
+                <div className="stars">★★★★★</div>
               </div>
-            ))}
+            </article>
+            <article>
+              <div className="quote-mark">“</div>
+              <p>الجميل أن كل درس له علاقة بموقف أعيشه فعلًا. لم أشعر للحظة أنني أحفظ كلمات بلا معنى.</p>
+              <div className="testimonial-author">
+                <span className="testimonial-avatar peach">م</span>
+                <div><strong>محمد علي</strong><small>طالب · مستوى A2</small></div>
+                <div className="stars">★★★★★</div>
+              </div>
+            </article>
+            <article>
+              <div className="quote-mark">“</div>
+              <p>المدربة فهمت هدفي من أول جلسة، والخطة كانت واضحة جدًا. لأول مرة أستمر في تعلم لغة حتى النهاية.</p>
+              <div className="testimonial-author">
+                <span className="testimonial-avatar purple">ر</span>
+                <div><strong>ريم سامي</strong><small>طالبة · مستوى B2</small></div>
+                <div className="stars">★★★★★</div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        {/* ─── Pricing ─── */}
+        <section className="landing-pricing" id="pricing">
+          <div className="pricing-copy">
+            <span className="landing-eyebrow">ابدأ بالطريقة التي تناسبك</span>
+            <h2>رحلتك لا تحتاج<br /><em>انتظارًا أطول.</em></h2>
+            <p>اختبر مستواك مجانًا أولًا، ثم اختر الباقة التي تناسب وقتك وهدفك. بدون التزام طويل.</p>
+            <div className="pricing-checks">
+              <span><Check size={15} /> اختبار تحديد مستوى مجاني</span>
+              <span><Check size={15} /> إلغاء في أي وقت</span>
+            </div>
+          </div>
+          <div className="pricing-cards">
+            <div className="pricing-card">
+              <div className="pricing-card-top"><span>الباقات الأساسية</span><span className="pricing-recommended">الأكثر شمولًا</span></div>
+              <p>دروس أونلاين أو حضوري لكل المستويات مع مدرسين معتمدين — منهج كامل من A1 إلى C2.</p>
+              <ul>
+                <li><Check size={15} /> أونلاين أو حضوري</li>
+                <li><Check size={15} /> لكل المستويات A1 — C2</li>
+                <li><Check size={15} /> مدرسون معتمدون</li>
+              </ul>
+              <Link to="/packages/basic">تصفح الباقات <ArrowLeft size={16} /></Link>
+            </div>
+            <div className="pricing-card">
+              <div className="pricing-card-top"><span>نظام المكالمات</span><span className="pricing-recommended">مرونة كاملة</span></div>
+              <p>حصص فردية أونلاين — احجز وغيّر مواعيدك بنفسك حسب جدولك.</p>
+              <ul>
+                <li><Check size={15} /> حصص فردية (12/20/28)</li>
+                <li><Check size={15} /> أونلاين فقط</li>
+                <li><Check size={15} /> احجز وغيّر مواعيدك بنفسك</li>
+              </ul>
+              <Link to="/packages/calls">تصفح الباقات <ArrowLeft size={16} /></Link>
+            </div>
           </div>
         </section>
 
         {/* ─── FAQ ─── */}
-        <section id="faq" className="mx-auto mt-24 max-w-3xl">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold">
-              <span style={{ color: GREEN }}>الأسئلة</span> <span style={{ color: NAVY }}>الشائعة</span>
-            </h2>
+        <section className="landing-section" id="faq" style={{ paddingTop: 0 }}>
+          <div className="landing-section-heading centered">
+            <span className="landing-eyebrow">عندك سؤال؟</span>
+            <h2>الأسئلة <em>الشائعة</em></h2>
           </div>
-          <div className="mt-8 space-y-3">
-            {FAQ_ITEMS.map((q) => <FaqItem key={q} q={q} />)}
+          <div className="faq-list">
+            {FAQ_ITEMS.map((item) => (
+              <details className="faq-item" key={item.q}>
+                <summary>{item.q}<ChevronDown size={16} /></summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
           </div>
+        </section>
+
+        {/* ─── Final CTA ─── */}
+        <section className="landing-final-cta">
+          <div className="final-cta-pattern" />
+          <span className="landing-eyebrow">الكلمة الأولى تبدأ الآن</span>
+          <h2>جاهز تقول أول جملة؟</h2>
+          <p>خلّي العبرية والإنجليزية جزءًا من يومك، وليس مجرد هدف مؤجل.</p>
+          <Link to={ctaTo} className="landing-primary light">ابدأ رحلتك مجانًا <ArrowLeft size={17} /></Link>
         </section>
       </main>
 
-      {/* ─── Footer ─── */}
-      <footer className="mt-24" style={{ background: `linear-gradient(180deg, ${NAVY}, ${NAVY_DEEP})` }}>
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:grid-cols-2 lg:grid-cols-4">
+      <footer className="landing-footer">
+        <div className="landing-footer-brand">
+          <LandingBrand />
+          <p>نتعلم اللغات، خطوة بخطوة.</p>
+        </div>
+        <div className="landing-footer-links">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
-                <GraduationCap className="size-5" />
-              </span>
-              <b className="text-lg font-bold text-white">עברית שוטפת</b>
-            </div>
-            <p className="mt-4 text-xs leading-6 text-[#aebfdd]">
-              نعمل على تمكين الأفراد من التواصل باللغتين العبرية والإنجليزية منذ عام 2015 بأحدث المناهج التعليمية.
-            </p>
+            <strong>اكتشف</strong>
+            <a href="#why">لماذا نحن؟</a>
+            <a href="#programs">البرامج</a>
+            <a href="#method">منهجيتنا</a>
+            <a href="#faq">الأسئلة الشائعة</a>
           </div>
           <div>
-            <b className="text-sm font-bold text-white">روابط سريعة</b>
-            <ul className="mt-4 space-y-2.5 text-xs text-[#aebfdd]">
-              <li><a href="#about" className="hover:text-white">عن الأكاديمية</a></li>
-              <li><a href="#programs" className="hover:text-white">برامجنا</a></li>
-              <li><a href="#teachers" className="hover:text-white">معلمونا</a></li>
-              <li><a href="#faq" className="hover:text-white">الأسئلة الشائعة</a></li>
-            </ul>
-          </div>
-          <div>
-            <b className="text-sm font-bold text-white">اتصل بنا</b>
-            <ul className="mt-4 space-y-3 text-xs text-[#aebfdd]">
-              <li className="flex items-center gap-2"><Mail className="size-4" style={{ color: GREEN }} /> info@עברית שוטפת.com</li>
-              <li className="flex items-center gap-2"><Phone className="size-4" style={{ color: GREEN }} /> <span dir="ltr">+20 1270 869 510</span></li>
-              <li className="flex items-center gap-2"><MapPin className="size-4" style={{ color: GREEN }} /> القاهرة، مصر</li>
-            </ul>
-          </div>
-          <div>
-            <b className="text-sm font-bold text-white">تابعنا</b>
-            <div className="mt-4 flex gap-2.5">
-              {[Facebook, Instagram, Linkedin].map((Icon, i) => (
-                <a key={i} href="#" className="grid size-10 place-items-center rounded-lg bg-white/10 text-white transition-colors hover:bg-[#7fc341]">
-                  <Icon className="size-4" />
-                </a>
-              ))}
-            </div>
-            {user ? null : (
-              <Link to="/register">
-                <button className="mt-6 rounded-lg px-5 py-2.5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5" style={{ background: GREEN }}>
-                  انضم إلينا الآن
-                </button>
-              </Link>
-            )}
+            <strong>تواصل</strong>
+            <a href="tel:+201270869510"><Phone size={11} /> <span dir="ltr">+20 1270 869 510</span></a>
+            <a href="#pricing">الباقات والأسعار</a>
+            <a href="#teachers">معلمونا</a>
           </div>
         </div>
-        <div className="border-t border-white/10 py-5 text-center text-[11px] text-[#7f94bd]">
-          עברית שוטפת · جميع الحقوق محفوظة {new Date().getFullYear()}
+        <div className="landing-footer-bottom">
+          <span>© {new Date().getFullYear()} עברית שוטפת. جميع الحقوق محفوظة.</span>
+          <span>صُنع للرحلة، من أجل الحياة <Heart size={13} fill="currentColor" /></span>
         </div>
       </footer>
-
-      {bookingPkg && <BookingModal pkg={bookingPkg} onClose={() => setBookingPkg(null)} />}
     </div>
   );
 }

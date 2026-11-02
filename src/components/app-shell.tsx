@@ -9,10 +9,13 @@ import {
   CalendarCheck,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
   ClipboardCheck,
   ClipboardList,
   CreditCard,
+  Flame,
   LineChart,
+  Search,
   Wallet,
   FileCheck,
   Film,
@@ -35,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/use-auth";
 import { usePlatformStore } from "../hooks/use-platform-store";
 import { getHomeRouteForRole, ROLE_LABELS, type UserRole } from "../lib/auth";
@@ -56,7 +59,13 @@ export interface SidebarGroup {
 
 type NavEntry = SidebarItem | SidebarGroup;
 
-const ShellToolsContext = createContext<ReactNode>(null);
+const ROLE_ICONS: Record<UserRole, LucideIcon> = {
+  STUDENT: GraduationCap,
+  TEACHER: BookOpen,
+  ADMIN: ShieldCheck,
+  SALES: BriefcaseBusiness,
+  SUPPORT: Headphones,
+};
 
 function isGroup(entry: NavEntry): entry is SidebarGroup {
   return "group" in entry;
@@ -222,6 +231,7 @@ export function AppShell({
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [navQuery, setNavQuery] = useState("");
 
   const currentUserRole = (user?.role?.toUpperCase() as UserRole | undefined) ?? role;
   const isRoleMismatch = Boolean(user && currentUserRole !== role);
@@ -278,6 +288,39 @@ export function AppShell({
   const displayName = user ? user.fullName : "غير مسجل الدخول";
   const displaySubtitle = user ? `${ROLE_LABELS[currentUserRole]} · ${user.phone ?? user.email ?? ""}` : ROLE_LABELS[role];
 
+  const ROLE_HOME: Record<UserRole, string> = {
+    STUDENT: "مساحتي التعليمية",
+    TEACHER: "مساحة المدرس",
+    ADMIN: "مركز الإدارة",
+    SALES: "مساحة المبيعات",
+    SUPPORT: "خدمة العملاء",
+  };
+
+  function itemMatches(item: SidebarItem) {
+    return item.section
+      ? path === item.to && (activeSection ?? "overview") === item.section
+      : path === item.to;
+  }
+
+  let currentLabel = "";
+  for (const entry of navItems) {
+    if (isGroup(entry)) {
+      const hit = entry.items.find(itemMatches);
+      if (hit) { currentLabel = hit.label; break; }
+    } else if (itemMatches(entry)) {
+      currentLabel = entry.label;
+      break;
+    }
+  }
+
+  const query = navQuery.trim();
+  const visibleNav: readonly NavEntry[] = query
+    ? navItems.flatMap((entry): NavEntry[] => {
+        if (isGroup(entry)) return entry.items.filter((it) => it.label.includes(query));
+        return entry.label.includes(query) ? [entry] : [];
+      })
+    : navItems;
+
   async function handleLogout() {
     try {
       await logout();
@@ -293,7 +336,7 @@ export function AppShell({
         setNotifOpen((o) => !o);
         if (!notifOpen) fetchNotifications().catch(() => {});
       }}
-      className="relative grid size-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="relative grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       aria-label="الإشعارات"
     >
       <Bell className="size-4.5" />
@@ -307,13 +350,11 @@ export function AppShell({
 
   function renderNavItem(item: SidebarItem, nested = false) {
     const Icon = item.icon;
-    const isActive = item.section
-      ? path === item.to && (activeSection ?? "overview") === item.section
-      : path === item.to;
-    const cls = `relative flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] text-right transition-colors ${
+    const isActive = itemMatches(item);
+    const cls = `relative flex min-w-0 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] text-right transition-colors ${
       isActive
-        ? `bg-brand/8 font-bold text-brand ${nested ? "" : "before:absolute before:-start-4 before:top-1/2 before:h-8 before:w-1 before:-translate-y-1/2 before:rounded-e-full before:bg-sage"}`
-        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        ? "bg-brand/10 font-bold text-brand"
+        : "text-muted-foreground hover:bg-brand/5 hover:text-foreground"
     }`;
 
     if (item.section && onSelectSection) {
@@ -327,7 +368,7 @@ export function AppShell({
           }}
           className={cls}
         >
-          <Icon className="size-4 shrink-0" />
+          <Icon className={cnIcon(isActive)} />
           <span className="truncate">{item.label}</span>
         </button>
       );
@@ -340,29 +381,33 @@ export function AppShell({
         onClick={() => setSidebarOpen(false)}
         className={cls}
       >
-        <Icon className="size-4 shrink-0" />
+        <Icon className={cnIcon(isActive)} />
         <span className="truncate">{item.label}</span>
       </Link>
     );
   }
 
-  const langSwitch = (
-    <div className="hidden items-center gap-0.5 rounded-xl border border-border bg-card p-1 text-[11px] font-bold sm:flex">
-      <span className="rounded-lg px-2.5 py-1 text-muted-foreground">EN</span>
-      <span className="rounded-lg px-2.5 py-1 font-he text-muted-foreground">עברית</span>
-      <span className="rounded-lg bg-background px-2.5 py-1 text-brand shadow-sm">عربي</span>
+  function cnIcon(active: boolean) {
+    return `size-4 shrink-0 ${active ? "text-brand" : ""}`;
+  }
+
+  const userChip = (
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card py-1.5 ps-1.5 pe-3">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand/10 text-[13px] font-bold text-brand">
+        {displayName[0] ?? "؟"}
+      </span>
+      <span className="hidden min-w-0 text-right sm:block">
+        <b className="block truncate text-xs leading-tight">{displayName}</b>
+        <small className="block truncate text-[10px] leading-tight text-muted-foreground">{displaySubtitle}</small>
+      </span>
+      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
     </div>
   );
 
-  const tools = (
-    <div className="flex items-center gap-2">
-      {langSwitch}
-      {notifBell && <div className="rounded-xl border border-border bg-card">{notifBell}</div>}
-    </div>
-  );
+  const RoleIcon = ROLE_ICONS[role];
 
   return (
-    <ShellToolsContext.Provider value={tools}>
+    <>
       <div dir="rtl" className="dash-theme relative min-h-screen overflow-x-hidden bg-paper text-ink">
         <div className="flex min-h-screen flex-col lg:flex-row">
           {/* Mobile top bar */}
@@ -456,37 +501,50 @@ export function AppShell({
           )}
 
           <aside
-            className={`shrink-0 flex-col gap-3 border-e border-border bg-card px-4 py-5 lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[260px] ${
+            className={`shrink-0 flex-col gap-3 border-e border-border bg-[#FDFCF8] px-4 py-5 lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[264px] ${
               sidebarOpen
                 ? "fixed inset-y-0 start-0 z-50 flex w-[290px] max-w-[85vw] overflow-y-auto"
                 : "hidden"
             }`}
           >
-            <Link to="/" className="flex items-center gap-3 px-1 pb-3">
+            <Link to="/" className="flex items-center gap-3 px-1">
               <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-brand text-primary-foreground shadow-[0_10px_24px_-12px] shadow-brand">
                 <GraduationCap className="size-5" />
               </span>
               <span className="min-w-0">
-                <strong className="block font-lat text-base leading-tight">עברית שוטפת</strong>
-                <small className="block font-lat text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Language Academy
+                <strong className="block font-he text-[15px] font-bold leading-tight">עברית שוטפת</strong>
+                <small className="block text-[10px] font-semibold text-muted-foreground">
+                  منصة تعلم العبرية
                 </small>
               </span>
             </Link>
 
-            <div className="px-3 pt-1 text-[11px] font-semibold text-muted-foreground">
+            <div className="mt-1 flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-3.5 py-3">
+              <span className="min-w-0">
+                <b className="block text-[13px]">{ROLE_LABELS[role]}</b>
+                <small className="block font-lat text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {role}
+                </small>
+              </span>
+              <span className="chip-mint grid size-9 shrink-0 place-items-center rounded-xl">
+                <RoleIcon className="size-4" />
+              </span>
+            </div>
+
+            <div className="px-1 pt-1 text-[11px] font-semibold text-muted-foreground">
               القائمة الرئيسية
             </div>
 
             <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pb-2 text-sm">
-              {navItems.map((entry) => {
+              {query && visibleNav.length === 0 && (
+                <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  لا توجد نتائج مطابقة
+                </p>
+              )}
+              {visibleNav.map((entry) => {
                 if (!isGroup(entry)) return renderNavItem(entry);
 
-                const groupActive = entry.items.some((it) =>
-                  it.section
-                    ? path === it.to && (activeSection ?? "overview") === it.section
-                    : path === it.to
-                );
+                const groupActive = entry.items.some(itemMatches);
                 const isOpen = openGroups[entry.group] ?? groupActive;
                 const GroupIcon = entry.icon;
 
@@ -497,10 +555,10 @@ export function AppShell({
                       onClick={() =>
                         setOpenGroups((p) => ({ ...p, [entry.group]: !isOpen }))
                       }
-                      className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] text-right transition-colors ${
+                      className={`relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] text-right transition-colors ${
                         groupActive
-                          ? "bg-brand/5 font-bold text-brand"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          ? "bg-brand/8 font-bold text-brand"
+                          : "text-muted-foreground hover:bg-brand/5 hover:text-foreground"
                       }`}
                     >
                       <GroupIcon className="size-4 shrink-0" />
@@ -520,6 +578,20 @@ export function AppShell({
             </nav>
 
             <div className="space-y-2 border-t border-border pt-3">
+              {user && (
+                <div className="flex items-center gap-3 rounded-2xl bg-gold/10 px-3.5 py-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gold/15 text-gold">
+                    <Flame className="size-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <b className="block text-xs">استمر في رحلتك</b>
+                    <small className="block text-[10px] text-muted-foreground">
+                      كل يوم خطوة أقرب للطلاقة
+                    </small>
+                  </span>
+                </div>
+              )}
+
               {user ? (
                 <button
                   type="button"
@@ -543,38 +615,61 @@ export function AppShell({
                   </Link>
                 </div>
               )}
-
-              <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand/10 font-bold text-brand">
-                  {displayName[0]}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <b className="block truncate text-sm">{displayName}</b>
-                  <small className="block truncate text-[11px] text-muted-foreground">{displaySubtitle}</small>
-                </div>
-              </div>
             </div>
           </aside>
 
-          <main key={`${path}-${activeSection ?? ""}`} className="min-w-0 flex-1 animate-enter p-4 lg:p-6">
-            {loading || !user || isRoleMismatch ? (
-              <Card className="mx-auto my-12 max-w-lg p-8 text-center">
-                <div className="mx-auto size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {loading
-                    ? "جاري التحقق من الحساب…"
-                    : !user
-                      ? "جاري تحويلك إلى تسجيل الدخول…"
-                      : "جاري تحويلك إلى لوحة التحكم الخاصة بك…"}
-                </p>
-              </Card>
-            ) : (
-              children
-            )}
-          </main>
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* Desktop topbar */}
+            <header className="sticky top-0 z-30 hidden items-center gap-3 border-b border-border/70 bg-paper/85 px-6 py-3 backdrop-blur-md lg:flex">
+              <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
+                <span className="shrink-0 text-muted-foreground">{ROLE_HOME[role]}</span>
+                {currentLabel && (
+                  <>
+                    <ChevronLeft className="size-3.5 shrink-0 text-muted-foreground/60" />
+                    <b className="truncate font-bold">{currentLabel}</b>
+                  </>
+                )}
+              </div>
+              <div className="me-auto flex items-center gap-2">
+                <div className="relative hidden md:block">
+                  <Search className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={navQuery}
+                    onChange={(e) => setNavQuery(e.target.value)}
+                    placeholder="ابحث في المنصة..."
+                    className="h-10 w-52 rounded-full border border-border bg-card pe-3 ps-10 text-xs outline-none transition focus:w-72 focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="hidden items-center gap-0.5 rounded-full border border-border bg-card p-1 text-[11px] font-bold xl:flex">
+                  <span className="rounded-full px-2.5 py-1 text-muted-foreground">EN</span>
+                  <span className="rounded-full px-2.5 py-1 font-he text-muted-foreground">עברית</span>
+                  <span className="rounded-full bg-brand/10 px-2.5 py-1 text-brand">عربي</span>
+                </div>
+                {notifBell}
+                {userChip}
+              </div>
+            </header>
+
+            <main key={`${path}-${activeSection ?? ""}`} className="min-w-0 flex-1 animate-enter p-4 lg:p-6">
+              {loading || !user || isRoleMismatch ? (
+                <Card className="mx-auto my-12 max-w-lg p-8 text-center">
+                  <div className="mx-auto size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    {loading
+                      ? "جاري التحقق من الحساب…"
+                      : !user
+                        ? "جاري تحويلك إلى تسجيل الدخول…"
+                        : "جاري تحويلك إلى لوحة التحكم الخاصة بك…"}
+                  </p>
+                </Card>
+              ) : (
+                children
+              )}
+            </main>
+          </div>
         </div>
       </div>
-    </ShellToolsContext.Provider>
+    </>
   );
 }
 
@@ -587,17 +682,13 @@ export function PageHeader({
   subtitle: string;
   actions?: ReactNode;
 }) {
-  const tools = useContext(ShellToolsContext);
   return (
     <header className="mb-5 flex flex-wrap items-center gap-3 px-1 py-1">
       <div className="min-w-0">
-        <h1 className="text-xl font-extrabold text-brand">{title}</h1>
+        <h1 className="text-xl font-extrabold">{title}</h1>
         <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
       </div>
-      <div className="me-auto flex flex-wrap items-center gap-2">
-        {actions}
-        {tools}
-      </div>
+      {actions && <div className="me-auto flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
   );
 }

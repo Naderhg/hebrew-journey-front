@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AreaChart, Area, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
+  ArrowLeft,
   Award,
   Banknote,
   BarChart3,
@@ -13,6 +14,7 @@ import {
   Clock,
   CreditCard,
   PlusCircle,
+  ShieldCheck,
   Video,
   ClipboardCheck,
   ExternalLink,
@@ -38,7 +40,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { AppShell, PageHeader } from "./app-shell";
-import { Badge, Button, Card, Dropzone, Input, Label, Pagination, ProgressBar, SearchBox, SectionHeader, StatTile } from "./ui";
+import { Badge, Button, Card, Dropzone, HeroAction, HeroBanner, Input, Label, Pagination, ProgressBar, SearchBox, SectionHeader, StatCard, StatTile } from "./ui";
 import {
   usePlatformStore,
   uploadFile,
@@ -83,6 +85,11 @@ const meta = (title: string, description: string) => ({
   ],
 });
 export { meta };
+
+const todayLabel = () =>
+  new Date().toLocaleDateString("ar-EG-u-nu-latn", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const dayGreeting = () => (new Date().getHours() < 12 ? "صباح الخير" : "مساء الخير");
+const firstNameOf = (fullName?: string) => fullName?.trim().split(/\s+/)[0] ?? "بك";
 
 export function MaterialPlayer({ material }: { material: { storageUrl: string; type: MaterialType; title: string; fileName: string } }) {
   const url = mediaSrc(material.storageUrl);
@@ -285,53 +292,77 @@ export function DashboardScreen() {
 
   return (
     <AppShell role="STUDENT">
-      <PageHeader
-        title={user ? `مرحبًا، ${user.fullName}` : "لوحة الطالب"}
-        subtitle="نتائجك وترتيبك بين الطلاب وملاحظات المدرسين"
-        actions={
+      <HeroBanner
+        tone="green"
+        icon={GraduationCap}
+        kicker={todayLabel()}
+        title={
           <>
-            <Link to="/courses">
-              <Button variant="secondary">كورساتي</Button>
+            {dayGreeting()}، {firstNameOf(user?.fullName)}{" "}
+            <span className="text-amber-300">✦</span>
+          </>
+        }
+        subtitle="خطواتك واضحة اليوم — تابع تقدمك ونتائجك وخطة تعلمك من مكان واحد"
+        cta={
+          <>
+            <Link to="/plan">
+              <HeroAction>
+                ابدأ خطة اليوم
+                <ArrowLeft className="size-4" />
+              </HeroAction>
             </Link>
-            <Link to="/exams">
-              <Button variant="dark">الامتحانات</Button>
+            <Link to="/courses">
+              <HeroAction className="bg-white/5">كورساتي</HeroAction>
             </Link>
           </>
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card>
-          <small className="text-muted-foreground">متوسط درجاتك</small>
-          <b className="mt-1 block font-lat text-3xl text-brand">
-            {dash?.myAvgScore !== null && dash?.myAvgScore !== undefined ? `${dash.myAvgScore}%` : "—"}
-          </b>
-          <small className="text-muted-foreground">من كل الامتحانات المصححة</small>
-        </Card>
-        <Card>
-          <small className="text-muted-foreground">ترتيبك بين الطلاب</small>
-          <b className="mt-1 block font-lat text-3xl text-sage">
-            {dash?.myRank !== null && dash?.myRank !== undefined
-              ? `#${dash.myRank}`
-              : "—"}
-          </b>
-          <small className="text-muted-foreground">
-            من أصل {dash?.totalStudents ?? 0} طالب
-          </small>
-        </Card>
-        <Card className="bg-brand text-primary-foreground">
-          <small className="opacity-75">اختبار تحديد المستوى</small>
-          <h2 className="mt-1 text-xl font-bold">حدد مستواك الحالي</h2>
-          <p className="mt-3 text-sm opacity-90">
-            ابدأ اختبار تحديد المستوى لبناء خطتك الشخصية وتقييم مهاراتك.
-          </p>
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          chip="teal"
+          icon={ClipboardCheck}
+          label="مستواك الحالي"
+          value={user?.level ?? "—"}
+          sub="حسب اختبار تحديد المستوى"
+        />
+        <StatCard
+          chip="mint"
+          icon={TrendingUp}
+          label="متوسط درجاتك"
+          value={dash?.myAvgScore !== null && dash?.myAvgScore !== undefined ? `${dash.myAvgScore}%` : "—"}
+          sub="من كل الامتحانات المصححة"
+        />
+        <StatCard
+          chip="lilac"
+          icon={Trophy}
+          label="ترتيبك بين الطلاب"
+          value={dash?.myRank !== null && dash?.myRank !== undefined ? `#${dash.myRank}` : "—"}
+          sub={`من أصل ${dash?.totalStudents ?? 0} طالب`}
+        />
+        <StatCard
+          chip="peach"
+          icon={FileCheck}
+          label="امتحانات مصححة"
+          value={dash?.myResults?.filter((r) => r.score !== null).length ?? 0}
+          sub="إجمالي النتائج المعتمدة"
+        />
+      </div>
+
+      {!user?.placementCompletedAt && (
+        <Card className="mb-4 flex flex-wrap items-center justify-between gap-4 bg-ink text-primary-foreground">
+          <div className="min-w-0">
+            <small className="opacity-75">اختبار تحديد المستوى</small>
+            <h2 className="mt-1 text-lg font-bold">حدد مستواك الحالي</h2>
+            <p className="mt-1 text-xs opacity-80">
+              ابدأ اختبار تحديد المستوى لبناء خطتك الشخصية وتقييم مهاراتك.
+            </p>
+          </div>
           <Link to="/placement">
-            <Button className="mt-6 w-full bg-background text-foreground hover:bg-background/90">
-              بدء الاختبار
-            </Button>
+            <Button className="bg-card text-foreground hover:bg-card/90">بدء الاختبار</Button>
           </Link>
         </Card>
-      </div>
+      )}
 
       <div className="mt-4">
         <Card>
@@ -935,6 +966,7 @@ export function TeacherScreen() {
     fetchLectureStudents,
     saveLectureAttendance,
   } = usePlatformStore();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<TeacherSection>("students");
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
   const [openExamId, setOpenExamId] = useState<string | null>(null);
@@ -1158,10 +1190,12 @@ export function TeacherScreen() {
       activeSection={activeSection}
       onSelectSection={(s) => setActiveSection(s as TeacherSection)}
     >
-      <PageHeader
-        title="لوحة المدرس"
-        subtitle="طلابك المسجلون وتقدمهم · الماتيريال المرسلة من الإدارة · الامتحانات والنتائج"
-      />
+      {activeSection !== "students" && (
+        <PageHeader
+          title="لوحة المدرس"
+          subtitle="طلابك المسجلون وتقدمهم · الماتيريال المرسلة من الإدارة · الامتحانات والنتائج"
+        />
+      )}
 
       {activeSection === "profile" && <TeacherProfileSection />}
 
@@ -1169,6 +1203,32 @@ export function TeacherScreen() {
 
       {activeSection === "students" && (
         <>
+        <HeroBanner
+          tone="teal"
+          icon={Video}
+          kicker={todayLabel()}
+          title={
+            <>
+              {dayGreeting()}، {firstNameOf(user?.fullName)}{" "}
+              <span className="text-amber-300">✦</span>
+            </>
+          }
+          subtitle="طلابك وجدولك وواجباتك بانتظارك — تابع كل شيء من مكان واحد"
+          cta={
+            <HeroAction onClick={() => setActiveSection("schedule")}>
+              عرض جدولك اليوم
+              <ArrowLeft className="size-4" />
+            </HeroAction>
+          }
+        />
+
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard chip="mint" icon={UsersRound} label="إجمالي طلابك" value={teacherStudents.length} sub="طالب مربوط بك" />
+          <StatCard chip="teal" icon={Video} label="المحاضرات المجانية" value={teacherFreeLectures.length} sub="محاضرة مجدولة" />
+          <StatCard chip="lilac" icon={Film} label="المواد التعليمية" value={materials.length} sub="مادة مرسلة لك" />
+          <StatCard chip="peach" icon={ClipboardCheck} label="الواجبات" value={teacherHomework.length} sub="واجب منشور" />
+        </div>
+
         <div className="grid gap-4 xl:grid-cols-[380px_1fr]">
           <Card>
             <h2 className="mb-3 font-bold">طلابي المسجلون ({teacherStudents.length})</h2>
@@ -3471,33 +3531,38 @@ export function AdminScreen() {
       activeSection={activeSection}
       onSelectSection={(s) => setActiveSection(s as AdminSection)}
     >
-      <PageHeader
-        title="لوحة تحكم الإدارة"
-        subtitle="إدارة المستخدمين والمحتوى والمحاضرات والجدول الأكاديمي"
-      />
+      {activeSection !== "overview" && (
+        <PageHeader
+          title="لوحة تحكم الإدارة"
+          subtitle="إدارة المستخدمين والمحتوى والمحاضرات والجدول الأكاديمي"
+        />
+      )}
 
       {activeSection === "overview" && (
         <>
+          <HeroBanner
+            tone="navy"
+            icon={ShieldCheck}
+            kicker="مركز الإدارة • تحديث مباشر"
+            title={
+              <>
+                كل شيء تحت السيطرة <span className="text-amber-300">✦</span>
+              </>
+            }
+            subtitle="تابع نمو المنصة، أداء الفريق، وتجربة الطلاب من مكان واحد"
+            cta={
+              <HeroAction onClick={() => setActiveSection("analytics")}>
+                عرض التحليلات
+                <ArrowLeft className="size-4" />
+              </HeroAction>
+            }
+          />
+
           <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: "المدرسون", sub: "في قاعدة البيانات", value: counts.teachers, icon: UsersRound, chip: "bg-brand/10 text-brand" },
-              { label: "الطلاب المسجلون", sub: "تسجيل ذاتي", value: counts.students, icon: GraduationCap, chip: "bg-sage/15 text-sage" },
-              { label: "فريق المبيعات", sub: "في قاعدة البيانات", value: counts.sales, icon: TicketCheck, chip: "bg-gold/15 text-gold" },
-              { label: "خدمة العملاء", sub: "في قاعدة البيانات", value: counts.support, icon: Headphones, chip: "bg-brand2/10 text-brand2" },
-            ].map((s) => (
-              <Card key={s.label} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <b className="block font-lat text-2xl">{s.value}</b>
-                    <small className="mt-0.5 block text-muted-foreground">{s.label}</small>
-                    <span className="text-[11px] text-muted-foreground/70">{s.sub}</span>
-                  </div>
-                  <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${s.chip}`}>
-                    <s.icon className="size-4.5" />
-                  </span>
-                </div>
-              </Card>
-            ))}
+            <StatCard chip="teal" icon={UsersRound} label="المدرسون" value={counts.teachers} sub="في قاعدة البيانات" />
+            <StatCard chip="mint" icon={GraduationCap} label="الطلاب المسجلون" value={counts.students} sub="تسجيل ذاتي" />
+            <StatCard chip="peach" icon={TicketCheck} label="فريق المبيعات" value={counts.sales} sub="في قاعدة البيانات" />
+            <StatCard chip="lilac" icon={Headphones} label="خدمة العملاء" value={counts.support} sub="في قاعدة البيانات" />
           </div>
 
           <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -7729,6 +7794,7 @@ export function SalesScreen() {
     updateSubscription,
     fetchSalesData,
   } = usePlatformStore();
+  const { user } = useAuth();
 
   const [activeSection, setActiveSection] = useState<SalesSection>("leads");
   const [showLeadForm, setShowLeadForm] = useState(false);
@@ -7858,22 +7924,48 @@ export function SalesScreen() {
 
   return (
     <AppShell role="SALES" activeSection={activeSection} onSelectSection={(s) => setActiveSection(s as SalesSection)}>
-      <PageHeader
-        title="لوحة المبيعات"
-        subtitle="إدارة العملاء المحتملين والمكالمات والاشتراكات والتقارير"
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => { setSelectedLeadId(salesLeads[0]?.id ?? ""); setShowCallForm(true); }}>
-              <Headphones className="size-4" />
-              تسجيل مكالمة
-            </Button>
-            <Button onClick={() => { resetLeadForm(); setShowLeadForm(true); }}>
-              <UserPlus className="size-4" />
-              عميل جديد
-            </Button>
-          </>
-        }
-      />
+      {activeSection === "leads" ? (
+        <HeroBanner
+          tone="navy"
+          icon={Headphones}
+          kicker="مساحة المبيعات • متابعة يومية"
+          title={
+            <>
+              {dayGreeting()}، {firstNameOf(user?.fullName)}{" "}
+              <span className="text-amber-300">✦</span>
+            </>
+          }
+          subtitle="تابع عملاءك المحتملين وسجل مكالماتك واشتراكاتك من مكان واحد"
+          cta={
+            <>
+              <HeroAction onClick={() => { resetLeadForm(); setShowLeadForm(true); }}>
+                عميل جديد
+                <ArrowLeft className="size-4" />
+              </HeroAction>
+              <HeroAction className="bg-white/5" onClick={() => { setSelectedLeadId(salesLeads[0]?.id ?? ""); setShowCallForm(true); }}>
+                تسجيل مكالمة
+              </HeroAction>
+            </>
+          }
+        />
+      ) : (
+        <PageHeader
+          title="لوحة المبيعات"
+          subtitle="إدارة العملاء المحتملين والمكالمات والاشتراكات والتقارير"
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => { setSelectedLeadId(salesLeads[0]?.id ?? ""); setShowCallForm(true); }}>
+                <Headphones className="size-4" />
+                تسجيل مكالمة
+              </Button>
+              <Button onClick={() => { resetLeadForm(); setShowLeadForm(true); }}>
+                <UserPlus className="size-4" />
+                عميل جديد
+              </Button>
+            </>
+          }
+        />
+      )}
 
       {/* Quick stats bar */}
       {stats && (
@@ -8481,6 +8573,7 @@ export function SupportScreen() {
     addFreeLectureFile,
     removeFreeLectureFile,
   } = usePlatformStore();
+  const { user } = useAuth();
 
   const [activeSection, setActiveSection] = useState<SupportSection>("students");
   const [showTicketForm, setShowTicketForm] = useState(false);
@@ -8597,16 +8690,37 @@ export function SupportScreen() {
 
   return (
     <AppShell role="SUPPORT" activeSection={activeSection} onSelectSection={(s) => setActiveSection(s as SupportSection)}>
-      <PageHeader
-        title="لوحة خدمة العملاء"
-        subtitle="متابعة الطلاب · الشكاوى · المواعيد · الحضور · المتابعة"
-        actions={
-          <Button onClick={() => setShowTicketForm(true)}>
-            <Plus className="size-4" />
-            تذكرة جديدة
-          </Button>
-        }
-      />
+      {activeSection === "students" ? (
+        <HeroBanner
+          tone="teal"
+          icon={TicketCheck}
+          kicker="خدمة العملاء • متابعة يومية"
+          title={
+            <>
+              {dayGreeting()}، {firstNameOf(user?.fullName)}{" "}
+              <span className="text-amber-300">✦</span>
+            </>
+          }
+          subtitle="تابع الطلاب والتذاكر والمواعيد من مكان واحد"
+          cta={
+            <HeroAction onClick={() => setShowTicketForm(true)}>
+              تذكرة جديدة
+              <ArrowLeft className="size-4" />
+            </HeroAction>
+          }
+        />
+      ) : (
+        <PageHeader
+          title="لوحة خدمة العملاء"
+          subtitle="متابعة الطلاب · الشكاوى · المواعيد · الحضور · المتابعة"
+          actions={
+            <Button onClick={() => setShowTicketForm(true)}>
+              <Plus className="size-4" />
+              تذكرة جديدة
+            </Button>
+          }
+        />
+      )}
 
       {/* Quick stats */}
       <div className="mb-4 grid gap-3 sm:grid-cols-4">

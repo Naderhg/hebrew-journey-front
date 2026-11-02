@@ -17,14 +17,14 @@
 }
 
 :root {
-  --radius: 0.75rem; --background: oklch(0.968 0.008 252); --foreground: oklch(0.22 0.03 275);
-  --card: oklch(1 0 0); --card-foreground: oklch(0.22 0.03 275); --primary: oklch(0.59 0.2 260);
-  --primary-foreground: oklch(1 0 0); --secondary: oklch(0.945 0.018 255); --secondary-foreground: oklch(0.28 0.07 260);
-  --muted: oklch(0.945 0.01 255); --muted-foreground: oklch(0.5 0.045 268); --accent: oklch(0.92 0.035 258);
-  --accent-foreground: oklch(0.42 0.17 260); --border: oklch(0.3 0.04 270 / 8%); --input: oklch(0.88 0.02 262);
-  --ring: oklch(0.59 0.2 260); --brand: oklch(0.59 0.2 260); --brand2: oklch(0.66 0.16 278);
-  --ink: oklch(0.22 0.03 275); --paper: oklch(0.968 0.008 252); --gold: oklch(0.69 0.14 72);
-  --sage: oklch(0.62 0.12 162); --danger: oklch(0.62 0.21 25);
+  --radius: 1rem; --background: oklch(0.965 0.011 92); --foreground: oklch(0.29 0.015 80);
+  --card: oklch(1 0 0); --card-foreground: oklch(0.29 0.015 80); --primary: oklch(0.5 0.09 168);
+  --primary-foreground: oklch(1 0 0); --secondary: oklch(0.94 0.012 90); --secondary-foreground: oklch(0.4 0.05 165);
+  --muted: oklch(0.945 0.01 90); --muted-foreground: oklch(0.58 0.02 85); --accent: oklch(0.92 0.03 160);
+  --accent-foreground: oklch(0.45 0.09 168); --border: oklch(0.5 0.02 85 / 12%); --input: oklch(0.87 0.012 85);
+  --ring: oklch(0.5 0.09 168); --brand: oklch(0.5 0.09 168); --brand2: oklch(0.56 0.15 285);
+  --ink: oklch(0.29 0.015 80); --paper: oklch(0.965 0.011 92); --gold: oklch(0.64 0.14 60);
+  --sage: oklch(0.58 0.11 158); --danger: oklch(0.62 0.21 25);
 }
 
 @layer base {
@@ -36,13 +36,38 @@
 
 @utility glass {
   background: var(--card);
-  border: 1px solid oklch(0.3 0.04 270 / 7%);
-  box-shadow: 0 1px 2px oklch(0.3 0.05 270 / 4%), 0 12px 32px -20px oklch(0.3 0.05 270 / 16%);
+  border: 1px solid oklch(0.5 0.02 85 / 9%);
+  box-shadow: 0 1px 2px oklch(0.4 0.03 80 / 3%), 0 16px 40px -28px oklch(0.4 0.03 80 / 18%);
 }
-@utility page-glow { background-image: radial-gradient(60% 55% at 88% -5%, oklch(0.66 0.16 278 / 24%), transparent 60%), radial-gradient(55% 45% at 5% 108%, oklch(0.59 0.2 260 / 20%), transparent 60%); }
+@utility page-glow { background-image: radial-gradient(60% 55% at 88% -5%, oklch(0.6 0.1 168 / 18%), transparent 60%), radial-gradient(55% 45% at 5% 108%, oklch(0.64 0.14 60 / 14%), transparent 60%); }
 @utility grid-fade { background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 42px 42px; mask-image: linear-gradient(to bottom, black, transparent 80%); }
 @utility animate-enter { animation: enter .45s ease-out both; }
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ─── Pastel icon chips (stat cards) ─── */
+@utility chip-mint { background: oklch(0.93 0.03 158); color: oklch(0.47 0.09 165); }
+@utility chip-peach { background: oklch(0.93 0.04 60); color: oklch(0.52 0.11 55); }
+@utility chip-lilac { background: oklch(0.93 0.03 290); color: oklch(0.54 0.15 285); }
+@utility chip-teal { background: oklch(0.93 0.025 195); color: oklch(0.5 0.08 200); }
+@utility chip-rose { background: oklch(0.93 0.03 25); color: oklch(0.55 0.16 30); }
+@utility chip-amber { background: oklch(0.94 0.05 80); color: oklch(0.55 0.11 70); }
+
+/* ─── Hero banners (dashboard landing headers) ─── */
+@utility hero-navy {
+  background:
+    radial-gradient(90% 130% at 12% 20%, oklch(0.5 0.09 220 / 45%) 0%, transparent 60%),
+    linear-gradient(268deg, oklch(0.3 0.06 235) 0%, oklch(0.36 0.07 225) 55%, oklch(0.4 0.07 215) 100%);
+}
+@utility hero-green {
+  background:
+    radial-gradient(90% 130% at 12% 20%, oklch(0.55 0.11 165 / 45%) 0%, transparent 60%),
+    linear-gradient(268deg, oklch(0.3 0.07 168) 0%, oklch(0.37 0.08 166) 55%, oklch(0.42 0.09 163) 100%);
+}
+@utility hero-teal {
+  background:
+    radial-gradient(90% 130% at 12% 20%, oklch(0.52 0.09 205 / 45%) 0%, transparent 60%),
+    linear-gradient(268deg, oklch(0.31 0.06 220) 0%, oklch(0.37 0.07 210) 55%, oklch(0.42 0.08 200) 100%);
+}
 
 /* ─── 3D & motion effects ─── */
 @utility animate-float { animation: floatY 6s ease-in-out infinite; }
@@ -58,45 +83,45 @@
 }
 @utility animate-glow-pulse { animation: glowPulse 4s ease-in-out infinite; }
 @keyframes glowPulse {
-  0%, 100% { text-shadow: 0 0 18px oklch(0.85 0.18 150 / 60%), 0 0 60px oklch(0.7 0.18 260 / 45%); }
-  50% { text-shadow: 0 0 34px oklch(0.85 0.18 150 / 90%), 0 0 90px oklch(0.7 0.18 260 / 70%); }
+  0%, 100% { text-shadow: 0 0 18px oklch(0.8 0.15 165 / 60%), 0 0 60px oklch(0.6 0.13 200 / 45%); }
+  50% { text-shadow: 0 0 34px oklch(0.8 0.15 165 / 90%), 0 0 90px oklch(0.6 0.13 200 / 70%); }
 }
 @utility preserve-3d { transform-style: preserve-3d; }
 @utility he-cube-face {
   position: absolute; inset: 0; display: grid; place-items: center;
-  border-radius: 14px; border: 1px solid oklch(0.75 0.15 200 / 35%);
-  background: linear-gradient(145deg, oklch(0.35 0.12 268 / 55%), oklch(0.22 0.09 272 / 75%));
-  box-shadow: inset 0 0 22px oklch(0.7 0.16 200 / 20%), 0 0 26px oklch(0.6 0.16 260 / 30%);
-  color: oklch(0.88 0.16 160); font-family: var(--font-he); font-weight: 700;
+  border-radius: 14px; border: 1px solid oklch(0.7 0.1 190 / 35%);
+  background: linear-gradient(145deg, oklch(0.4 0.09 200 / 55%), oklch(0.28 0.07 210 / 75%));
+  box-shadow: inset 0 0 22px oklch(0.65 0.12 180 / 20%), 0 0 26px oklch(0.55 0.12 190 / 30%);
+  color: oklch(0.85 0.13 160); font-family: var(--font-he); font-weight: 700;
 }
 @utility tilt-hover { transition: transform .5s cubic-bezier(.22,.8,.3,1), box-shadow .5s; }
 @utility tilt-hover-hover {
   transform: perspective(900px) rotateX(4deg) rotateY(-4deg) translateY(-6px);
-  box-shadow: 0 24px 48px -16px oklch(0.4 0.14 265 / 30%);
+  box-shadow: 0 24px 48px -16px oklch(0.4 0.09 190 / 30%);
 }
-.tilt-hover:hover { transform: perspective(900px) rotateX(4deg) rotateY(-4deg) translateY(-6px); box-shadow: 0 24px 48px -16px oklch(0.4 0.14 265 / 30%); }
+.tilt-hover:hover { transform: perspective(900px) rotateX(4deg) rotateY(-4deg) translateY(-6px); box-shadow: 0 24px 48px -16px oklch(0.4 0.09 190 / 30%); }
 .he-shard {
   position: absolute; display: grid; place-items: center; border-radius: 12px;
-  background: linear-gradient(140deg, oklch(0.45 0.16 250 / 80%), oklch(0.3 0.12 270 / 90%));
-  border: 1px solid oklch(0.7 0.16 210 / 40%); color: oklch(0.9 0.14 170);
+  background: linear-gradient(140deg, oklch(0.5 0.11 185 / 80%), oklch(0.35 0.09 210 / 90%));
+  border: 1px solid oklch(0.68 0.11 190 / 40%); color: oklch(0.88 0.12 165);
   font-family: var(--font-he); font-weight: 700;
-  box-shadow: 0 8px 24px oklch(0.5 0.15 265 / 45%), inset 0 0 14px oklch(0.75 0.18 200 / 25%);
+  box-shadow: 0 8px 24px oklch(0.5 0.11 200 / 45%), inset 0 0 14px oklch(0.72 0.14 185 / 25%);
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; scroll-behavior: auto !important; } }
 
 /* ─── Dashboard theme (admin / teacher / sales / support / student shells) ─── */
 .dash-theme {
-  --brand: oklch(0.43 0.15 257); --primary: oklch(0.43 0.15 257); --ring: oklch(0.43 0.15 257);
-  --accent-foreground: oklch(0.43 0.15 257); --paper: oklch(0.975 0.006 250);
-  --muted: oklch(0.955 0.008 255); --muted-foreground: oklch(0.55 0.03 258);
-  --border: oklch(0.3 0.04 270 / 9%); --sage: oklch(0.6 0.13 160);
-  background-image: radial-gradient(50% 40% at 85% 100%, oklch(0.75 0.1 160 / 10%), transparent 70%), radial-gradient(40% 35% at 10% 0%, oklch(0.6 0.12 257 / 8%), transparent 70%);
+  --brand: oklch(0.5 0.09 168); --primary: oklch(0.5 0.09 168); --ring: oklch(0.5 0.09 168);
+  --accent-foreground: oklch(0.45 0.09 168); --paper: oklch(0.965 0.011 92);
+  --muted: oklch(0.945 0.012 90); --muted-foreground: oklch(0.58 0.02 85);
+  --border: oklch(0.5 0.02 85 / 12%); --sage: oklch(0.58 0.11 158);
+  background-image: radial-gradient(50% 40% at 90% 100%, oklch(0.65 0.11 165 / 9%), transparent 70%), radial-gradient(40% 35% at 8% 0%, oklch(0.64 0.13 60 / 7%), transparent 70%);
 }
 .dash-theme .glass {
-  border: 1px solid oklch(0.3 0.04 270 / 6%);
-  box-shadow: 0 1px 2px oklch(0.3 0.05 270 / 4%), 0 18px 40px -24px oklch(0.3 0.05 270 / 22%);
+  border: 1px solid oklch(0.5 0.02 85 / 9%);
+  box-shadow: 0 1px 2px oklch(0.4 0.03 80 / 3%), 0 18px 40px -26px oklch(0.4 0.03 80 / 20%);
 }
-.dash-theme .dash-btn-primary { box-shadow: 0 10px 24px -12px oklch(0.43 0.15 257 / 70%); }
+.dash-theme .dash-btn-primary { box-shadow: 0 10px 24px -12px oklch(0.5 0.09 168 / 70%); }
 .dash-theme select, .dash-theme textarea, .dash-theme input[type="file"] { border-radius: 0.75rem; }
 .dash-theme select, .dash-theme textarea { background-color: var(--card); }
 .dash-theme button, .dash-theme a, .dash-theme select, .dash-theme input, .dash-theme textarea { transition: background-color .2s, color .2s, border-color .2s, box-shadow .2s, transform .2s, opacity .2s; }
@@ -104,4 +129,4 @@
 @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
 .animate-rise { animation: rise .5s cubic-bezier(.22,.8,.3,1) both; }
 .dash-theme .hover-lift { transition: transform .3s, box-shadow .3s; }
-.dash-theme .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -22px oklch(0.3 0.08 260 / 35%); }
+.dash-theme .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -22px oklch(0.4 0.06 190 / 30%); }

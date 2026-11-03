@@ -618,6 +618,27 @@ export interface LectureStudent {
   id: string;
   fullName: string;
   status: "present" | "absent" | null;
+  report?: string | null;
+}
+
+export interface StudentLectureReport {
+  id: string;
+  status: string;
+  report: string | null;
+  createdAt: string;
+  lecture: {
+    title: string;
+    startsAt: string;
+    groupName?: string | null;
+    teacher?: { fullName: string } | null;
+  };
+}
+
+export interface AdminLectureAttendance {
+  id: string;
+  status: string;
+  report: string | null;
+  student: { id: string; fullName: string; phone: string | null; level: string | null };
 }
 
 export interface AdminAnalytics {
@@ -1226,7 +1247,10 @@ interface PlatformStoreValue {
   startScheduleLecture: (scheduleId: string) => Promise<LectureItem>;
   lectureStudents: LectureStudent[];
   fetchLectureStudents: (lectureId: string) => Promise<void>;
-  saveLectureAttendance: (lectureId: string, records: { studentId: string; status: "present" | "absent" }[]) => Promise<void>;
+  saveLectureAttendance: (lectureId: string, records: { studentId: string; status: "present" | "absent"; report?: string }[]) => Promise<void>;
+  studentLectureReports: StudentLectureReport[];
+  fetchStudentLectureReports: () => Promise<void>;
+  fetchAdminLectureAttendance: (lectureId: string) => Promise<AdminLectureAttendance[]>;
   // admin analytics
   adminAnalytics: AdminAnalytics | null;
   fetchAdminAnalytics: (filters?: { teacherId?: string | undefined; from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) => Promise<void>;
@@ -1834,8 +1858,20 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     setLectureStudents(res?.students ?? []);
   }
 
-  async function saveLectureAttendance(lectureId: string, records: { studentId: string; status: "present" | "absent" }[]) {
+  async function saveLectureAttendance(lectureId: string, records: { studentId: string; status: "present" | "absent"; report?: string }[]) {
     await apiFetch(`/api/teacher/lectures/${lectureId}/attendance`, { method: "POST", body: { records } });
+  }
+
+  const [studentLectureReports, setStudentLectureReports] = useState<StudentLectureReport[]>([]);
+
+  async function fetchStudentLectureReports() {
+    const res = await apiFetch<{ records: StudentLectureReport[] }>("/api/student/lecture-reports");
+    setStudentLectureReports(res.records ?? []);
+  }
+
+  async function fetchAdminLectureAttendance(lectureId: string): Promise<AdminLectureAttendance[]> {
+    const res = await apiFetch<{ records: AdminLectureAttendance[] }>(`/api/admin/lectures/${lectureId}/attendance`);
+    return res.records ?? [];
   }
 
   async function fetchAdminAnalytics(filters?: { teacherId?: string | undefined; from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) {
@@ -2695,6 +2731,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         lectureStudents,
         fetchLectureStudents,
         saveLectureAttendance,
+        studentLectureReports,
+        fetchStudentLectureReports,
+        fetchAdminLectureAttendance,
         adminAnalytics,
         fetchAdminAnalytics,
         studentWallet,

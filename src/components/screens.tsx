@@ -12,6 +12,9 @@ import {
   Check,
   Circle,
   Clock,
+  Clock3,
+  Gift,
+  PhoneCall,
   CreditCard,
   PlusCircle,
   ShieldCheck,
@@ -813,7 +816,10 @@ export function MistakesScreen() {
 }
 
 export function ProgressScreen() {
-  const { studentSkills, studentAttendanceRate, studentAttendance, studentDashboard } = usePlatformStore();
+  const { studentSkills, studentAttendanceRate, studentAttendance, studentDashboard, studentLectureReports, fetchStudentLectureReports } = usePlatformStore();
+  useEffect(() => {
+    fetchStudentLectureReports().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const chartData: { m: string; reading: number; speaking: number }[] = [];
   return (
     <AppShell role="STUDENT">
@@ -882,6 +888,28 @@ export function ProgressScreen() {
               )}
             </div>
           </Card>
+          {studentLectureReports.filter((r) => r.report).length > 0 && (
+            <Card>
+              <h2 className="font-bold">تقارير المدرس عني ({studentLectureReports.filter((r) => r.report).length})</h2>
+              <div className="mt-3 space-y-2">
+                {studentLectureReports.filter((r) => r.report).map((r) => (
+                  <div key={r.id} className="rounded-md border border-border bg-background/60 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <b className="text-sm">{r.lecture.title}</b>
+                      <Badge tone={r.status === "present" ? "sage" : "danger"}>
+                        {r.status === "present" ? "حاضر" : "غائب"}
+                      </Badge>
+                    </div>
+                    <small className="text-muted-foreground">
+                      {new Date(r.lecture.startsAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long" })}
+                      {r.lecture.teacher?.fullName ? ` · ${r.lecture.teacher.fullName}` : ""}
+                    </small>
+                    <p className="mt-1.5 border-t border-border/60 pt-1.5 text-sm text-muted-foreground">{r.report}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
         <div className="space-y-4">
           <Card>
@@ -991,6 +1019,8 @@ export function TeacherScreen() {
   const [attScheduleId, setAttScheduleId] = useState("");
   const [attLectureId, setAttLectureId] = useState("");
   const [lectureAttDraft, setLectureAttDraft] = useState<Record<string, "present" | "absent">>({});
+  const [lectureReportDraft, setLectureReportDraft] = useState<Record<string, string>>({});
+  const [reportOpenFor, setReportOpenFor] = useState<string | null>(null);
   const [attLectureSaving, setAttLectureSaving] = useState(false);
   const [attErr, setAttErr] = useState("");
   const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
@@ -1041,9 +1071,9 @@ export function TeacherScreen() {
     if (activeSection === "schedule") {
       fetchTeacherLectures(true).catch(() => {});
       fetchTeacherBookings().catch(() => {});
+      fetchTeacherFreeLectures().catch(() => {});
     }
     if (activeSection === "chat") fetchTeacherChatThreads().catch(() => {});
-    if (activeSection === "free-lectures") fetchTeacherFreeLectures().catch(() => {});
     if (activeSection === "sessions") {
       fetchTeacherAvailability().catch(() => {});
       fetchTeacherBookings().catch(() => {});
@@ -1199,8 +1229,6 @@ export function TeacherScreen() {
       )}
 
       {activeSection === "profile" && <TeacherProfileSection />}
-
-      {activeSection === "free-lectures" && <TeacherFreeLecturesSection lectures={teacherFreeLectures} />}
 
       {activeSection === "students" && (
         <>
@@ -1452,6 +1480,7 @@ export function TeacherScreen() {
           <TeacherScheduleTimeline
             lectures={teacherLectures}
             bookings={teacherBookings}
+            freeLectures={teacherFreeLectures}
             onLectureStatus={(id, s) => updateTeacherLectureStatus(id, s).then(() => fetchTeacherAnalytics({})).catch(() => {})}
             onBookingStatus={(id, s) => setBookingStatus(id, s).catch(() => {})}
           />
@@ -1836,76 +1865,128 @@ export function TeacherScreen() {
         <div className="space-y-4">
           {attErr && <Card className="border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{attErr}</Card>}
           <Card>
-            <h3 className="font-bold">حضور محاضرة</h3>
-            <p className="mt-1 text-xs text-muted-foreground">اختر المحاضرة وسجّل حضور أو غياب كل طالب — بيتحسب في التحليلات</p>
-            <div className="mt-3">
-              <Label>المحاضرة</Label>
-              <select
-                value={attLectureId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setAttLectureId(id);
-                  setLectureAttDraft({});
-                  setAttErr("");
-                  if (id) {
-                    fetchLectureStudents(id).catch(() => setAttErr("فشل تحميل طلاب المحاضرة"));
-                  }
-                }}
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">— اختر المحاضرة —</option>
-                {teacherLectures.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {new Date(l.startsAt).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })} — {l.title}
-                    {l.groupName ? ` (${l.groupName})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <h3 className="font-bold">حضور المحاضرات</h3>
+            <p className="mt-1 text-xs text-muted-foreground">اضغط على محاضرة لعرض طلابها — سجّل الحضور وأضف تقرير لكل طالب بعد المحاضرة</p>
+
+            {teacherLectures.length === 0 ? (
+              <div className="mt-4 rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
+                لا توجد محاضرات مسجلة لك حالياً.
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {teacherLectures.map((l) => {
+                  const selected = attLectureId === l.id;
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        if (selected) {
+                          setAttLectureId("");
+                          setLectureAttDraft({});
+                          setLectureReportDraft({});
+                          setReportOpenFor(null);
+                          return;
+                        }
+                        setAttLectureId(l.id);
+                        setLectureAttDraft({});
+                        setLectureReportDraft({});
+                        setReportOpenFor(null);
+                        setAttErr("");
+                        fetchLectureStudents(l.id).catch(() => setAttErr("فشل تحميل طلاب المحاضرة"));
+                      }}
+                      className={`rounded-xl border p-3.5 text-right transition ${
+                        selected ? "border-brand bg-brand/5 ring-1 ring-brand" : "border-border bg-background/60 hover:border-brand/40 hover:bg-brand/5"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <b className="min-w-0 truncate text-sm">{l.title}</b>
+                        <Badge tone={l.status === "live" ? "sage" : l.status === "completed" ? "muted" : "brand"}>
+                          {l.status === "live" ? "مباشر" : l.status === "completed" ? "مكتملة" : "مجدولة"}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays className="size-3.5 shrink-0" />
+                        {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                      {l.groupName && <Badge tone="muted" className="mt-2">{l.groupName}</Badge>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {attLectureId && (
-              <div className="mt-4 space-y-2">
+              <div className="mt-5 border-t border-border pt-4">
                 {lectureStudents.length === 0 ? (
                   <div className="py-6 text-center text-sm text-muted-foreground">لا يوجد طلاب لهذه المحاضرة.</div>
                 ) : (
                   <>
-                    {lectureStudents.map((s) => {
-                      const cur = lectureAttDraft[s.id] ?? s.status ?? null;
-                      return (
-                        <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 p-3">
-                          <b className="text-sm">{s.fullName}</b>
-                          <div className="flex gap-1.5">
-                            {(["present", "absent"] as const).map((st) => (
-                              <button
-                                key={st}
-                                onClick={() => setLectureAttDraft((d) => ({ ...d, [s.id]: st }))}
-                                className={`rounded-md px-3 py-1 text-xs transition ${
-                                  cur === st
-                                    ? st === "present" ? "bg-sage text-white" : "bg-danger text-white"
-                                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {st === "present" ? "حاضر" : "غائب"}
-                              </button>
-                            ))}
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {lectureStudents.map((s) => {
+                        const cur = lectureAttDraft[s.id] ?? s.status ?? null;
+                        const reportVal = lectureReportDraft[s.id] ?? s.report ?? "";
+                        const hasReport = !!(s.report || lectureReportDraft[s.id]);
+                        return (
+                          <div key={s.id} className="flex flex-col rounded-xl border border-border bg-background/60 p-3.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <b className="min-w-0 truncate text-sm">{s.fullName}</b>
+                              {hasReport && <Badge tone="gold">تقرير</Badge>}
+                            </div>
+                            <div className="mt-2.5 flex gap-1.5">
+                              {(["present", "absent"] as const).map((st) => (
+                                <button
+                                  key={st}
+                                  onClick={() => setLectureAttDraft((d) => ({ ...d, [s.id]: st }))}
+                                  className={`flex-1 rounded-md px-2 py-1.5 text-xs font-bold transition ${
+                                    cur === st
+                                      ? st === "present" ? "bg-sage text-white" : "bg-danger text-white"
+                                      : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                                  }`}
+                                >
+                                  {st === "present" ? "حاضر" : "غائب"}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setReportOpenFor((o) => (o === s.id ? null : s.id))}
+                              className="mt-2 self-start text-xs font-semibold text-brand hover:underline"
+                            >
+                              {hasReport ? "تعديل التقرير" : "+ إضافة تقرير"}
+                            </button>
+                            {(reportOpenFor === s.id || reportVal) && (
+                              <textarea
+                                value={reportVal}
+                                onChange={(e) => setLectureReportDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                                placeholder="تقرير عن أداء الطالب في المحاضرة..."
+                                rows={3}
+                                className="mt-2 w-full rounded-md border border-input bg-background px-2.5 py-2 text-xs"
+                              />
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                     <Button
                       variant="primary"
-                      disabled={attLectureSaving || Object.keys(lectureAttDraft).length === 0}
+                      className="mt-4"
+                      disabled={attLectureSaving || (Object.keys(lectureAttDraft).length === 0 && Object.keys(lectureReportDraft).length === 0)}
                       onClick={async () => {
                         setAttLectureSaving(true);
                         setAttErr("");
                         try {
-                          const records = lectureStudents.map((s) => ({
-                            studentId: s.id,
-                            status: (lectureAttDraft[s.id] ?? s.status ?? "present") as "present" | "absent",
-                          }));
+                          const records = lectureStudents
+                            .filter((s) => lectureAttDraft[s.id] !== undefined || lectureReportDraft[s.id] !== undefined)
+                            .map((s) => ({
+                              studentId: s.id,
+                              status: (lectureAttDraft[s.id] ?? s.status ?? "present") as "present" | "absent",
+                              ...(lectureReportDraft[s.id] !== undefined ? { report: lectureReportDraft[s.id] } : {}),
+                            }));
                           await saveLectureAttendance(attLectureId, records);
                           await fetchLectureStudents(attLectureId);
                           setLectureAttDraft({});
+                          setLectureReportDraft({});
+                          setReportOpenFor(null);
                         } catch {
                           setAttErr("فشل حفظ الحضور — حاول مرة أخرى");
                         } finally {
@@ -1913,7 +1994,7 @@ export function TeacherScreen() {
                         }
                       }}
                     >
-                      {attLectureSaving ? "جاري الحفظ..." : "حفظ الحضور"}
+                      {attLectureSaving ? "جاري الحفظ..." : "حفظ الحضور والتقارير"}
                     </Button>
                   </>
                 )}
@@ -2462,6 +2543,9 @@ export function AdminScreen() {
     fetchPlacementResults,
     adminSchedules,
     fetchAdminSchedules,
+    adminLectures,
+    fetchAdminLectures,
+    fetchAdminLectureAttendance,
     createAdminSchedule,
     updateAdminSchedule,
     deleteAdminSchedule,
@@ -4551,16 +4635,23 @@ export function AdminScreen() {
       )}
 
       {activeSection === "schedules" && (
-        <AdminSchedulesSection
-          schedules={adminSchedules}
-          teachers={users.filter((u) => u.role === "TEACHER")}
-          groups={adminGroups}
-          availability={adminTeacherAvailability}
-          onFetchAvailability={fetchAdminTeacherAvailability}
-          onCreate={createAdminSchedule}
-          onUpdate={updateAdminSchedule}
-          onDelete={deleteAdminSchedule}
-        />
+        <div className="space-y-4">
+          <AdminSchedulesSection
+            schedules={adminSchedules}
+            teachers={users.filter((u) => u.role === "TEACHER")}
+            groups={adminGroups}
+            availability={adminTeacherAvailability}
+            onFetchAvailability={fetchAdminTeacherAvailability}
+            onCreate={createAdminSchedule}
+            onUpdate={updateAdminSchedule}
+            onDelete={deleteAdminSchedule}
+          />
+          <AdminLectureReportsCard
+            lectures={adminLectures}
+            fetchLectures={fetchAdminLectures}
+            fetchAttendance={fetchAdminLectureAttendance}
+          />
+        </div>
       )}
 
       {activeSection === "sessions" && (
@@ -6919,7 +7010,6 @@ export function SubscribeScreen() {
   } = usePlatformStore();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
-  const [studyMode, setStudyMode] = useState<"online" | "offline" | null>(null);
   const [shot, setShot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -6957,7 +7047,7 @@ export function SubscribeScreen() {
   }
 
   async function handleSubmit() {
-    if (!selectedPkg || !method || !studyMode) return;
+    if (!selectedPkg || !method) return;
     setError("");
     if (!shot) {
       setError("ارفع سكرين شوت لإثبات التحويل قبل الإرسال");
@@ -6969,12 +7059,10 @@ export function SubscribeScreen() {
       await createPaymentRequest({
         packageId: selectedPkg.id,
         method,
-        studyMode,
         screenshotUrl: uploaded.url,
       });
       setSelectedPkgId(null);
       setMethod(null);
-      setStudyMode(null);
       setShot(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر إرسال طلب الحجز — حاول مرة أخرى");
@@ -7097,35 +7185,6 @@ export function SubscribeScreen() {
               </p>
 
               <div className="mt-4 space-y-1.5">
-                <Label>نظام الحضور</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStudyMode("online")}
-                    className={`rounded-md border p-3 text-sm font-semibold transition ${
-                      studyMode === "online"
-                        ? "border-brand bg-brand/10 text-brand"
-                        : "border-border hover:border-brand/50"
-                    }`}
-                  >
-                    أونلاين
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStudyMode("offline")}
-                    className={`rounded-md border p-3 text-sm font-semibold transition ${
-                      studyMode === "offline"
-                        ? "border-brand bg-brand/10 text-brand"
-                        : "border-border hover:border-brand/50"
-                    }`}
-                  >
-                    أوفلاين (حضوري)
-                  </button>
-                </div>
-              </div>
-
-              {studyMode && (
-                <div className="mt-4 space-y-1.5">
                 <Label>طريقة التحويل</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -7151,8 +7210,7 @@ export function SubscribeScreen() {
                     محفظة إلكترونية
                   </button>
                 </div>
-                </div>
-              )}
+              </div>
 
               {method && (
                 <div className="mt-4 space-y-4">
@@ -10730,27 +10788,31 @@ function TeacherFreeLecturesSection({
   );
 }
 
-// ─── Teacher: unified schedule (basic lectures + calls bookings) with filters ──
+// ─── Teacher: unified schedule (basic lectures + calls bookings + free lectures) with filters ──
 function TeacherScheduleTimeline({
   lectures,
   bookings,
+  freeLectures,
   onLectureStatus,
   onBookingStatus,
 }: {
   lectures: import("../hooks/use-platform-store").LectureItem[];
   bookings: import("../hooks/use-platform-store").LessonBookingItem[];
+  freeLectures: import("../hooks/use-platform-store").FreeLecture[];
   onLectureStatus: (id: string, status: "live" | "completed") => void;
   onBookingStatus: (id: string, status: "completed" | "no_show" | "booked") => void;
 }) {
   const [typeF, setTypeF] = useState("");
   const [statusF, setStatusF] = useState("");
+  const [periodF, setPeriodF] = useState<"all" | "upcoming" | "past">("all");
+  const [groupF, setGroupF] = useState("");
   const [q, setQ] = useState("");
   const [fromD, setFromD] = useState("");
   const [toD, setToD] = useState("");
 
   type Row = {
     id: string;
-    kind: "lecture" | "booking";
+    kind: "lecture" | "booking" | "free";
     title: string;
     sub?: string;
     startsAt: string;
@@ -10759,6 +10821,7 @@ function TeacherScheduleTimeline({
     meetingUrl?: string | null;
     level?: string | null;
     groupName?: string | null;
+    studentsCount?: number;
   };
 
   const all: Row[] = [
@@ -10775,11 +10838,24 @@ function TeacherScheduleTimeline({
       startsAt: b.startsAt, endsAt: b.endsAt ?? null, status: b.status,
       meetingUrl: b.meetingUrl,
     })),
+    ...freeLectures.map((l) => ({
+      id: l.id, kind: "free" as const, title: l.title,
+      sub: l.description ?? undefined,
+      startsAt: l.startsAt, endsAt: l.endsAt ?? null, status: l.status,
+      meetingUrl: l.meetingUrl, level: l.level,
+      groupName: l.group?.name ?? null,
+      studentsCount: (l.invites?.length ?? 0) + (l.groupStudents?.length ?? 0),
+    })),
   ];
+
+  const groups = Array.from(new Set(all.map((r) => r.groupName).filter(Boolean))) as string[];
+  const now = Date.now();
 
   const rows = all
     .filter((r) => !typeF || r.kind === typeF)
     .filter((r) => !statusF || r.status === statusF)
+    .filter((r) => !groupF || r.groupName === groupF)
+    .filter((r) => periodF === "all" || (periodF === "upcoming" ? new Date(r.startsAt).getTime() >= now : new Date(r.startsAt).getTime() < now))
     .filter((r) => !q.trim() || [r.title, r.sub ?? "", r.groupName ?? ""].some((v) => v.toLowerCase().includes(q.trim().toLowerCase())))
     .filter((r) => !fromD || new Date(r.startsAt) >= new Date(`${fromD}T00:00:00`))
     .filter((r) => !toD || new Date(r.startsAt) <= new Date(`${toD}T23:59:59`))
@@ -10794,23 +10870,44 @@ function TeacherScheduleTimeline({
     no_show: { label: "لم يحضر", tone: "danger" },
   };
   const st = (s: string) => STATUS[s] ?? { label: s, tone: "muted" as const };
-  const fmt = (iso: string) => new Date(iso).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  const KIND: Record<Row["kind"], { label: string; tone: "brand" | "sage" | "muted" | "gold"; icon: typeof Video }> = {
+    lecture: { label: "محاضرة أساسية", tone: "muted", icon: Video },
+    booking: { label: "حصة فردية", tone: "sage", icon: PhoneCall },
+    free: { label: "محاضرة مجانية", tone: "gold", icon: Gift },
+  };
+  const fmt = (iso: string) => new Date(iso).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long" });
+  const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold">جدولي ({rows.length})</h2>
-          <p className="text-xs text-muted-foreground">المحاضرات الأساسية وحصص نظام المكالمات في مكان واحد — مرتبة من الأقرب</p>
+          <p className="text-xs text-muted-foreground">المحاضرات الأساسية والحصص الفردية والمحاضرات المجانية في مكان واحد</p>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {([["all", "الكل"], ["upcoming", "القادمة"], ["past", "السابقة"]] as const).map(([v, label]) => (
+          <button
+            key={v}
+            onClick={() => setPeriodF(v)}
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+              periodF === v ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
         <SearchBox value={q} onChange={setQ} placeholder="بحث باسم الطالب / المحاضرة / المجموعة" />
         <select value={typeF} onChange={(e) => setTypeF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
           <option value="">كل الأنواع</option>
           <option value="lecture">محاضرات أساسية</option>
           <option value="booking">حصص فردية (مكالمات)</option>
+          <option value="free">محاضرات مجانية</option>
         </select>
         <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
           <option value="">كل الحالات</option>
@@ -10821,41 +10918,57 @@ function TeacherScheduleTimeline({
           <option value="no_show">لم يحضر</option>
           <option value="cancelled">ملغاة</option>
         </select>
+        {groups.length > 0 && (
+          <select value={groupF} onChange={(e) => setGroupF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">كل المجموعات</option>
+            {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+        )}
         <Input type="date" value={fromD} onChange={(e) => setFromD(e.target.value)} />
         <Input type="date" value={toD} onChange={(e) => setToD(e.target.value)} />
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {rows.length === 0 ? (
-          <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground sm:col-span-2 xl:col-span-3">
             لا توجد مواعيد مطابقة للفلاتر الحالية.
           </div>
         ) : (
-          rows.map((r) => (
-            <div key={`${r.kind}-${r.id}`} className="rounded-md border border-border bg-background/60 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={r.kind === "booking" ? "sage" : "muted"}>
-                      {r.kind === "booking" ? "نظام المكالمات" : "محاضرة أساسية"}
-                    </Badge>
-                    <b className="text-sm">{r.title}</b>
-                    <Badge tone={st(r.status).tone}>{st(r.status).label}</Badge>
+          rows.map((r) => {
+            const k = KIND[r.kind];
+            const KIcon = k.icon;
+            return (
+              <div key={`${r.kind}-${r.id}`} className="flex flex-col rounded-xl border border-border bg-background/60 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand">
+                      <KIcon className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <b className="block truncate text-sm">{r.title}</b>
+                      <Badge tone={k.tone} className="mt-0.5">{k.label}</Badge>
+                    </div>
+                  </div>
+                  <Badge tone={st(r.status).tone}>{st(r.status).label}</Badge>
+                </div>
+
+                <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5"><CalendarDays className="size-3.5 shrink-0" />{fmt(r.startsAt)}</p>
+                  <p className="flex items-center gap-1.5 font-lat"><Clock3 className="size-3.5 shrink-0" />{fmtTime(r.startsAt)}{r.endsAt ? ` → ${fmtTime(r.endsAt)}` : ""}</p>
+                  <div className="flex flex-wrap gap-1 pt-1">
                     {r.level && <Badge tone="muted">مستوى {r.level}</Badge>}
                     {r.groupName && <Badge tone="muted">{r.groupName}</Badge>}
+                    {r.studentsCount !== undefined && r.studentsCount > 0 && <Badge tone="brand">{r.studentsCount} طالب</Badge>}
                   </div>
-                  <small className="mt-1 block text-muted-foreground">
-                    {fmt(r.startsAt)}
-                    {r.endsAt ? ` → ${new Date(r.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
-                  </small>
-                  {r.sub && <small className="block text-muted-foreground">{r.sub}</small>}
+                  {r.sub && <p className="truncate pt-0.5" title={r.sub}>{r.sub}</p>}
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
                   {r.kind === "lecture" && r.status === "scheduled" && (
-                    <Button variant="primary" onClick={() => onLectureStatus(r.id, "live")}>بدء المحاضرة</Button>
+                    <Button variant="primary" className="text-xs" onClick={() => onLectureStatus(r.id, "live")}>بدء المحاضرة</Button>
                   )}
                   {r.kind === "lecture" && r.status === "live" && (
-                    <Button variant="secondary" onClick={() => onLectureStatus(r.id, "completed")}>إنهاء المحاضرة</Button>
+                    <Button variant="secondary" className="text-xs" onClick={() => onLectureStatus(r.id, "completed")}>إنهاء المحاضرة</Button>
                   )}
                   {r.kind === "booking" && r.status === "booked" && (
                     <>
@@ -10875,10 +10988,94 @@ function TeacherScheduleTimeline({
                   )}
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
+    </Card>
+  );
+}
+
+// ─── Admin: lecture attendance + teacher reports viewer ──
+function AdminLectureReportsCard({
+  lectures,
+  fetchLectures,
+  fetchAttendance,
+}: {
+  lectures: import("../hooks/use-platform-store").AdminLectureItem[];
+  fetchLectures: (filter?: { status?: string }) => Promise<void>;
+  fetchAttendance: (lectureId: string) => Promise<import("../hooks/use-platform-store").AdminLectureAttendance[]>;
+}) {
+  const [lectureId, setLectureId] = useState("");
+  const [records, setRecords] = useState<import("../hooks/use-platform-store").AdminLectureAttendance[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!loaded) {
+      fetchLectures({ status: "all" }).then(() => setLoaded(true)).catch(() => {});
+    }
+  }, [loaded, fetchLectures]);
+
+  async function pick(id: string) {
+    setLectureId(id);
+    if (!id) { setRecords([]); return; }
+    setLoading(true);
+    try {
+      setRecords(await fetchAttendance(id));
+    } catch {
+      setRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h3 className="font-bold">حضور وتقارير المحاضرات</h3>
+      <p className="mt-1 text-xs text-muted-foreground">اختر محاضرة لعرض حضور طلابها وتقارير المدرس عن كل طالب</p>
+      <div className="mt-3">
+        <select
+          value={lectureId}
+          onChange={(e) => pick(e.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">— اختر المحاضرة —</option>
+          {lectures.map((l) => (
+            <option key={l.id} value={l.id}>
+              {new Date(l.startsAt).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })} — {l.title}
+              {l.teacher?.fullName ? ` (${l.teacher.fullName})` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {lectureId && (
+        <div className="mt-4">
+          {loading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">جاري التحميل...</div>
+          ) : records.length === 0 ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">لا توجد سجلات حضور لهذه المحاضرة بعد.</div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {records.map((r) => (
+                <div key={r.id} className="rounded-xl border border-border bg-background/60 p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <b className="min-w-0 truncate text-sm">{r.student.fullName}</b>
+                    <Badge tone={r.status === "present" ? "sage" : "danger"}>
+                      {r.status === "present" ? "حاضر" : "غائب"}
+                    </Badge>
+                  </div>
+                  <small className="text-muted-foreground">{r.student.phone ?? r.student.level ?? "—"}</small>
+                  {r.report && (
+                    <p className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">{r.report}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

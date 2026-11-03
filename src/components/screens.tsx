@@ -2428,6 +2428,7 @@ export function AdminScreen() {
     loadingData,
     addStaffUser,
     deleteUser,
+    updateUserStatus,
     addCourseMaterial,
     deleteCourseMaterial,
     setMaterialStatus,
@@ -2948,22 +2949,44 @@ export function AdminScreen() {
                   )}
                 </td>
                 <td className="px-3 py-3.5">
-                  {u.role !== "ADMIN" && (
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`حذف المستخدم "${u.fullName}" نهائياً؟`)) return;
-                        try {
-                          await deleteUser(u.id);
-                        } catch (err) {
-                          alert(err instanceof Error ? err.message : "فشل حذف المستخدم");
-                        }
-                      }}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                      title="حذف المستخدم"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {!u.isActive && <Badge tone="muted">معطّل</Badge>}
+                    {u.role !== "ADMIN" && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await updateUserStatus(u.id, !u.isActive);
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : "فشل تغيير حالة المستخدم");
+                            }
+                          }}
+                          className={`rounded-md px-2 py-1.5 text-[11px] font-bold ${
+                            u.isActive
+                              ? "text-muted-foreground hover:bg-gold/10 hover:text-gold"
+                              : "text-muted-foreground hover:bg-sage/10 hover:text-sage"
+                          }`}
+                          title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
+                        >
+                          {u.isActive ? "تعطيل" : "تفعيل"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`حذف المستخدم "${u.fullName}" نهائياً؟ سيتم نقل بياناته (محاضرات، مواعيد، اشتراكات) إليك.`)) return;
+                            try {
+                              await deleteUser(u.id);
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : "فشل حذف المستخدم");
+                            }
+                          }}
+                          className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                          title="حذف المستخدم"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

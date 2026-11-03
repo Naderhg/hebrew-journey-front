@@ -1054,6 +1054,7 @@ interface PlatformStoreValue {
   refreshAll: () => Promise<void>;
   addStaffUser: (input: CreateStaffUserInput) => Promise<PlatformUser>;
   deleteUser: (id: string) => Promise<void>;
+  updateUserStatus: (id: string, isActive: boolean) => Promise<void>;
   addCourseMaterial: (input: CreateMaterialInput) => Promise<CourseMaterial>;
   deleteCourseMaterial: (id: string) => Promise<void>;
   setMaterialStatus: (id: string, status: PublishStatus) => Promise<void>;
@@ -1528,6 +1529,14 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await apiFetch(`/api/admin/users/${id}`, { method: "DELETE" });
     setUsers((prev) => prev.filter((u) => u.id !== id));
     setStudentLinks((prev) => prev.filter((l) => l.student.id !== id && l.teacher.id !== id));
+  }
+
+  async function updateUserStatus(id: string, isActive: boolean) {
+    const res = await apiFetch<{ user: { id: string; isActive: boolean } }>(`/api/admin/users/${id}/status`, {
+      method: "PATCH",
+      body: { isActive },
+    });
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isActive: res.user.isActive } : u)));
   }
 
   async function addCourseMaterial(input: CreateMaterialInput): Promise<CourseMaterial> {
@@ -2520,6 +2529,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         refreshAll,
         addStaffUser,
         deleteUser,
+        updateUserStatus,
         addCourseMaterial,
         deleteCourseMaterial,
         setMaterialStatus,

@@ -1055,6 +1055,7 @@ interface PlatformStoreValue {
   addStaffUser: (input: CreateStaffUserInput) => Promise<PlatformUser>;
   deleteUser: (id: string) => Promise<void>;
   updateUserStatus: (id: string, isActive: boolean) => Promise<void>;
+  resetUserPassword: (id: string, password: string) => Promise<void>;
   addCourseMaterial: (input: CreateMaterialInput) => Promise<CourseMaterial>;
   deleteCourseMaterial: (id: string) => Promise<void>;
   setMaterialStatus: (id: string, status: PublishStatus) => Promise<void>;
@@ -1537,6 +1538,10 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
       body: { isActive },
     });
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, isActive: res.user.isActive } : u)));
+  }
+
+  async function resetUserPassword(id: string, password: string) {
+    await apiFetch(`/api/admin/users/${id}/password`, { method: "PATCH", body: { password } });
   }
 
   async function addCourseMaterial(input: CreateMaterialInput): Promise<CourseMaterial> {
@@ -2530,6 +2535,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         addStaffUser,
         deleteUser,
         updateUserStatus,
+        resetUserPassword,
         addCourseMaterial,
         deleteCourseMaterial,
         setMaterialStatus,

@@ -42,6 +42,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/use-auth";
 import { usePlatformStore } from "../hooks/use-platform-store";
 import { getHomeRouteForRole, ROLE_LABELS, type UserRole } from "../lib/auth";
+import { apiFetch } from "../lib/api";
 import { Badge, Button, Card } from "./ui";
 
 export interface SidebarItem {
@@ -230,6 +231,7 @@ export function AppShell({
     fetchHasCallsPackage,
   } = usePlatformStore();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navQuery, setNavQuery] = useState("");
 
@@ -384,14 +386,51 @@ export function AppShell({
   const RoleIcon = ROLE_ICONS[role];
   const roleAvatarTone = ({ STUDENT: "mint", TEACHER: "peach", ADMIN: "navy", SALES: "blue", SUPPORT: "lavender" } as const)[role];
 
+  async function handleChangeMyPassword() {
+    const password = prompt("اكتب كلمة المرور الجديدة (6 أحرف على الأقل):");
+    if (password === null) return;
+    try {
+      await apiFetch("/api/auth/me/password", { method: "PATCH", body: { password } });
+      alert("تم تغيير كلمة المرور — سجّل دخولك مرة أخرى");
+      setProfileOpen(false);
+      await logout().catch(() => {});
+      navigate({ to: "/login" });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "فشل تغيير كلمة المرور");
+    }
+  }
+
   const userChip = (
-    <div className="topbar-profile">
-      <span className={`avatar avatar-${roleAvatarTone}`}>{displayName[0] ?? "؟"}</span>
-      <div>
-        <strong>{displayName}</strong>
-        <small>{displaySubtitle}</small>
-      </div>
-      <ChevronDown size={14} />
+    <div className="relative">
+      <button type="button" className="topbar-profile" onClick={() => setProfileOpen((o) => !o)} title="الملف الشخصي">
+        <span className={`avatar avatar-${roleAvatarTone}`}>{displayName[0] ?? "؟"}</span>
+        <div>
+          <strong>{displayName}</strong>
+          <small>{displaySubtitle}</small>
+        </div>
+        <ChevronDown size={14} />
+      </button>
+      {profileOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+          <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-card p-4 text-right shadow-xl">
+            <div className="flex items-center gap-3">
+              <span className={`avatar avatar-${roleAvatarTone}`}>{displayName[0] ?? "؟"}</span>
+              <div className="min-w-0">
+                <b className="block truncate text-sm">{displayName}</b>
+                <small className="text-[11px] text-muted-foreground">{ROLE_LABELS[currentUserRole]}</small>
+              </div>
+            </div>
+            <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-[12px] text-muted-foreground">
+              {user?.email && <p className="truncate font-lat">{user.email}</p>}
+              {user?.phone && <p className="font-lat">{user.phone}</p>}
+            </div>
+            <Button variant="secondary" className="mt-3 w-full" onClick={handleChangeMyPassword}>
+              تغيير كلمة المرور
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 

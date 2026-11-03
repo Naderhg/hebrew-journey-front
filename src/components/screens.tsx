@@ -2429,6 +2429,7 @@ export function AdminScreen() {
     addStaffUser,
     deleteUser,
     updateUserStatus,
+    resetUserPassword,
     addCourseMaterial,
     deleteCourseMaterial,
     setMaterialStatus,
@@ -2969,6 +2970,22 @@ export function AdminScreen() {
                           title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
                         >
                           {u.isActive ? "تعطيل" : "تفعيل"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const password = prompt(`كلمة مرور جديدة لـ "${u.fullName}" (6 أحرف على الأقل):`);
+                            if (password === null) return;
+                            try {
+                              await resetUserPassword(u.id, password);
+                              alert("تم تغيير كلمة المرور بنجاح — سيتم تسجيل خروج المستخدم من كل الأجهزة");
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : "فشل تغيير كلمة المرور");
+                            }
+                          }}
+                          className="rounded-md px-2 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-brand/10 hover:text-brand"
+                          title="تغيير كلمة المرور"
+                        >
+                          باسورد
                         </button>
                         <button
                           onClick={async () => {

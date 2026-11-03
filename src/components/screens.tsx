@@ -5283,8 +5283,8 @@ function StudentsDirectorySection({
     }
   }
 
-  const activeSubOf = (s: import("../hooks/use-platform-store").OpsStudentItem) =>
-    s.subscriptions.find((x) => x.status === "ACTIVE");
+  const activeSubsOf = (s: import("../hooks/use-platform-store").OpsStudentItem) =>
+    s.subscriptions.filter((x) => x.status === "ACTIVE");
 
   return (
     <div className="space-y-4">
@@ -5365,7 +5365,7 @@ function StudentsDirectorySection({
             </thead>
             <tbody>
               {pageRows.map((s) => {
-                const sub = activeSubOf(s);
+                const subs = activeSubsOf(s);
                 return (
                   <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
                     <td className="p-3">
@@ -5394,15 +5394,19 @@ function StudentsDirectorySection({
                       </div>
                     </td>
                     <td className="p-3">
-                      {sub ? (
-                        <div className="text-xs">
-                          <Badge tone={sub.package.category === "calls" ? "gold" : "brand"}>{sub.package.nameAr}</Badge>
-                          {sub.sessionsRemaining != null && (
-                            <small className="mt-0.5 block text-muted-foreground">متبقي {sub.sessionsRemaining} حصة</small>
-                          )}
-                        </div>
-                      ) : (
+                      {subs.length === 0 ? (
                         <span className="text-xs text-muted-foreground">بدون اشتراك</span>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          {subs.map((sub) => (
+                            <div key={sub.id} className="text-xs">
+                              <Badge tone={sub.package.category === "calls" ? "gold" : "brand"}>{sub.package.nameAr}</Badge>
+                              {sub.sessionsRemaining != null && (
+                                <small className="mt-0.5 block text-muted-foreground">متبقي {sub.sessionsRemaining} حصة</small>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </td>
                     <td className="p-3 text-xs text-muted-foreground">
@@ -5461,6 +5465,20 @@ function StudentsDirectorySection({
             <div onClick={(e) => e.stopPropagation()}>
             <h3 className="font-bold">تفعيل اشتراك — {actStudent.fullName}</h3>
             <p className="text-xs text-muted-foreground">للطالب الذي دفع خارج المنصة (واتساب / كاش / تحويل)</p>
+            {activeSubsOf(actStudent).length > 0 && (
+              <div className="mt-3 rounded-md border border-gold/40 bg-gold/10 p-3 text-xs">
+                <b className="text-gold">⚠ تنبيه: الطالب مشترك بالفعل في:</b>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {activeSubsOf(actStudent).map((sub) => (
+                    <Badge key={sub.id} tone="gold">
+                      {sub.package.nameAr}
+                      {sub.sessionsRemaining != null ? ` · متبقي ${sub.sessionsRemaining} حصة` : ""}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-muted-foreground">التفعيل الجديد هيتضاف كاشتراك منفصل بجانب الموجود — مش بديل له.</p>
+              </div>
+            )}
             <form onSubmit={handleActivate} className="mt-4 space-y-3">
               <div className="space-y-1.5">
                 <Label>الباقة</Label>

@@ -2546,6 +2546,10 @@ export function AdminScreen() {
     adminLectures,
     fetchAdminLectures,
     fetchAdminLectureAttendance,
+    fetchAdminTeacherProfile,
+    fetchAdminStudentProfile,
+    deleteAdminSubscription,
+    restoreSubscriptionSessions,
     createAdminSchedule,
     updateAdminSchedule,
     deleteAdminSchedule,
@@ -2642,6 +2646,7 @@ export function AdminScreen() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [newUserRole, setNewUserRole] = useState<Exclude<UserRole, "STUDENT">>("TEACHER");
+  const [profileView, setProfileView] = useState<{ type: "teacher" | "student"; id: string } | null>(null);
   const [specialty, setSpecialty] = useState("");
   const [userSuccess, setUserSuccess] = useState("");
   const [userError, setUserError] = useState("");
@@ -3036,6 +3041,15 @@ export function AdminScreen() {
                 <td className="px-3 py-3.5">
                   <div className="flex items-center gap-1">
                     {!u.isActive && <Badge tone="muted">معطّل</Badge>}
+                    {(u.role === "TEACHER" || u.role === "STUDENT") && (
+                      <button
+                        onClick={() => setProfileView({ type: u.role === "TEACHER" ? "teacher" : "student", id: u.id })}
+                        className="rounded-md px-2 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-brand/10 hover:text-brand"
+                        title="عرض الملف الكامل"
+                      >
+                        الملف
+                      </button>
+                    )}
                     {u.role !== "ADMIN" && (
                       <>
                         <button
@@ -3808,6 +3822,15 @@ export function AdminScreen() {
             onAddToGroup={addGroupMembers}
             onDeleteStudent={async (id) => {
               await deleteUser(id);
+              await fetchOpsStudents();
+            }}
+            onViewProfile={(id) => setProfileView({ type: "student", id })}
+            onDeleteSubscription={async (id) => {
+              await deleteAdminSubscription(id);
+              await fetchOpsStudents();
+            }}
+            onRestoreSessions={async (id) => {
+              await restoreSubscriptionSessions(id);
               await fetchOpsStudents();
             }}
           />
@@ -4823,6 +4846,24 @@ export function AdminScreen() {
       )}
 
       {activeSection === "guide" && <AdminGuideSection />}
+
+      {profileView?.type === "teacher" && (
+        <AdminTeacherProfileModal
+          teacherId={profileView.id}
+          fetchProfile={fetchAdminTeacherProfile}
+          onClose={() => setProfileView(null)}
+        />
+      )}
+      {profileView?.type === "student" && (
+        <AdminStudentProfileModal
+          studentId={profileView.id}
+          fetchProfile={fetchAdminStudentProfile}
+          onDeleteSub={deleteAdminSubscription}
+          onRestore={restoreSubscriptionSessions}
+          onChanged={() => fetchOpsStudents().catch(() => {})}
+          onClose={() => setProfileView(null)}
+        />
+      )}
     </AppShell>
   );
 }
@@ -5171,6 +5212,9 @@ function StudentsDirectorySection({
   onActivate,
   onAddToGroup,
   onDeleteStudent,
+  onViewProfile,
+  onDeleteSubscription,
+  onRestoreSessions,
 }: {
   students: import("../hooks/use-platform-store").OpsStudentItem[];
   groups: GroupItem[];
@@ -5180,6 +5224,9 @@ function StudentsDirectorySection({
   onActivate: (input: { studentId: string; packageId: string; paidAmount?: number; notes?: string }) => Promise<void>;
   onAddToGroup: (groupId: string, studentIds: string[]) => Promise<void>;
   onDeleteStudent?: (id: string) => Promise<void>;
+  onViewProfile?: (studentId: string) => void;
+  onDeleteSubscription?: (id: string) => Promise<void>;
+  onRestoreSessions?: (id: string) => Promise<void>;
 }) {
   const PAGE_SIZE = 10;
   const [search, setSearch] = useState("");
@@ -5404,6 +5451,30 @@ function StudentsDirectorySection({
                               {sub.sessionsRemaining != null && (
                                 <small className="mt-0.5 block text-muted-foreground">متبقي {sub.sessionsRemaining} حصة</small>
                               )}
+                              {(onDeleteSubscription || onRestoreSessions) && (
+                                <span className="mt-0.5 flex gap-1">
+                                  {sub.sessionsTotal != null && onRestoreSessions && (
+                                    <button
+                                      title="استرجاع الحصص من الأول"
+                                      onClick={async () => {
+                                        if (!confirm(`استرجاع حصص "${sub.package.nameAr}" للطالب؟`)) return;
+                                        try { await onRestoreSessions(sub.id); setNotice("تم استرجاع الحصص"); } catch (e) { setErr(e instanceof Error ? e.message : "فشل الاسترجاع"); }
+                                      }}
+                                      className="rounded px-1.5 py-0.5 text-[10px] font-bold text-brand hover:bg-brand/10"
+                                    >↺</button>
+                                  )}
+                                  {onDeleteSubscription && (
+                                    <button
+                                      title="حذف الباقة نهائياً"
+                                      onClick={async () => {
+                                        if (!confirm(`حذف باقة "${sub.package.nameAr}" نهائياً للطالب؟`)) return;
+                                        try { await onDeleteSubscription(sub.id); setNotice("تم حذف الباقة"); } catch (e) { setErr(e instanceof Error ? e.message : "فشل الحذف"); }
+                                      }}
+                                      className="rounded px-1.5 py-0.5 text-[10px] font-bold text-danger hover:bg-danger/10"
+                                    >✕</button>
+                                  )}
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -5414,6 +5485,11 @@ function StudentsDirectorySection({
                     </td>
                     <td className="p-3">
                       <div className="flex items-center gap-1.5">
+                        {onViewProfile && (
+                          <Button variant="secondary" className="min-h-8 px-2.5 text-xs" onClick={() => onViewProfile(s.id)}>
+                            الملف
+                          </Button>
+                        )}
                         <Button variant="primary" className="min-h-8 px-2.5 text-xs" onClick={() => openActivate(s)}>
                           تفعيل اشتراك
                         </Button>
@@ -11095,5 +11171,320 @@ function AdminLectureReportsCard({
         </div>
       )}
     </Card>
+  );
+}
+
+// ─── Admin: full-screen profile overlay (teacher / student) ──────────────────
+function ProfileOverlay({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3 sm:p-6" onClick={onClose}>
+      <div className="mx-auto max-w-5xl" onClick={(e) => e.stopPropagation()}>
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">{title}</h2>
+            <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">✕ إغلاق</button>
+          </div>
+          {children}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+const PROFILE_STATUS: Record<string, { label: string; tone: "brand" | "sage" | "muted" | "danger" | "gold" }> = {
+  scheduled: { label: "مجدولة", tone: "brand" },
+  live: { label: "مباشر", tone: "sage" },
+  booked: { label: "محجوزة", tone: "brand" },
+  completed: { label: "مكتملة", tone: "muted" },
+  cancelled: { label: "ملغاة", tone: "danger" },
+  no_show: { label: "لم يحضر", tone: "danger" },
+};
+const profSt = (s: string) => PROFILE_STATUS[s] ?? { label: s, tone: "muted" as const };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function AdminTeacherProfileModal({ teacherId, fetchProfile, onClose }: { teacherId: string; fetchProfile: (id: string) => Promise<any>; onClose: () => void }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [lectureF, setLectureF] = useState("all");
+  const [studentQ, setStudentQ] = useState("");
+
+  useEffect(() => {
+    fetchProfile(teacherId).then(setD).catch(() => {}).finally(() => setLoading(false));
+  }, [teacherId, fetchProfile]);
+
+  if (loading || !d) {
+    return <ProfileOverlay title="ملف المدرس" onClose={onClose}><div className="py-16 text-center text-sm text-muted-foreground">جاري تحميل الملف...</div></ProfileOverlay>;
+  }
+
+  const t = d.teacher;
+  const now = Date.now();
+  const upcomingLectures = d.lectures.filter((l: { startsAt: string }) => new Date(l.startsAt).getTime() >= now);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filteredLectures = d.lectures.filter((l: any) => lectureF === "all" || (lectureF === "upcoming" ? new Date(l.startsAt).getTime() >= now : l.status === lectureF));
+  const filteredStudents = d.students.filter((s: { fullName: string; phone?: string | null }) =>
+    !studentQ.trim() || s.fullName.includes(studentQ.trim()) || (s.phone ?? "").includes(studentQ.trim()));
+  const totals = d.analytics?.totals;
+
+  return (
+    <ProfileOverlay title={`ملف المدرس — ${t.fullName}`} onClose={onClose}>
+      <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-border bg-background/60 p-4">
+        <span className="grid size-14 place-items-center rounded-full bg-brand/10 text-xl font-bold text-brand">{t.fullName[0]}</span>
+        <div className="min-w-0 flex-1">
+          <b className="text-lg">{t.fullName}</b>
+          <p className="text-xs text-muted-foreground">{t.specialty ?? "—"} · انضم {new Date(t.createdAt).toLocaleDateString("ar-EG")}</p>
+          <p className="mt-0.5 font-lat text-xs text-muted-foreground">{t.phone ?? ""} {t.email ? `· ${t.email}` : ""}</p>
+          {t.bio && <p className="mt-1 text-xs text-muted-foreground">{t.bio}</p>}
+        </div>
+        <Badge tone={t.isActive ? "sage" : "danger"}>{t.isActive ? "نشط" : "معطّل"}</Badge>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="p-3 text-center"><b className="font-lat text-xl text-brand">{d.students.length}</b><p className="text-xs text-muted-foreground">طالب</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{d.groups.length}</b><p className="text-xs text-muted-foreground">مجموعة</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{upcomingLectures.length}</b><p className="text-xs text-muted-foreground">محاضرة قادمة</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl text-sage">{totals?.earnings ?? 0} ج</b><p className="text-xs text-muted-foreground">إجمالي الأرباح</p></Card>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{totals?.lecturesCompleted ?? 0}</b><p className="text-xs text-muted-foreground">محاضرة أساسية</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{d.freeLectures.length}</b><p className="text-xs text-muted-foreground">محاضرة مجانية</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{d.bookings.length}</b><p className="text-xs text-muted-foreground">حصة مكالمات</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{totals?.sessionsDeducted ?? 0}</b><p className="text-xs text-muted-foreground">حصص محتسبة</p></Card>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <h3 className="font-bold">المواعيد الثابتة ({d.schedules.length})</h3>
+          <div className="mt-2 space-y-1.5">
+            {d.schedules.length === 0 ? <p className="text-xs text-muted-foreground">لا توجد مواعيد ثابتة.</p> :
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              d.schedules.map((s: any) => (
+                <div key={s.id} className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5 text-xs">
+                  <span><b>{s.title}</b>{s.group?.name ? ` · ${s.group.name}` : ""}</span>
+                  <span className="text-muted-foreground">{DAY_NAMES[s.dayOfWeek]} {s.startTime}–{s.endTime}</span>
+                </div>
+              ))}
+          </div>
+          <h3 className="mt-4 font-bold">الأوقات المتاحة ({d.availability.length})</h3>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {d.availability.length === 0 ? <p className="text-xs text-muted-foreground">لم يحدد أوقاتاً متاحة.</p> :
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              d.availability.map((a: any) => (
+                <Badge key={a.id} tone={a.isActive ? "brand" : "muted"}>
+                  {a.specificDate ? new Date(a.specificDate).toLocaleDateString("ar-EG") : DAY_NAMES[a.dayOfWeek]} {a.startTime}–{a.endTime}
+                </Badge>
+              ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3 className="font-bold">المجموعات ({d.groups.length})</h3>
+          <div className="mt-2 space-y-1.5">
+            {d.groups.length === 0 ? <p className="text-xs text-muted-foreground">لا توجد مجموعات.</p> :
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              d.groups.map((g: any) => (
+                <div key={g.id} className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5 text-xs">
+                  <b>{g.name}</b>
+                  <span className="text-muted-foreground">{g._count?.members ?? 0} طالب</span>
+                </div>
+              ))}
+          </div>
+        </Card>
+      </div>
+
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold">محاضراته ({filteredLectures.length})</h3>
+          <div className="flex gap-1">
+            {([["all", "الكل"], ["upcoming", "القادمة"], ["scheduled", "مجدولة"], ["live", "مباشر"], ["completed", "مكتملة"], ["cancelled", "ملغاة"]] as const).map(([v, l]) => (
+              <button key={v} onClick={() => setLectureF(v)} className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${lectureF === v ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 max-h-72 space-y-1.5 overflow-y-auto">
+          {filteredLectures.length === 0 ? <p className="py-4 text-center text-xs text-muted-foreground">لا توجد محاضرات.</p> :
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            filteredLectures.map((l: any) => (
+              <div key={l.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <b className="block truncate">{l.title}</b>
+                  <span className="text-muted-foreground">{new Date(l.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{l.group?.name ? ` · ${l.group.name}` : ""} · {l._count?.attendance ?? 0} حاضر</span>
+                </div>
+                <Badge tone={profSt(l.status).tone}>{profSt(l.status).label}</Badge>
+              </div>
+            ))}
+        </div>
+      </Card>
+
+      <Card className="mt-4">
+        <h3 className="font-bold">حصص المكالمات ({d.bookings.length})</h3>
+        <div className="mt-3 max-h-60 space-y-1.5 overflow-y-auto">
+          {d.bookings.length === 0 ? <p className="py-4 text-center text-xs text-muted-foreground">لا توجد حصص.</p> :
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            d.bookings.map((b: any) => (
+              <div key={b.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
+                <span>{b.student?.fullName} · {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                <Badge tone={profSt(b.status).tone}>{profSt(b.status).label}</Badge>
+              </div>
+            ))}
+        </div>
+      </Card>
+
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold">طلابه ({filteredStudents.length})</h3>
+          <SearchBox value={studentQ} onChange={setStudentQ} placeholder="بحث باسم الطالب أو هاتفه" />
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b text-right text-xs text-muted-foreground"><th className="p-2">الاسم</th><th className="p-2">الهاتف</th><th className="p-2">المستوى</th><th className="p-2">الحالة</th></tr></thead>
+            <tbody>
+              {filteredStudents.map((s: { id: string; fullName: string; phone: string | null; level: string | null; studentStatus: string | null }) => (
+                <tr key={s.id} className="border-b">
+                  <td className="p-2 font-semibold">{s.fullName}</td>
+                  <td className="p-2 font-lat text-xs">{s.phone ?? "—"}</td>
+                  <td className="p-2 text-xs">{s.level ?? "—"}</td>
+                  <td className="p-2"><Badge tone={DIR_STATUS_TONES[s.studentStatus ?? ""] ?? "muted"}>{DIR_STATUS_LABELS[s.studentStatus ?? ""] ?? s.studentStatus ?? "—"}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </ProfileOverlay>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRestore, onChanged, onClose }: {
+  studentId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetchProfile: (id: string) => Promise<any>;
+  onDeleteSub: (id: string) => Promise<void>;
+  onRestore: (id: string) => Promise<void>;
+  onChanged: () => void;
+  onClose: () => void;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [d, setD] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  async function reload() {
+    try { setD(await fetchProfile(studentId)); } catch { /* ignore */ }
+    setLoading(false);
+  }
+  useEffect(() => { reload(); }, [studentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loading || !d) {
+    return <ProfileOverlay title="ملف الطالب" onClose={onClose}><div className="py-16 text-center text-sm text-muted-foreground">جاري تحميل الملف...</div></ProfileOverlay>;
+  }
+
+  const s = d.student;
+  const now = Date.now();
+  const upcomingBookings = d.bookings.filter((b: { startsAt: string; status: string }) => new Date(b.startsAt).getTime() >= now && b.status === "booked");
+
+  async function subAction(fn: (id: string) => Promise<void>, id: string, confirmText: string) {
+    if (!confirm(confirmText)) return;
+    setBusy(true);
+    try { await fn(id); await reload(); onChanged(); } catch (e) { alert(e instanceof Error ? e.message : "فشلت العملية"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <ProfileOverlay title={`ملف الطالب — ${s.fullName}`} onClose={onClose}>
+      <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-border bg-background/60 p-4">
+        <span className="grid size-14 place-items-center rounded-full bg-brand/10 text-xl font-bold text-brand">{s.fullName[0]}</span>
+        <div className="min-w-0 flex-1">
+          <b className="text-lg">{s.fullName}</b>
+          <p className="text-xs text-muted-foreground">انضم {new Date(s.createdAt).toLocaleDateString("ar-EG")} · المستوى {s.level ?? "—"}{s.placementScore != null ? ` (${s.placementScore}%)` : ""}</p>
+          <p className="mt-0.5 font-lat text-xs text-muted-foreground">{s.phone ?? ""} {s.email ? `· ${s.email}` : ""}</p>
+        </div>
+        <div className="flex gap-1.5">
+          <Badge tone={DIR_STATUS_TONES[s.studentStatus ?? ""] ?? "muted"}>{DIR_STATUS_LABELS[s.studentStatus ?? ""] ?? s.studentStatus}</Badge>
+          <Badge tone={s.isActive ? "sage" : "danger"}>{s.isActive ? "نشط" : "معطّل"}</Badge>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="p-3 text-center"><b className="font-lat text-xl text-brand">{d.stats.avgScore !== null ? `${d.stats.avgScore}%` : "—"}</b><p className="text-xs text-muted-foreground">متوسط الدرجات ({d.stats.examsTaken})</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl text-sage">{d.stats.attendanceRate !== null ? `${d.stats.attendanceRate}%` : "—"}</b><p className="text-xs text-muted-foreground">نسبة الحضور</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl">{d.stats.lecturesAttended} / {d.stats.lecturesAbsent}</b><p className="text-xs text-muted-foreground">حضور / غياب محاضرات</p></Card>
+        <Card className="p-3 text-center"><b className="font-lat text-xl text-gold">{d.stats.certificatesCount}</b><p className="text-xs text-muted-foreground">شهادات</p></Card>
+      </div>
+      {d.stats.skillsAvg !== null && (
+        <Card className="mt-3 p-3">
+          <div className="flex items-center justify-between text-xs"><b>مستوى تقدمه في المهارات</b><span className="font-lat text-brand">{d.stats.skillsAvg}%</span></div>
+          <ProgressBar value={d.stats.skillsAvg} tone={d.stats.skillsAvg >= 70 ? "sage" : d.stats.skillsAvg >= 50 ? "gold" : "brand"} className="mt-2" />
+        </Card>
+      )}
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <h3 className="font-bold">الاشتراكات ({d.subscriptions.length})</h3>
+          <div className="mt-2 space-y-2">
+            {d.subscriptions.length === 0 ? <p className="text-xs text-muted-foreground">بدون اشتراكات.</p> :
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              d.subscriptions.map((sub: any) => (
+                <div key={sub.id} className="rounded-md border border-border bg-background/60 p-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <Badge tone={sub.package.category === "calls" ? "gold" : "brand"}>{sub.package.nameAr}</Badge>
+                      <Badge tone={sub.status === "ACTIVE" ? "sage" : "muted"} className="ml-1">{sub.status}</Badge>
+                    </div>
+                    <div className="flex gap-1">
+                      {sub.sessionsTotal != null && (
+                        <button disabled={busy} title="استرجاع الحصص" onClick={() => subAction(onRestore, sub.id, `استرجاع حصص "${sub.package.nameAr}" للطالب؟ (الرصيد هيرجع ${sub.sessionsTotal} حصة)`)} className="rounded-md px-2 py-1 text-[11px] font-bold text-brand hover:bg-brand/10">↺ استرجاع</button>
+                      )}
+                      <button disabled={busy} title="حذف الباقة نهائياً" onClick={() => subAction(onDeleteSub, sub.id, `حذف باقة "${sub.package.nameAr}" نهائياً للطالب؟ لا يمكن التراجع.`)} className="rounded-md px-2 py-1 text-[11px] font-bold text-danger hover:bg-danger/10">حذف الباقة</button>
+                    </div>
+                  </div>
+                  {sub.sessionsTotal != null && (
+                    <p className="mt-1 text-muted-foreground">المتبقي {sub.sessionsRemaining ?? 0} من {sub.sessionsTotal} حصة · المستخدم {sub.sessionsUsed ?? 0}</p>
+                  )}
+                  <p className="text-muted-foreground">{new Date(sub.createdAt).toLocaleDateString("ar-EG")} · {sub.paidAmount != null ? `${sub.paidAmount} ج` : ""}</p>
+                </div>
+              ))}
+          </div>
+          <h4 className="mt-4 text-sm font-bold">المجموعات والمدرسون</h4>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {d.groups.map((g: { id: string; name: string }) => <Badge key={g.id} tone="muted">{g.name}</Badge>)}
+            {d.teachers.map((t: { id: string; fullName: string }) => <Badge key={t.id} tone="brand">{t.fullName}</Badge>)}
+            {d.groups.length === 0 && d.teachers.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+          </div>
+        </Card>
+
+        <Card>
+          <h3 className="font-bold">حصص المكالمات ({d.bookings.length} · قادمة: {upcomingBookings.length})</h3>
+          <div className="mt-2 max-h-72 space-y-1.5 overflow-y-auto">
+            {d.bookings.length === 0 ? <p className="py-4 text-center text-xs text-muted-foreground">لا توجد حصص.</p> :
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              d.bookings.slice(0, 20).map((b: any) => (
+                <div key={b.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
+                  <span>{b.teacher?.fullName} · {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                  <Badge tone={profSt(b.status).tone}>{profSt(b.status).label}</Badge>
+                </div>
+              ))}
+          </div>
+        </Card>
+      </div>
+
+      <Card className="mt-4">
+        <h3 className="font-bold">سجل المحاضرات ({d.lectureAttendance.length})</h3>
+        <div className="mt-2 max-h-72 space-y-1.5 overflow-y-auto">
+          {d.lectureAttendance.length === 0 ? <p className="py-4 text-center text-xs text-muted-foreground">لا توجد سجلات.</p> :
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            d.lectureAttendance.map((a: any) => (
+              <div key={a.id} className="rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span><b>{a.lecture.title}</b> · {new Date(a.lecture.startsAt).toLocaleDateString("ar-EG")}{a.lecture.teacher?.fullName ? ` · ${a.lecture.teacher.fullName}` : ""}</span>
+                  <Badge tone={a.status === "present" ? "sage" : "danger"}>{a.status === "present" ? "حاضر" : "غائب"}</Badge>
+                </div>
+                {a.report && <p className="mt-1 border-t border-border/60 pt-1 text-muted-foreground">{a.report}</p>}
+              </div>
+            ))}
+        </div>
+      </Card>
+    </ProfileOverlay>
   );
 }

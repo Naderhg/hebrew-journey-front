@@ -641,6 +641,11 @@ export interface AdminLectureAttendance {
   student: { id: string; fullName: string; phone: string | null; level: string | null };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AdminTeacherProfile = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AdminStudentProfile = any;
+
 export interface AdminAnalytics {
   teacherName?: string | null;
   totals?: TeacherAnalytics["totals"];
@@ -1251,6 +1256,10 @@ interface PlatformStoreValue {
   studentLectureReports: StudentLectureReport[];
   fetchStudentLectureReports: () => Promise<void>;
   fetchAdminLectureAttendance: (lectureId: string) => Promise<AdminLectureAttendance[]>;
+  fetchAdminTeacherProfile: (teacherId: string) => Promise<AdminTeacherProfile>;
+  fetchAdminStudentProfile: (studentId: string) => Promise<AdminStudentProfile>;
+  deleteAdminSubscription: (subscriptionId: string) => Promise<void>;
+  restoreSubscriptionSessions: (subscriptionId: string) => Promise<void>;
   // admin analytics
   adminAnalytics: AdminAnalytics | null;
   fetchAdminAnalytics: (filters?: { teacherId?: string | undefined; from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) => Promise<void>;
@@ -1872,6 +1881,19 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function fetchAdminLectureAttendance(lectureId: string): Promise<AdminLectureAttendance[]> {
     const res = await apiFetch<{ records: AdminLectureAttendance[] }>(`/api/admin/lectures/${lectureId}/attendance`);
     return res.records ?? [];
+  }
+
+  async function fetchAdminTeacherProfile(teacherId: string) {
+    return apiFetch<AdminTeacherProfile>(`/api/admin/teachers/${teacherId}/profile`);
+  }
+  async function fetchAdminStudentProfile(studentId: string) {
+    return apiFetch<AdminStudentProfile>(`/api/admin/students/${studentId}/profile`);
+  }
+  async function deleteAdminSubscription(subscriptionId: string) {
+    await apiFetch(`/api/admin/subscriptions/${subscriptionId}`, { method: "DELETE" });
+  }
+  async function restoreSubscriptionSessions(subscriptionId: string) {
+    await apiFetch(`/api/admin/subscriptions/${subscriptionId}/restore-sessions`, { method: "POST" });
   }
 
   async function fetchAdminAnalytics(filters?: { teacherId?: string | undefined; from?: string | undefined; to?: string | undefined; studentId?: string | undefined }) {
@@ -2734,6 +2756,10 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         studentLectureReports,
         fetchStudentLectureReports,
         fetchAdminLectureAttendance,
+        fetchAdminTeacherProfile,
+        fetchAdminStudentProfile,
+        deleteAdminSubscription,
+        restoreSubscriptionSessions,
         adminAnalytics,
         fetchAdminAnalytics,
         studentWallet,

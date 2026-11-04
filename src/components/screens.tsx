@@ -4679,14 +4679,6 @@ export function AdminScreen() {
 
       {activeSection === "sessions" && (
         <div className="space-y-4">
-          <OpsCreateSessionCard
-            callsStudents={callsStudents}
-            teachers={users.filter((u) => u.role === "TEACHER")}
-            availability={adminTeacherAvailability}
-            onFetchAvailability={fetchAdminTeacherAvailability}
-            onCreate={opsCreateBooking}
-            onFetchCallsStudents={fetchCallsStudents}
-          />
           {/* Report summary */}
           {adminBookingsReport && (
             <>
@@ -4727,6 +4719,20 @@ export function AdminScreen() {
                   <p className="text-xs text-muted-foreground">لم يحضر</p>
                 </Card>
               </div>
+            </>
+          )}
+
+          <OpsCreateSessionCard
+            callsStudents={callsStudents}
+            teachers={users.filter((u) => u.role === "TEACHER")}
+            availability={adminTeacherAvailability}
+            onFetchAvailability={fetchAdminTeacherAvailability}
+            onCreate={opsCreateBooking}
+            onFetchCallsStudents={fetchCallsStudents}
+          />
+
+          {adminBookingsReport && (
+            <>
 
               {Array.isArray(adminBookingsReport.packages) && adminBookingsReport.packages.length > 0 && (
                 <Card>

@@ -1082,6 +1082,7 @@ interface PlatformStoreValue {
   deleteUser: (id: string) => Promise<void>;
   updateUserStatus: (id: string, isActive: boolean) => Promise<void>;
   resetUserPassword: (id: string, password: string) => Promise<void>;
+  updateAdminUser: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string }) => Promise<void>;
   addCourseMaterial: (input: CreateMaterialInput) => Promise<CourseMaterial>;
   deleteCourseMaterial: (id: string) => Promise<void>;
   setMaterialStatus: (id: string, status: PublishStatus) => Promise<void>;
@@ -1575,6 +1576,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   async function resetUserPassword(id: string, password: string) {
     await apiFetch(`/api/admin/users/${id}/password`, { method: "PATCH", body: { password } });
+  }
+
+  async function updateAdminUser(id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string }) {
+    const res = await apiFetch<{ user: PlatformUser }>(`/api/admin/users/${id}`, { method: "PATCH", body: input });
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...res.user } : u)));
   }
 
   async function addCourseMaterial(input: CreateMaterialInput): Promise<CourseMaterial> {
@@ -2594,6 +2600,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         deleteUser,
         updateUserStatus,
         resetUserPassword,
+        updateAdminUser,
         addCourseMaterial,
         deleteCourseMaterial,
         setMaterialStatus,

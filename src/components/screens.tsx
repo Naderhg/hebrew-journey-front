@@ -2511,6 +2511,7 @@ export function AdminScreen() {
     deleteUser,
     updateUserStatus,
     resetUserPassword,
+    updateAdminUser,
     addCourseMaterial,
     deleteCourseMaterial,
     setMaterialStatus,
@@ -2647,6 +2648,7 @@ export function AdminScreen() {
   const [phone, setPhone] = useState("");
   const [newUserRole, setNewUserRole] = useState<Exclude<UserRole, "STUDENT">>("TEACHER");
   const [profileView, setProfileView] = useState<{ type: "teacher" | "student"; id: string } | null>(null);
+  const [editingUser, setEditingUser] = useState<PlatformUser | null>(null);
   const [specialty, setSpecialty] = useState("");
   const [userSuccess, setUserSuccess] = useState("");
   const [userError, setUserError] = useState("");
@@ -3068,6 +3070,13 @@ export function AdminScreen() {
                           title={u.isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
                         >
                           {u.isActive ? "تعطيل" : "تفعيل"}
+                        </button>
+                        <button
+                          onClick={() => setEditingUser(u)}
+                          className="rounded-md px-2 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-brand/10 hover:text-brand"
+                          title="تعديل بيانات المستخدم"
+                        >
+                          تعديل
                         </button>
                         <button
                           onClick={async () => {
@@ -4926,6 +4935,13 @@ export function AdminScreen() {
           onRestore={restoreSubscriptionSessions}
           onChanged={() => fetchOpsStudents().catch(() => {})}
           onClose={() => setProfileView(null)}
+        />
+      )}
+      {editingUser && (
+        <AdminEditUserModal
+          user={editingUser}
+          onSave={updateAdminUser}
+          onClose={() => setEditingUser(null)}
         />
       )}
     </AppShell>
@@ -11728,5 +11744,83 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
         </div>
       </Card>
     </ProfileOverlay>
+  );
+}
+
+function AdminEditUserModal({
+  user,
+  onSave,
+  onClose,
+}: {
+  user: PlatformUser;
+  onSave: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [fullName, setFullName] = useState(user.fullName);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [email, setEmail] = useState(user.email ?? "");
+  const [specialty, setSpecialty] = useState(user.specialty ?? "");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setSaving(true);
+    try {
+      await onSave(user.id, {
+        fullName,
+        phone,
+        email: email.trim() || null,
+        specialty: specialty.trim() || null,
+        ...(password.trim() ? { password: password.trim() } : {}),
+      });
+      onClose();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "فشل حفظ التعديلات");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
+      <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-bold">تعديل بيانات — {user.fullName}</h3>
+        <p className="text-xs text-muted-foreground">عدّل الاسم أو الرقم أو الإيميل أو التخصص أو كلمة المرور في مكان واحد</p>
+        <form onSubmit={submit} className="mt-4 space-y-3">
+          <div className="space-y-1">
+            <Label>الاسم الكامل</Label>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+          </div>
+          <div className="space-y-1">
+            <Label>رقم الهاتف</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} required dir="ltr" />
+          </div>
+          <div className="space-y-1">
+            <Label>البريد الإلكتروني {user.role === "TEACHER" && "(مطلوب لربط حسابه في Zoom)"}</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="teacher@example.com" dir="ltr" />
+          </div>
+          {user.role !== "STUDENT" && (
+            <div className="space-y-1">
+              <Label>التخصص</Label>
+              <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="مثال: عبري — محادثة" />
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label>كلمة مرور جديدة (اختياري — اتركها فارغة للإبقاء على الحالية)</Label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="6 أحرف على الأقل" />
+          </div>
+          {err && <p className="rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{err}</p>}
+          <div className="flex gap-2 pt-1">
+            <Button type="submit" disabled={saving} className="flex-1">
+              {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+            </Button>
+            <Button type="button" variant="secondary" onClick={onClose}>إلغاء</Button>
+          </div>
+        </form>
+      </Card>
+    </div>
   );
 }

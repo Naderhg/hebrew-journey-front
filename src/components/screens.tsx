@@ -9695,17 +9695,18 @@ function OpsCreateSessionCard({
   onFetchCallsStudents,
 }: {
   callsStudents: import("../hooks/use-platform-store").CallsStudentItem[];
-  teachers: { id: string; fullName: string; specialty?: string | null }[];
+  teachers: { id: string; fullName: string; specialty?: string | null; avatarUrl?: string | null }[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   availability: any[];
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreate: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
   onFetchCallsStudents: () => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
   const [teacherId, setTeacherId] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [duration, setDuration] = useState(30);
+  const [pickedTime, setPickedTime] = useState<string | null>(null);
   const [meetingUrl, setMeetingUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -9713,50 +9714,79 @@ function OpsCreateSessionCard({
   const [ok, setOk] = useState("");
 
   useEffect(() => {
-    if (open) onFetchCallsStudents().catch(() => {});
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+    onFetchCallsStudents().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    setPickedTime(null);
     if (teacherId) onFetchAvailability(teacherId).catch(() => {});
   }, [teacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function pickSlot(slot: any) {
-    const [sh, sm] = slot.startTime.split(":").map(Number);
-    const [eh, em] = slot.endTime.split(":").map(Number);
-    const d = new Date();
-    if (slot.specificDate) {
-      const sd = new Date(slot.specificDate);
-      d.setFullYear(sd.getFullYear(), sd.getMonth(), sd.getDate());
-    } else {
-      const diff = ((slot.dayOfWeek ?? 0) - d.getDay() + 7) % 7;
-      d.setDate(d.getDate() + diff);
+  const teacher = teachers.find((t) => t.id === teacherId) ?? null;
+  const linked = callsStudents.filter((s) => !teacherId || (s.teacherIds ?? []).includes(teacherId));
+  const studentList = linked.length > 0 || !teacherId ? linked : callsStudents;
+  const selectedStudent = callsStudents.find((s) => s.studentId === studentId) ?? null;
+
+  // Expand the teacher's availability on `date` into discrete time slots
+  const timeSlots = useMemo(() => {
+    if (!teacherId || !date) return [] as { time: string; label: string }[];
+    const d = new Date(`${date}T00:00:00`);
+    const dow = d.getDay();
+    const out: { time: string; label: string }[] = [];
+    const seen = new Set<string>();
+    for (const slot of availability ?? []) {
+      if (slot.isActive === false) continue;
+      if (slot.specificDate) {
+        if (String(slot.specificDate).slice(0, 10) !== date) continue;
+      } else if (slot.dayOfWeek !== dow) {
+        continue;
+      }
+      const [sh, sm] = String(slot.startTime).split(":").map(Number);
+      const [eh, em] = String(slot.endTime).split(":").map(Number);
+      let cur = sh * 60 + sm;
+      const end = eh * 60 + em;
+      const step = Math.max(duration, 30);
+      while (cur + duration <= end) {
+        const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+        const mm = String(cur % 60).padStart(2, "0");
+        const t24 = `${hh}:${mm}`;
+        if (!seen.has(t24)) {
+          seen.add(t24);
+          const h12 = Math.floor(cur / 60) % 12 || 12;
+          const ampm = Math.floor(cur / 60) < 12 ? "ص" : "م";
+          out.push({ time: t24, label: `${String(h12).padStart(2, "0")}:${mm} ${ampm}` });
+        }
+        cur += step;
+      }
     }
-    d.setHours(sh, sm, 0, 0);
-    if (!slot.specificDate && d.getTime() <= Date.now()) {
-      d.setDate(d.getDate() + 7); // this week's slot passed — take next week's
-    }
-    setStartsAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
-    const e = new Date(d);
-    e.setHours(eh, em, 0, 0);
-    setEndsAt(`${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+    return out;
+  }, [teacherId, date, duration, availability]);
+
+  function resetAll() {
+    setPickedTime(null); setStudentId(""); setMeetingUrl(""); setNotes(""); setErr(""); setOk("");
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setErr(""); setOk("");
-    if (!teacherId || !studentId || !startsAt) { setErr("اختر المدرس والطالب والموعد"); return; }
+    if (!teacherId || !studentId || !date || !pickedTime) {
+      setErr("اختر المدرس والتاريخ والوقت والطالب لتأكيد الحجز");
+      return;
+    }
+    const start = new Date(`${date}T${pickedTime}:00`);
+    const end = new Date(start.getTime() + duration * 60_000);
     setSaving(true);
     try {
       await onCreate({
         studentId,
         teacherId,
-        startsAt: new Date(startsAt).toISOString(),
-        ...(endsAt ? { endsAt: new Date(endsAt).toISOString() } : {}),
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
         ...(meetingUrl ? { meetingUrl } : {}),
         ...(notes ? { notes } : {}),
       });
-      setOk("تم إنشاء الحصة وخصمها من رصيد الطالب");
-      setStartsAt(""); setEndsAt(""); setMeetingUrl(""); setNotes(""); setStudentId("");
+      setOk("تم تأكيد الحجز وخصم الحصة من رصيد الطالب ✓");
+      setPickedTime(null); setMeetingUrl(""); setNotes(""); setStudentId("");
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : "فشل إنشاء الحصة");
     } finally {
@@ -9764,97 +9794,205 @@ function OpsCreateSessionCard({
     }
   }
 
+  const pickedLabel = timeSlots.find((s) => s.time === pickedTime)?.label ?? pickedTime;
+  const dateLabel = date
+    ? new Date(`${date}T00:00:00`).toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    : "—";
+
   return (
-    <Card>
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-bold">إنشاء حصة فردية</h3>
-          <p className="text-xs text-muted-foreground">اختر المدرس ← موعد متاح ← طالب لديه باقة مكالمات</p>
+    <form onSubmit={handleCreate} className="space-y-4">
+      {/* Header */}
+      <Card>
+        <div className="flex items-center gap-2.5">
+          <span className="grid size-10 place-items-center rounded-xl bg-brand/10 text-brand">
+            <CalendarDays className="size-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold">حجز موعد للطالب</h2>
+            <p className="text-xs text-muted-foreground">احجز جلسة جديدة لطالب مع المدرس المحدد</p>
+          </div>
         </div>
-        <Button variant="secondary" className="text-xs" onClick={() => setOpen(!open)}>
-          {open ? "إخفاء" : "+ حصة جديدة"}
-        </Button>
-      </div>
-      {open && (
-        <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>المدرس</Label>
-              <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+
+        {/* Teacher + Date + Duration */}
+        <div className="mt-4 space-y-3 rounded-xl border border-border bg-background/60 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-sm font-bold text-brand">
+              <Award className="size-4" /> المدرس
+            </span>
+            <div className="flex flex-1 items-center gap-3 sm:max-w-md">
+              {teacher && (
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand/10 text-sm font-bold text-brand">
+                  {teacher.fullName[0]}
+                </span>
+              )}
+              <select
+                value={teacherId}
+                onChange={(e) => setTeacherId(e.target.value)}
+                required
+                className="flex h-11 flex-1 rounded-xl border border-input bg-card px-3 text-sm font-semibold"
+              >
                 <option value="">— اختر المدرس —</option>
-                {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.fullName}{t.specialty ? ` · ${t.specialty}` : ""}
+                  </option>
+                ))}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>الطالب (باقة مكالمات برصيد متبقٍ)</Label>
-              {(() => {
-                const linked = callsStudents.filter((s) => !teacherId || (s.teacherIds ?? []).includes(teacherId));
-                const list = linked.length > 0 || !teacherId ? linked : callsStudents;
-                return (
-                  <>
-                    <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="">— اختر الطالب —</option>
-                      {list.map((s) => (
-                        <option key={s.id} value={s.studentId}>
-                          {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
-                          {teacherId && !(s.teacherIds ?? []).includes(teacherId) ? " · غير مربوط بهذا المدرس" : ""}
-                        </option>
-                      ))}
-                    </select>
-                    {teacherId && linked.length === 0 && callsStudents.length > 0 && (
-                      <small className="text-muted-foreground">لا يوجد طلاب مربوطون بهذا المدرس — تظهر كل باقات المكالمات ويمكنك الاختيار.</small>
-                    )}
-                    {callsStudents.length === 0 && (
-                      <small className="text-muted-foreground">لا يوجد طلاب لديهم باقة مكالمات نشطة برصيد.</small>
-                    )}
-                  </>
-                );
-              })()}
+          </div>
+
+          <div className="grid gap-3 pt-2 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <CalendarDays className="size-3.5 text-brand" /> التاريخ
+              </label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => { setDate(e.target.value); setPickedTime(null); }}
+                className="mt-1.5 border-0 bg-transparent px-0 font-semibold"
+                required
+              />
             </div>
-            {teacherId && availability.length > 0 && (
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>مواعيد المدرس المتاحة (اضغط لملء الوقت)</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {availability.map((slot) => {
-                    const dayName = slot.specificDate
-                      ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
-                      : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][slot.dayOfWeek ?? 0];
-                    return (
-                      <button key={slot.id} type="button" onClick={() => pickSlot(slot)}
-                        className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5">
-                        {dayName} {slot.startTime}—{slot.endTime}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {teacherId && availability.length === 0 && (
-              <p className="text-xs text-muted-foreground sm:col-span-2">هذا المدرس لم يضف مواعيد متاحة بعد.</p>
-            )}
-            <div className="space-y-1.5">
-              <Label>البداية</Label>
-              <Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>النهاية</Label>
-              <Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>رابط الاجتماع</Label>
-              <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label>ملاحظات</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <div className="rounded-xl border border-border bg-card p-3">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <Clock3 className="size-3.5 text-brand" /> مدة المكالمة
+              </label>
+              <select
+                value={duration}
+                onChange={(e) => { setDuration(Number(e.target.value)); setPickedTime(null); }}
+                className="mt-1.5 flex h-9 w-full rounded-md bg-transparent text-sm font-semibold"
+              >
+                <option value={30}>30 دقيقة</option>
+                <option value={60}>60 دقيقة (ساعة)</option>
+                <option value={90}>90 دقيقة (ساعة ونصف)</option>
+              </select>
             </div>
           </div>
-          {err && <p className="text-sm font-semibold text-danger">{err}</p>}
-          {ok && <p className="text-sm font-semibold text-[#2f9e4f]">{ok}</p>}
-          <Button type="submit" disabled={saving}>{saving ? "جاري الإنشاء..." : "إنشاء الحصة"}</Button>
-        </form>
-      )}
-    </Card>
+        </div>
+      </Card>
+
+      {/* Available time slots grid */}
+      <Card>
+        <div className="flex items-center gap-2">
+          <Clock3 className="size-4 text-brand" />
+          <h3 className="font-bold">المواعيد المتاحة للمدرس</h3>
+          {date && <small className="text-xs text-muted-foreground">({dateLabel})</small>}
+        </div>
+        {!teacherId ? (
+          <p className="mt-3 rounded-xl bg-muted/50 py-6 text-center text-xs text-muted-foreground">
+            اختر المدرس أولاً لعرض مواعيده المتاحة.
+          </p>
+        ) : timeSlots.length === 0 ? (
+          <div className="mt-3 space-y-2 rounded-xl bg-muted/50 p-4 text-center text-xs text-muted-foreground">
+            <p>لا توجد فترات متاحة للمدرس في هذا اليوم — جرّب تاريخاً آخر أو اختر وقتاً يدوياً:</p>
+            {availability.length > 0 && (
+              <p className="text-[11px]">
+                أيام المدرس المتاحة:{" "}
+                {Array.from(new Set(availability.map((a) =>
+                  a.specificDate
+                    ? new Date(a.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+                    : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][a.dayOfWeek ?? 0]
+                ))).join(" · ")}
+              </p>
+            )}
+            <div className="mx-auto max-w-[200px] pt-1">
+              <Input type="time" value={pickedTime ?? ""} onChange={(e) => setPickedTime(e.target.value || null)} />
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {timeSlots.map((slot) => {
+              const active = pickedTime === slot.time;
+              return (
+                <button
+                  key={slot.time}
+                  type="button"
+                  onClick={() => setPickedTime(active ? null : slot.time)}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+                    active
+                      ? "border-brand bg-brand text-white shadow-sm"
+                      : "border-border bg-background/60 text-foreground hover:border-brand/50 hover:bg-brand/5"
+                  }`}
+                >
+                  {active && <Check className="size-4" />}
+                  <span>{slot.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* Student selector */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="flex items-center gap-2 font-bold text-brand">
+            <UsersRound className="size-4" /> الطالب
+          </span>
+          <div className="flex-1 sm:max-w-md">
+            <select
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              required
+              className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold"
+            >
+              <option value="">— اختر الطالب —</option>
+              {studentList.map((s) => (
+                <option key={s.id} value={s.studentId}>
+                  {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
+                </option>
+              ))}
+            </select>
+            {teacherId && linked.length === 0 && callsStudents.length > 0 && (
+              <small className="mt-1 block text-xs text-muted-foreground">لا يوجد طلاب مربوطون بهذا المدرس — تظهر كل باقات المكالمات.</small>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder="رابط الاجتماع (اختياري — يُنشأ تلقائياً إن تُرك فارغاً)" />
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="ملاحظات للحصة (اختياري)" />
+        </div>
+      </Card>
+
+      {/* Booking summary */}
+      <Card className="border-brand/30 bg-brand/5">
+        <div className="flex items-center gap-2 text-brand">
+          <ClipboardCheck className="size-4" />
+          <h3 className="font-bold">ملخص الحجز</h3>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+          <div className="rounded-xl bg-card p-3">
+            <small className="block text-xs text-muted-foreground">الطالب</small>
+            <b className="mt-1 block truncate text-sm">{selectedStudent?.studentName ?? "—"}</b>
+          </div>
+          <div className="rounded-xl bg-card p-3">
+            <small className="block text-xs text-muted-foreground">المدرس</small>
+            <b className="mt-1 block truncate text-sm">{teacher?.fullName ?? "—"}</b>
+          </div>
+          <div className="rounded-xl bg-card p-3">
+            <small className="block text-xs text-muted-foreground">التاريخ</small>
+            <b className="mt-1 block text-xs">{dateLabel}</b>
+          </div>
+          <div className="rounded-xl bg-card p-3">
+            <small className="block text-xs text-muted-foreground">الوقت · المدة</small>
+            <b className="mt-1 block text-sm">{pickedLabel ?? "—"} · {duration} دقيقة</b>
+          </div>
+        </div>
+
+        {err && <p className="mt-3 rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{err}</p>}
+        {ok && <p className="mt-3 rounded-md bg-sage/15 p-2 text-xs font-semibold text-sage">{ok}</p>}
+
+        <div className="mt-4 flex gap-3">
+          <Button type="submit" disabled={saving || !teacherId || !studentId || !pickedTime} className="flex-1 py-3 text-sm">
+            {saving ? "جاري التأكيد..." : "✓ تأكيد الحجز"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={resetAll} className="px-6">
+            إلغاء
+          </Button>
+        </div>
+      </Card>
+    </form>
   );
 }
 

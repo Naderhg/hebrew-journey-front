@@ -9699,19 +9699,29 @@ function OpsCreateSessionCard({
             </div>
             <div className="space-y-1.5">
               <Label>الطالب (باقة مكالمات برصيد متبقٍ)</Label>
-              <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="">— اختر الطالب —</option>
-                {callsStudents
-                  .filter((s) => !teacherId || (s.teacherIds ?? []).includes(teacherId))
-                  .map((s) => (
-                    <option key={s.id} value={s.studentId}>
-                      {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
-                    </option>
-                  ))}
-              </select>
-              {teacherId && callsStudents.filter((s) => (s.teacherIds ?? []).includes(teacherId)).length === 0 && (
-                <small className="text-muted-foreground">لا يوجد طلاب مربوطون بهذا المدرس لديهم باقة مكالمات.</small>
-              )}
+              {(() => {
+                const linked = callsStudents.filter((s) => !teacherId || (s.teacherIds ?? []).includes(teacherId));
+                const list = linked.length > 0 || !teacherId ? linked : callsStudents;
+                return (
+                  <>
+                    <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— اختر الطالب —</option>
+                      {list.map((s) => (
+                        <option key={s.id} value={s.studentId}>
+                          {s.studentName} — {s.packageName} (متبقي {s.sessionsRemaining ?? "—"})
+                          {teacherId && !(s.teacherIds ?? []).includes(teacherId) ? " · غير مربوط بهذا المدرس" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {teacherId && linked.length === 0 && callsStudents.length > 0 && (
+                      <small className="text-muted-foreground">لا يوجد طلاب مربوطون بهذا المدرس — تظهر كل باقات المكالمات ويمكنك الاختيار.</small>
+                    )}
+                    {callsStudents.length === 0 && (
+                      <small className="text-muted-foreground">لا يوجد طلاب لديهم باقة مكالمات نشطة برصيد.</small>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             {teacherId && availability.length > 0 && (
               <div className="space-y-1.5 sm:col-span-2">

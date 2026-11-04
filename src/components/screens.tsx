@@ -11786,7 +11786,8 @@ function AdminEditUserModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
-      <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <Card className="w-full">
         <h3 className="font-bold">تعديل بيانات — {user.fullName}</h3>
         <p className="text-xs text-muted-foreground">عدّل الاسم أو الرقم أو الإيميل أو التخصص أو كلمة المرور في مكان واحد</p>
         <form onSubmit={submit} className="mt-4 space-y-3">
@@ -11821,6 +11822,7 @@ function AdminEditUserModal({
           </div>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

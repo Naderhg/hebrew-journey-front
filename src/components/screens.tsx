@@ -5874,13 +5874,34 @@ function AdminPackagesSection({
   const [pSessionDuration, setPSessionDuration] = useState("60");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+
+  function resetForm() {
+    setPName(""); setPDesc(""); setPPrice(""); setPMonths("1"); setPFeatures(""); setPTeacherId("");
+    setPCategory("basic"); setPStudyMode("online"); setPLevel(""); setPDurationUnit("month");
+    setPPackageType("subscription"); setPSessionsTotal(""); setPValidityDays(""); setPSessionDuration("60");
+    setEditId(null);
+  }
+
+  function startEdit(p: AdminPackage) {
+    setPName(p.nameAr); setPDesc(p.description ?? ""); setPPrice(String(p.price));
+    setPMonths(String(p.durationMonths)); setPFeatures(Array.isArray(p.features) ? p.features.join("\n") : "");
+    setPTeacherId(p.teacher?.id ?? ""); setPCategory(p.category === "calls" ? "calls" : "basic");
+    setPStudyMode(p.studyMode === "offline" || p.studyMode === "both" ? p.studyMode : "online");
+    setPLevel(p.level ?? ""); setPDurationUnit(p.durationUnit === "week" ? "week" : "month");
+    setPPackageType(p.packageType === "sessions" ? "sessions" : "subscription");
+    setPSessionsTotal(p.sessionsTotal != null ? String(p.sessionsTotal) : "");
+    setPValidityDays(p.validityDays != null ? String(p.validityDays) : "");
+    setPSessionDuration(p.sessionDurationMinutes != null ? String(p.sessionDurationMinutes) : "60");
+    setEditId(p.id); setShowForm(true); setErr("");
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
     setSaving(true);
     try {
-      await onCreate({
+      const input = {
         nameAr: pName,
         price: Number(pPrice),
         durationMonths: Number(pMonths) || 1,
@@ -5892,16 +5913,16 @@ function AdminPackagesSection({
         sessionsTotal: pPackageType === "sessions" && pSessionsTotal ? Number(pSessionsTotal) : null,
         validityDays: pValidityDays ? Number(pValidityDays) : null,
         sessionDurationMinutes: pCategory === "calls" && pSessionDuration ? Number(pSessionDuration) : null,
-        ...(pDesc ? { description: pDesc } : {}),
-        ...(pFeatures.trim() ? { features: pFeatures.split("\n").map((f) => f.trim()).filter(Boolean) } : {}),
-        ...(pTeacherId ? { teacherId: pTeacherId } : {}),
-      });
-      setPName(""); setPDesc(""); setPPrice(""); setPMonths("1"); setPFeatures(""); setPTeacherId("");
-      setPCategory("basic"); setPStudyMode("online"); setPLevel(""); setPDurationUnit("month");
-      setPPackageType("subscription"); setPSessionsTotal(""); setPValidityDays(""); setPSessionDuration("60");
+        description: pDesc || undefined,
+        features: pFeatures.trim() ? pFeatures.split("\n").map((f) => f.trim()).filter(Boolean) : undefined,
+        teacherId: pTeacherId || undefined,
+      };
+      if (editId) await onUpdate(editId, input);
+      else await onCreate(input);
+      resetForm();
       setShowForm(false);
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "فشل إنشاء الباقة");
+      setErr(e2 instanceof Error ? e2.message : editId ? "فشل تعديل الباقة" : "فشل إنشاء الباقة");
     } finally {
       setSaving(false);
     }
@@ -5915,13 +5936,14 @@ function AdminPackagesSection({
             <h2 className="text-lg font-bold">الباقات والأسعار ({packages.length})</h2>
             <p className="text-xs text-muted-foreground">الأسعار المعتمدة — السيلز يشوفها ولا يقدر يعدّلها</p>
           </div>
-          <Button variant="secondary" className="text-xs" onClick={() => setShowForm(!showForm)}>
+          <Button variant="secondary" className="text-xs" onClick={() => { if (showForm) resetForm(); setShowForm(!showForm); }}>
             {showForm ? "إلغاء" : "+ باقة جديدة"}
           </Button>
         </div>
 
         {showForm && (
           <form onSubmit={handleCreate} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+            {editId && <p className="rounded-md bg-brand/10 px-3 py-2 text-xs font-bold text-brand">وضع التعديل — بتعدّل باقة موجودة، كل الحقول متاحة</p>}
             {/* Category */}
             <div className="space-y-1.5">
               <Label>نظام الباقة</Label>
@@ -6028,7 +6050,10 @@ function AdminPackagesSection({
               </div>
             </div>
             {err && <p className="text-sm font-semibold text-danger">{err}</p>}
-            <Button type="submit" disabled={saving}>{saving ? "جاري الحفظ..." : "إنشاء الباقة"}</Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={saving}>{saving ? "جاري الحفظ..." : editId ? "حفظ التعديلات" : "إنشاء الباقة"}</Button>
+              {editId && <Button type="button" variant="secondary" onClick={() => { resetForm(); setShowForm(false); }}>إلغاء التعديل</Button>}
+            </div>
           </form>
         )}
       </Card>
@@ -6049,6 +6074,8 @@ function AdminPackagesSection({
                     {p.studyMode && <Badge tone="muted">{p.studyMode === "online" ? "أونلاين" : p.studyMode === "offline" ? "حضوري" : "أونلاين+حضوري"}</Badge>}
                     {p.sessionsTotal && <Badge tone="gold">{p.sessionsTotal} حصة</Badge>}
                     {p.sessionDurationMinutes && <Badge tone="gold">حصة {p.sessionDurationMinutes === 90 ? "ساعة ونصف" : p.sessionDurationMinutes === 60 ? "ساعة" : `${p.sessionDurationMinutes} دقيقة`}</Badge>}
+                    {p.packageType === "sessions" && <Badge tone="muted">باقة حصص</Badge>}
+                    {p.validityDays && <Badge tone="muted">صالحة {p.validityDays} يوم</Badge>}
                   </div>
                   <p className="mt-1 font-lat text-2xl font-bold text-brand">${p.price}</p>
                 </div>
@@ -6093,6 +6120,9 @@ function AdminPackagesSection({
                     <option value="">بدون مدرس</option>
                     {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
                   </select>
+                  <Button variant="ghost" className="min-h-7 px-2 py-1 text-xs" onClick={() => startEdit(p)}>
+                    تعديل
+                  </Button>
                   <Button variant="ghost" className="min-h-7 px-2 py-1 text-xs" onClick={() => onUpdate(p.id, { isActive: !p.isActive })}>
                     {p.isActive ? "تعطيل" : "تفعيل"}
                   </Button>

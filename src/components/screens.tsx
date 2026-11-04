@@ -4689,24 +4689,78 @@ export function AdminScreen() {
           />
           {/* Report summary */}
           {adminBookingsReport && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="p-4">
-                <b className="text-2xl text-[#0b2f6e]">{adminBookingsReport.totals.totalBookings}</b>
-                <p className="text-xs text-muted-foreground">إجمالي الحجوزات</p>
-              </Card>
-              <Card className="p-4">
-                <b className="text-2xl text-[#2f9e4f]">{adminBookingsReport.totals.completed}</b>
-                <p className="text-xs text-muted-foreground">حصص مكتملة</p>
-              </Card>
-              <Card className="p-4">
-                <b className="text-2xl text-[#c0392b]">{adminBookingsReport.totals.cancelled}</b>
-                <p className="text-xs text-muted-foreground">حصص ملغاة</p>
-              </Card>
-              <Card className="p-4">
-                <b className="text-2xl text-[#e67e22]">{adminBookingsReport.totals.noShow}</b>
-                <p className="text-xs text-muted-foreground">لم يحضر</p>
-              </Card>
-            </div>
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card className="p-4">
+                  <b className="font-lat text-2xl text-sage">{(adminBookingsReport.totals.totalRevenue ?? 0).toLocaleString("ar-EG")} ج</b>
+                  <p className="text-xs text-muted-foreground">إجمالي الفلوس الداخلة من كل الباقات ({adminBookingsReport.totals.subscriptionsCount ?? 0} اشتراك)</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="font-lat text-2xl text-brand">{(adminBookingsReport.totals.callsRevenue ?? 0).toLocaleString("ar-EG")} ج</b>
+                  <p className="text-xs text-muted-foreground">إيراد باقات المكالمات (أساسية: {(adminBookingsReport.totals.basicRevenue ?? 0).toLocaleString("ar-EG")} ج)</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="font-lat text-2xl text-gold">{(adminBookingsReport.totals.teacherPayout ?? 0).toLocaleString("ar-EG")} ج</b>
+                  <p className="text-xs text-muted-foreground">مستحقات المدرسين من الحصص</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="font-lat text-2xl text-[#0b2f6e]">{(adminBookingsReport.totals.netRevenue ?? 0).toLocaleString("ar-EG")} ج</b>
+                  <p className="text-xs text-muted-foreground">صافي ربح باقات المكالمات</p>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card className="p-4">
+                  <b className="text-2xl text-[#0b2f6e]">{adminBookingsReport.totals.totalBookings}</b>
+                  <p className="text-xs text-muted-foreground">إجمالي الحجوزات</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="text-2xl text-[#2f9e4f]">{adminBookingsReport.totals.completed}</b>
+                  <p className="text-xs text-muted-foreground">حصص مكتملة</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="text-2xl text-[#c0392b]">{adminBookingsReport.totals.cancelled}</b>
+                  <p className="text-xs text-muted-foreground">حصص ملغاة</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="text-2xl text-[#e67e22]">{adminBookingsReport.totals.noShow}</b>
+                  <p className="text-xs text-muted-foreground">لم يحضر</p>
+                </Card>
+              </div>
+
+              {Array.isArray(adminBookingsReport.packages) && adminBookingsReport.packages.length > 0 && (
+                <Card>
+                  <h3 className="font-bold">تحليل الفلوس الداخلة حسب الباقة</h3>
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-right text-xs text-muted-foreground">
+                          <th className="p-2">الباقة</th>
+                          <th className="p-2">النوع</th>
+                          <th className="p-2">سعر الباقة</th>
+                          <th className="p-2">مدة الحصة</th>
+                          <th className="p-2">الاشتراكات (نشط)</th>
+                          <th className="p-2">إجمالي الفلوس الداخلة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        {adminBookingsReport.packages.map((p: any) => (
+                          <tr key={p.id} className="border-b">
+                            <td className="p-2 font-semibold">{p.nameAr}</td>
+                            <td className="p-2"><Badge tone={p.category === "calls" ? "gold" : "brand"}>{p.category === "calls" ? "مكالمات" : "أساسية"}</Badge></td>
+                            <td className="p-2 font-lat">{p.price} ج</td>
+                            <td className="p-2 text-xs">{p.durationMin ? `${p.durationMin} دقيقة` : "—"}</td>
+                            <td className="p-2 font-lat">{p.count} ({p.activeCount})</td>
+                            <td className="p-2 font-lat font-bold text-sage">{(p.revenue ?? 0).toLocaleString("ar-EG")} ج</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </>
           )}
 
           {/* Students balance */}
@@ -4719,6 +4773,8 @@ export function AdminScreen() {
                     <tr className="border-b text-right text-xs text-muted-foreground">
                       <th className="p-2">الطالب</th>
                       <th className="p-2">الباقة</th>
+                      <th className="p-2">المدفوع</th>
+                      <th className="p-2">أجر المدرس/حصة</th>
                       <th className="p-2">الإجمالي</th>
                       <th className="p-2">المستخدم</th>
                       <th className="p-2">المتبقي</th>
@@ -4726,10 +4782,12 @@ export function AdminScreen() {
                     </tr>
                   </thead>
                   <tbody>
-                    {adminBookingsReport.students.map((s: any) => (
-                      <tr key={s.studentId} className="border-b">
+                    {adminBookingsReport.students.map((s: any, idx: number) => (
+                      <tr key={`${s.studentId}-${idx}`} className="border-b">
                         <td className="p-2 font-semibold">{s.studentName}</td>
                         <td className="p-2">{s.packageName}</td>
+                        <td className="p-2 font-lat">{s.paidAmount != null ? `${s.paidAmount} ج` : "—"}</td>
+                        <td className="p-2 font-lat text-xs">{s.teacherRate ?? 50} ج ({s.sessionDurationMinutes ?? 30} د)</td>
                         <td className="p-2">{s.sessionsTotal}</td>
                         <td className="p-2">{s.sessionsUsed}</td>
                         <td className="p-2 font-bold text-[#2f9e4f]">{s.sessionsRemaining}</td>
@@ -10390,7 +10448,7 @@ function TeacherAnalyticsSection({
   const stats = data?.totals;
   const cards = [
     { label: "محاضرات منتهية", value: `${stats?.lecturesCompleted ?? 0} × ${stats?.lectureRate ?? 300} ج`, icon: Video, tone: "text-brand bg-brand/10" },
-    { label: "حصص محسوبة", value: `${stats?.sessionsDeducted ?? 0} × ${stats?.sessionRate ?? 50} ج`, icon: Clock, tone: "text-gold bg-gold/15" },
+    { label: "حصص محسوبة", value: `${stats?.sessionsDeducted ?? 0} حصة · ${(stats?.sessionEarnings ?? 0).toLocaleString("ar-EG")} ج`, icon: Clock, tone: "text-gold bg-gold/15" },
     { label: "طلاب حضروا", value: stats?.studentsAttended ?? 0, icon: UsersRound, tone: "text-sage bg-sage/15" },
     { label: "إجمالي الأرباح", value: `${(stats?.earnings ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 0 })} ج.م`, icon: Banknote, tone: "text-brand2 bg-brand2/10" },
   ];
@@ -10401,7 +10459,7 @@ function TeacherAnalyticsSection({
         icon={BarChart3}
         tone="sage"
         title="التحليلات"
-        subtitle="أرباحك بالحصة: المحاضرة الأساسية = 300 ج · حصة المكالمات = 50 ج — تتحسب عند الحضور أو الغياب بدون إبلاغ مسبق"
+        subtitle="أرباحك بالحصة: المحاضرة الأساسية = 300 ج · حصة المكالمات حسب مدتها (30 د = 50 ج · ساعة = 100 ج · ساعة ونصف = 150 ج)"
       />
 
       {/* Filters */}

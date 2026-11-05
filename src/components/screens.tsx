@@ -7066,7 +7066,6 @@ export function StudentHomeworkScreen() {
               {hw.hebrewText && (
                 <div className="mt-3">
                   <p dir="rtl" className="rounded-md bg-muted/60 p-3 font-he text-sm leading-7">{hw.hebrewText}</p>
-                  <HebrewTTS text={hw.hebrewText} label="استمع للنص" />
                 </div>
               )}
               {hw.type === "listening" && hw.questions?.audioUrl && (

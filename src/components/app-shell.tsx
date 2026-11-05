@@ -282,7 +282,7 @@ export function AppShell({
     const callsOnly = hasCallsPackage && !hasBasicPackage;
     navItems = studentNav.filter((item) => {
       if (item.to === "/sessions") return hasCallsPackage;
-      if (callsOnly && ["/lectures", "/homework", "/exams"].includes(item.to)) return false;
+      if (callsOnly && item.to === "/lectures") return false;
       return true;
     });
   }

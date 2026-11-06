@@ -1508,18 +1508,20 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setSubscriptions(subsRes.value.subscriptions);
         if (statsRes.status === "fulfilled" && statsRes.value?.stats) setSalesStats(statsRes.value.stats);
       } else if (user?.role === "SUPPORT") {
-        const [stRes, tkRes, scRes, atRes, irRes] = await Promise.allSettled([
+        const [stRes, tkRes, scRes, atRes, irRes, lnRes] = await Promise.allSettled([
           apiFetch<{ students: SupportStudent[] }>("/api/support/students"),
           apiFetch<{ tickets: SupportTicketItem[] }>("/api/support/tickets"),
           apiFetch<{ schedules: ScheduleItem[] }>("/api/support/schedules"),
           apiFetch<{ attendance: AttendanceRecord[] }>("/api/support/attendance"),
           apiFetch<{ irregular: IrregularStudent[] }>("/api/support/irregular"),
+          apiFetch<{ links: StudentTeacherLink[] }>("/api/ops/student-teachers"),
         ]);
         if (stRes.status === "fulfilled" && stRes.value?.students) setSupportStudents(stRes.value.students);
         if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setTickets(tkRes.value.tickets);
         if (scRes.status === "fulfilled" && scRes.value?.schedules) setSchedules(scRes.value.schedules);
         if (atRes.status === "fulfilled" && atRes.value?.attendance) setAttendance(atRes.value.attendance);
         if (irRes.status === "fulfilled" && irRes.value?.irregular) setIrregularStudents(irRes.value.irregular);
+        if (lnRes.status === "fulfilled" && lnRes.value?.links) setStudentLinks(lnRes.value.links);
       }
     } finally {
       setLoadingData(false);
@@ -1659,7 +1661,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function assignStudentToTeacher(studentId: string, teacherId: string) {
-    const res = await apiFetch<{ link: StudentTeacherLink }>("/api/admin/student-teachers", {
+    const res = await apiFetch<{ link: StudentTeacherLink }>("/api/ops/student-teachers", {
       method: "POST",
       body: { studentId, teacherId },
     });
@@ -1667,7 +1669,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function unassignStudent(linkId: string) {
-    await apiFetch(`/api/admin/student-teachers/${linkId}`, { method: "DELETE" });
+    await apiFetch(`/api/ops/student-teachers/${linkId}`, { method: "DELETE" });
     setStudentLinks((prev) => prev.filter((l) => l.id !== linkId));
   }
 
@@ -1794,18 +1796,20 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   // ─── Support functions ────────────────────────────────────────────────────
 
   async function fetchSupportData() {
-    const [stRes, tkRes, scRes, atRes, irRes] = await Promise.allSettled([
+    const [stRes, tkRes, scRes, atRes, irRes, lnRes] = await Promise.allSettled([
       apiFetch<{ students: SupportStudent[] }>("/api/support/students"),
       apiFetch<{ tickets: SupportTicketItem[] }>("/api/support/tickets"),
       apiFetch<{ schedules: ScheduleItem[] }>("/api/support/schedules"),
       apiFetch<{ attendance: AttendanceRecord[] }>("/api/support/attendance"),
       apiFetch<{ irregular: IrregularStudent[] }>("/api/support/irregular"),
+      apiFetch<{ links: StudentTeacherLink[] }>("/api/ops/student-teachers"),
     ]);
     if (stRes.status === "fulfilled" && stRes.value?.students) setSupportStudents(stRes.value.students);
     if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setTickets(tkRes.value.tickets);
     if (scRes.status === "fulfilled" && scRes.value?.schedules) setSchedules(scRes.value.schedules);
     if (atRes.status === "fulfilled" && atRes.value?.attendance) setAttendance(atRes.value.attendance);
     if (irRes.status === "fulfilled" && irRes.value?.irregular) setIrregularStudents(irRes.value.irregular);
+    if (lnRes.status === "fulfilled" && lnRes.value?.links) setStudentLinks(lnRes.value.links);
   }
 
   async function updateStudentStatus(studentId: string, status: string) {

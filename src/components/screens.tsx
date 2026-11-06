@@ -8874,10 +8874,17 @@ export function SupportScreen() {
     deleteFreeLecture,
     addFreeLectureFile,
     removeFreeLectureFile,
+    studentLinks,
+    assignStudentToTeacher,
+    unassignStudent,
   } = usePlatformStore();
   const { user } = useAuth();
 
   const [activeSection, setActiveSection] = useState<SupportSection>("students");
+  const [assignStudentId, setAssignStudentId] = useState("");
+  const [assignTeacherId, setAssignTeacherId] = useState("");
+  const [assignMsg, setAssignMsg] = useState("");
+  const [assignError, setAssignError] = useState("");
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [selectedScheduleId, setSelectedScheduleId] = useState("");
@@ -8915,6 +8922,8 @@ export function SupportScreen() {
       fetchOpsStudents().catch(() => {});
       fetchOpsPackages().catch(() => {});
       fetchAdminGroups().catch(() => {});
+      fetchOpsTeachers().catch(() => {});
+      fetchSupportData().catch(() => {});
     }
     if (activeSection === "sessions") {
       fetchOpsBookings().catch(() => {});
@@ -8990,6 +8999,21 @@ export function SupportScreen() {
     }
   }
 
+  async function handleAssignStudent(e: React.FormEvent) {
+    e.preventDefault();
+    setAssignMsg("");
+    setAssignError("");
+    if (!assignStudentId || !assignTeacherId) return;
+    try {
+      await assignStudentToTeacher(assignStudentId, assignTeacherId);
+      setAssignStudentId("");
+      setAssignTeacherId("");
+      setAssignMsg("تم ربط الطالب بالمدرس — سيظهر له كل امتحانات وكورسات هذا المدرس.");
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "فشل ربط الطالب");
+    }
+  }
+
   return (
     <AppShell role="SUPPORT" activeSection={activeSection} onSelectSection={(s) => setActiveSection(s as SupportSection)}>
       {activeSection === "students" ? (
@@ -9047,15 +9071,114 @@ export function SupportScreen() {
       </div>
 
       {activeSection === "students" && (
-        <StudentsDirectorySection
-          students={opsStudents}
-          groups={adminGroups}
-          packages={opsPackages}
-          loading={loadingData}
-          onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
-          onActivate={activateOpsSubscription}
-          onAddToGroup={addGroupMembers}
-        />
+        <>
+          <StudentsDirectorySection
+            students={opsStudents}
+            groups={adminGroups}
+            packages={opsPackages}
+            loading={loadingData}
+            onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
+            onActivate={activateOpsSubscription}
+            onAddToGroup={addGroupMembers}
+          />
+
+          <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+            <Card>
+              <div className="flex items-center gap-2">
+                <span className="grid size-9 place-items-center rounded-md bg-brand/10 text-brand">
+                  <Link2 className="size-4" />
+                </span>
+                <div>
+                  <h2 className="font-bold">ربط طالب بمدرس</h2>
+                  <small className="text-muted-foreground">
+                    الطالب المربوط يرى امتحانات وكورسات المدرس تلقائياً
+                  </small>
+                </div>
+              </div>
+
+              {assignMsg && (
+                <div className="mt-3 rounded-md bg-sage/15 p-3 text-xs font-semibold text-sage">
+                  {assignMsg}
+                </div>
+              )}
+              {assignError && (
+                <div className="mt-3 rounded-md bg-danger/10 p-3 text-xs font-semibold text-danger">
+                  {assignError}
+                </div>
+              )}
+
+              <form onSubmit={handleAssignStudent} className="mt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <Label>الطالب</Label>
+                  <select
+                    value={assignStudentId}
+                    onChange={(e) => setAssignStudentId(e.target.value)}
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">اختر طالباً...</option>
+                    {opsStudents.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.fullName} — {s.phone ?? s.email ?? "—"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>المدرس</Label>
+                  <select
+                    value={assignTeacherId}
+                    onChange={(e) => setAssignTeacherId(e.target.value)}
+                    required
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">اختر مدرساً...</option>
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.fullName} ({t.specialty ?? "مدرس"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="submit" className="w-full" disabled={!assignStudentId || !assignTeacherId}>
+                  <Link2 className="size-4" />
+                  ربط الطالب بالمدرس
+                </Button>
+              </form>
+            </Card>
+
+            <Card>
+              <h2 className="font-bold">الروابط الحالية (طالب ↔ مدرس)</h2>
+              <div className="mt-4 space-y-2">
+                {studentLinks.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    لا توجد روابط بين الطلاب والمدرسين حالياً.
+                  </div>
+                ) : (
+                  studentLinks.map((l) => (
+                    <div
+                      key={l.id}
+                      className="flex items-center justify-between rounded-md border border-border bg-background/60 p-3"
+                    >
+                      <div className="flex items-center gap-3 text-sm">
+                        <Badge tone="sage">{l.student.fullName}</Badge>
+                        <span className="text-muted-foreground">↔</span>
+                        <Badge tone="brand">{l.teacher.fullName}</Badge>
+                      </div>
+                      <button
+                        onClick={() => unassignStudent(l.id)}
+                        className="rounded-md p-1.5 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                        title="إلغاء الربط"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </div>
+        </>
       )}
 
       {/* Ticket form */}
@@ -11146,12 +11269,18 @@ function TeacherScheduleTimeline({
   freeLectures,
   onLectureStatus,
   onBookingStatus,
+  attStudents,
+  onFetchAttStudents,
+  onSaveAttendance,
 }: {
   lectures: import("../hooks/use-platform-store").LectureItem[];
   bookings: import("../hooks/use-platform-store").LessonBookingItem[];
   freeLectures: import("../hooks/use-platform-store").FreeLecture[];
   onLectureStatus: (id: string, status: "live" | "completed") => void;
   onBookingStatus: (id: string, status: "completed" | "no_show" | "booked") => void;
+  attStudents: import("../hooks/use-platform-store").LectureStudent[];
+  onFetchAttStudents: (lectureId: string) => Promise<void>;
+  onSaveAttendance: (lectureId: string, records: { studentId: string; status: "present" | "absent"; report?: string }[]) => Promise<void>;
 }) {
   const [typeF, setTypeF] = useState("");
   const [statusF, setStatusF] = useState("");
@@ -11160,6 +11289,50 @@ function TeacherScheduleTimeline({
   const [q, setQ] = useState("");
   const [fromD, setFromD] = useState("");
   const [toD, setToD] = useState("");
+
+  // Inline attendance (merged into schedule — after the lecture ends)
+  const [attOpenId, setAttOpenId] = useState<string | null>(null);
+  const [attDraft, setAttDraft] = useState<Record<string, "present" | "absent">>({});
+  const [repDraft, setRepDraft] = useState<Record<string, string>>({});
+  const [repOpenFor, setRepOpenFor] = useState<string | null>(null);
+  const [attSaving, setAttSaving] = useState(false);
+  const [attErr, setAttErr] = useState("");
+
+  function toggleAttendance(id: string) {
+    if (attOpenId === id) {
+      setAttOpenId(null);
+      return;
+    }
+    setAttOpenId(id);
+    setAttDraft({});
+    setRepDraft({});
+    setRepOpenFor(null);
+    setAttErr("");
+    onFetchAttStudents(id).catch(() => setAttErr("فشل تحميل طلاب المحاضرة"));
+  }
+
+  async function saveAttendance(lectureId: string) {
+    setAttSaving(true);
+    setAttErr("");
+    try {
+      const records = attStudents
+        .filter((s) => attDraft[s.id] !== undefined || repDraft[s.id] !== undefined)
+        .map((s) => ({
+          studentId: s.id,
+          status: (attDraft[s.id] ?? s.status ?? "present") as "present" | "absent",
+          ...(repDraft[s.id] !== undefined ? { report: repDraft[s.id] } : {}),
+        }));
+      await onSaveAttendance(lectureId, records);
+      await onFetchAttStudents(lectureId);
+      setAttDraft({});
+      setRepDraft({});
+      setRepOpenFor(null);
+    } catch {
+      setAttErr("فشل حفظ الحضور — حاول مرة أخرى");
+    } finally {
+      setAttSaving(false);
+    }
+  }
 
   type Row = {
     id: string;
@@ -11185,7 +11358,6 @@ function TeacherScheduleTimeline({
     ...bookings.map((b) => ({
       id: b.id, kind: "booking" as const,
       title: `حصة فردية — ${b.student?.fullName ?? "طالب"}`,
-      sub: b.student?.phone ?? undefined,
       startsAt: b.startsAt, endsAt: b.endsAt ?? null, status: b.status,
       meetingUrl: b.meetingUrl,
     })),
@@ -11288,6 +11460,7 @@ function TeacherScheduleTimeline({
           rows.map((r) => {
             const k = KIND[r.kind];
             const KIcon = k.icon;
+            const ended = (r.endsAt ? Date.parse(r.endsAt) : Date.parse(r.startsAt)) <= now;
             return (
               <div key={`${r.kind}-${r.id}`} className="flex flex-col rounded-xl border border-border bg-background/60 p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -11321,7 +11494,7 @@ function TeacherScheduleTimeline({
                   {r.kind === "lecture" && r.status === "live" && (
                     <Button variant="secondary" className="text-xs" onClick={() => onLectureStatus(r.id, "completed")}>إنهاء المحاضرة</Button>
                   )}
-                  {r.kind === "booking" && r.status === "booked" && (
+                  {r.kind === "booking" && r.status === "booked" && ended && (
                     <>
                       <Button variant="primary" className="text-xs" onClick={() => onBookingStatus(r.id, "completed")}>مكتملة</Button>
                       <Button variant="secondary" className="text-xs" onClick={() => onBookingStatus(r.id, "no_show")}>لم يحضر</Button>

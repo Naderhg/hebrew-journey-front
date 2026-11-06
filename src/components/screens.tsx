@@ -1483,6 +1483,9 @@ export function TeacherScreen() {
             freeLectures={teacherFreeLectures}
             onLectureStatus={(id, s) => updateTeacherLectureStatus(id, s).then(() => fetchTeacherAnalytics({})).catch(() => {})}
             onBookingStatus={(id, s) => setBookingStatus(id, s).catch(() => {})}
+            attStudents={lectureStudents}
+            onFetchAttStudents={fetchLectureStudents}
+            onSaveAttendance={saveLectureAttendance}
           />
 
           <Card>
@@ -11510,7 +11513,86 @@ function TeacherScheduleTimeline({
                       دخول الاجتماع ↗
                     </a>
                   )}
+                  {r.kind === "lecture" && (ended || r.status === "completed") && (
+                    <button
+                      onClick={() => toggleAttendance(r.id)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                        attOpenId === r.id
+                          ? "bg-gold/20 text-gold"
+                          : "bg-gold/10 text-gold hover:bg-gold/20"
+                      }`}
+                    >
+                      {attOpenId === r.id ? "إخفاء الحضور" : "تسجيل الحضور"}
+                    </button>
+                  )}
                 </div>
+
+                {attOpenId === r.id && (
+                  <div className="mt-3 border-t border-border/60 pt-3">
+                    {attErr && (
+                      <p className="mb-2 rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{attErr}</p>
+                    )}
+                    {attStudents.length === 0 ? (
+                      <p className="py-3 text-center text-xs text-muted-foreground">لا يوجد طلاب لهذه المحاضرة.</p>
+                    ) : (
+                      <>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {attStudents.map((s) => {
+                            const cur = attDraft[s.id] ?? s.status ?? null;
+                            const reportVal = repDraft[s.id] ?? s.report ?? "";
+                            const hasReport = !!(s.report || repDraft[s.id]);
+                            return (
+                              <div key={s.id} className="flex flex-col rounded-lg border border-border bg-background/60 p-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <b className="min-w-0 truncate text-xs">{s.fullName}</b>
+                                  {hasReport && <Badge tone="gold">تقرير</Badge>}
+                                </div>
+                                <div className="mt-2 flex gap-1.5">
+                                  {(["present", "absent"] as const).map((st2) => (
+                                    <button
+                                      key={st2}
+                                      onClick={() => setAttDraft((d) => ({ ...d, [s.id]: st2 }))}
+                                      className={`flex-1 rounded-md px-2 py-1 text-[11px] font-bold transition ${
+                                        cur === st2
+                                          ? st2 === "present" ? "bg-sage text-white" : "bg-danger text-white"
+                                          : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                                      }`}
+                                    >
+                                      {st2 === "present" ? "حاضر" : "غائب"}
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={() => setRepOpenFor((o) => (o === s.id ? null : s.id))}
+                                  className="mt-1.5 self-start text-[11px] font-semibold text-brand hover:underline"
+                                >
+                                  {hasReport ? "تعديل التقرير" : "+ إضافة تقرير"}
+                                </button>
+                                {(repOpenFor === s.id || reportVal) && (
+                                  <textarea
+                                    value={reportVal}
+                                    onChange={(e) => setRepDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                                    placeholder="تقرير عن أداء الطالب في المحاضرة..."
+                                    rows={2}
+                                    className="mt-1.5 w-full rounded-md border border-input bg-background px-2 py-1.5 text-[11px]"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          variant="primary"
+                          className="mt-3 w-full text-xs"
+                          disabled={attSaving || (Object.keys(attDraft).length === 0 && Object.keys(repDraft).length === 0)}
+                          onClick={() => saveAttendance(r.id)}
+                        >
+                          {attSaving ? "جاري الحفظ..." : "حفظ الحضور والتقارير"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })

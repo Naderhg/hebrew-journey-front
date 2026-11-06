@@ -104,9 +104,7 @@ function RegisterPage() {
               سجل الدخول
             </Link>
           </p>
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            حسابات المدرسين والمبيعات وخدمة العملاء يتم إنشاؤها بواسطة إدارة الأكاديمية (Admin).
-          </p>
+          
         </Card>
       </div>
     </div>

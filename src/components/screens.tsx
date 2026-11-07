@@ -2594,6 +2594,7 @@ export function AdminScreen() {
     fetchAdminLectureAttendance,
     fetchAdminTeacherProfile,
     fetchAdminStudentProfile,
+    resetStudentBoundIp,
     deleteAdminSubscription,
     restoreSubscriptionSessions,
     createAdminSchedule,
@@ -3881,6 +3882,7 @@ export function AdminScreen() {
               await fetchOpsStudents();
             }}
             onViewProfile={(id) => setProfileView({ type: "student", id })}
+            onResetIp={resetStudentBoundIp}
             onDeleteSubscription={async (id) => {
               await deleteAdminSubscription(id);
               await fetchOpsStudents();
@@ -5347,6 +5349,7 @@ function StudentsDirectorySection({
   onAddToGroup,
   onDeleteStudent,
   onViewProfile,
+  onResetIp,
   onDeleteSubscription,
   onRestoreSessions,
 }: {
@@ -5359,6 +5362,7 @@ function StudentsDirectorySection({
   onAddToGroup: (groupId: string, studentIds: string[]) => Promise<void>;
   onDeleteStudent?: (id: string) => Promise<void>;
   onViewProfile?: (studentId: string) => void;
+  onResetIp?: (studentId: string) => Promise<void>;
   onDeleteSubscription?: (id: string) => Promise<void>;
   onRestoreSessions?: (id: string) => Promise<void>;
 }) {
@@ -5618,6 +5622,20 @@ function StudentsDirectorySection({
                       {s.teachers.length === 0 ? "—" : s.teachers.map((t) => t.name).join("، ")}
                     </td>
                     <td className="p-3">
+                      {onResetIp && (
+                        <div className="mb-1 flex items-center gap-1.5 font-lat text-[10px] text-muted-foreground">
+                          <span>{s.boundIp ?? "—"}</span>
+                          {s.boundIp && (
+                            <button
+                              title="تصفير الـ IP — يسمح للطالب بالدخول من جهاز جديد"
+                              className="rounded px-1.5 py-0.5 text-[10px] font-bold text-danger hover:bg-danger/10"
+                              onClick={async () => { if (confirm(`تصفير الـ IP للطالب "${s.fullName}"؟`)) await onResetIp(s.id); }}
+                            >
+                              reset
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center gap-1.5">
                         {onViewProfile && (
                           <Button variant="secondary" className="min-h-8 px-2.5 text-xs" onClick={() => onViewProfile(s.id)}>

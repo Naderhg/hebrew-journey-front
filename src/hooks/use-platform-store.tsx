@@ -593,6 +593,7 @@ export interface OpsStudentItem {
   fullName: string;
   email?: string | null;
   phone?: string | null;
+  boundIp?: string | null;
   level?: string | null;
   studentStatus: string;
   placementScore?: number | null;
@@ -1269,6 +1270,7 @@ interface PlatformStoreValue {
   fetchAdminLectureAttendance: (lectureId: string) => Promise<AdminLectureAttendance[]>;
   fetchAdminTeacherProfile: (teacherId: string) => Promise<AdminTeacherProfile>;
   fetchAdminStudentProfile: (studentId: string) => Promise<AdminStudentProfile>;
+  resetStudentBoundIp: (studentId: string) => Promise<void>;
   deleteAdminSubscription: (subscriptionId: string) => Promise<void>;
   restoreSubscriptionSessions: (subscriptionId: string) => Promise<void>;
   // admin analytics
@@ -1909,6 +1911,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function fetchAdminStudentProfile(studentId: string) {
     return apiFetch<AdminStudentProfile>(`/api/admin/students/${studentId}/profile`);
   }
+  async function resetStudentBoundIp(studentId: string) {
+    await apiFetch(`/api/admin/users/${studentId}/bound-ip`, { method: "DELETE" });
+    setOpsStudents((prev) => prev.map((s) => (s.id === studentId ? { ...s, boundIp: null } : s)));
+  }
+
   async function deleteAdminSubscription(subscriptionId: string) {
     await apiFetch(`/api/admin/subscriptions/${subscriptionId}`, { method: "DELETE" });
   }
@@ -2796,6 +2803,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchAdminLectureAttendance,
         fetchAdminTeacherProfile,
         fetchAdminStudentProfile,
+        resetStudentBoundIp,
         deleteAdminSubscription,
         restoreSubscriptionSessions,
         adminAnalytics,

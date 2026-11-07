@@ -85,7 +85,7 @@ const PROGRAMS = [
   {
     icon: Compass,
     iconTone: "coral",
-    title: "عبري — المتقدم (C1)",
+    title: "عبري — المتقدم (B1+-B2)",
     desc: "إتقان اللهجة، فهم المصطلحات المعقدة، والتعامل باحترافية في بيئات العمل العبرية.",
     meta: ["لغة عبرية", "متقدم"],
   },
@@ -106,7 +106,7 @@ const PROGRAMS = [
   {
     icon: GraduationCap,
     iconTone: "coral",
-    title: "إنجليزي — المتقدم (C1-C2)",
+    title: "إنجليزي — المتقدم (B1+-B2)",
     desc: "إتقان النطق والطلاقة، الكتابة الأكاديمية، والاستعداد لامتحانات IELTS وTOEFL.",
     meta: ["لغة إنجليزية", "متقدم"],
   },
@@ -414,10 +414,10 @@ function Landing() {
           <div className="pricing-cards">
             <div className="pricing-card">
               <div className="pricing-card-top"><span>الباقات الأساسية</span><span className="pricing-recommended">الأكثر شمولًا</span></div>
-              <p>دروس أونلاين أو حضوري لكل المستويات مع مدرسين معتمدين — منهج كامل من A1 إلى C2.</p>
+              <p>دروس أونلاين أو حضوري لكل المستويات مع مدرسين معتمدين — منهج كامل من Pre A1 إلى B2.</p>
               <ul>
                 <li><Check size={15} /> أونلاين أو حضوري</li>
-                <li><Check size={15} /> لكل المستويات A1 — C2</li>
+                <li><Check size={15} /> لكل المستويات Pre A1 — B2</li>
                 <li><Check size={15} /> مدرسون معتمدون</li>
               </ul>
               <Link to="/packages/basic">تصفح الباقات <ArrowLeft size={16} /></Link>

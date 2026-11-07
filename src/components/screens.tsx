@@ -49,6 +49,7 @@ import {
   uploadFile,
   EXAM_TYPE_LABELS,
   QUESTION_TYPE_LABELS,
+  PLATFORM_LEVELS,
   type Exam,
   type ExamQuestionItem,
   type ExamQuestions,
@@ -1056,11 +1057,13 @@ export function TeacherScreen() {
   const [anStudentId, setAnStudentId] = useState("");
 
   // Session availability form
+  const [avMode, setAvMode] = useState<"date" | "weekly">("date");
   const [avDay, setAvDay] = useState<number | null>(0);
   const [avDate, setAvDate] = useState("");
   const [avStart, setAvStart] = useState("18:00");
   const [avEnd, setAvEnd] = useState("19:00");
   const [avSaving, setAvSaving] = useState(false);
+  const [avMsg, setAvMsg] = useState("");
 
   useEffect(() => {
     if (activeSection === "attendance") {
@@ -1085,15 +1088,16 @@ export function TeacherScreen() {
 
   async function handleAddAvailability(e: React.FormEvent) {
     e.preventDefault();
+    setAvMsg("");
     setAvSaving(true);
     try {
       await addTeacherAvailability({
-        dayOfWeek: avDate ? null : avDay,
-        specificDate: avDate || null,
+        dayOfWeek: avMode === "weekly" ? avDay : null,
+        specificDate: avMode === "date" ? avDate || null : null,
         startTime: avStart,
         endTime: avEnd,
       });
-      setAvDate("");
+      setAvMsg("تمت إضافة الموعد — تقدر تضيف معاد تاني لنفس اليوم");
     } finally {
       setAvSaving(false);
     }
@@ -2232,46 +2236,83 @@ export function TeacherScreen() {
           <Card>
             <h3 className="font-bold">إضافة موعد متاح للحجز</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              المواعيد الأسبوعية تتكرر كل أسبوع — أو حدد تاريخ محدد لموعد لمرة واحدة.
+              اختر تاريخ اليوم وأضف مواعيدك فيه — تقدر تضيف أكثر من معاد في نفس اليوم (مثلاً 6–7 و10–11). المواعيد دي بتظهر للإدارة عند حجز حصصك.
             </p>
-            <form onSubmit={handleAddAvailability} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label>النوع</Label>
-                <select
-                  value={avDate ? "date" : "weekly"}
-                  onChange={(e) => { if (e.target.value === "date") { setAvDay(null); } else { setAvDate(""); setAvDay(0); } }}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="weekly">أسبوعي</option>
-                  <option value="date">تاريخ محدد</option>
-                </select>
+            <form onSubmit={handleAddAvailability} className="mt-4 space-y-3">
+              <div className="flex gap-1.5">
+                {([["date", "تاريخ محدد"], ["weekly", "أسبوعي متكرر"]] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setAvMode(v)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+                      avMode === v ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-              {avDate ? (
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {avMode === "date" ? (
+                  <div className="space-y-1.5">
+                    <Label>التاريخ</Label>
+                    <Input type="date" value={avDate} onChange={(e) => setAvDate(e.target.value)} required />
+                    {avDate && (
+                      <Badge tone="brand" className="mt-1">
+                        {["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][new Date(`${avDate}T00:00:00`).getDay()]}
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label>اليوم</Label>
+                    <select value={avDay ?? 0} onChange={(e) => setAvDay(Number(e.target.value))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      {["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"].map((d, i) => (
+                        <option key={i} value={i}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-1.5">
-                  <Label>التاريخ</Label>
-                  <Input type="date" value={avDate} onChange={(e) => setAvDate(e.target.value)} required />
+                  <Label>من</Label>
+                  <Input type="time" value={avStart} onChange={(e) => setAvStart(e.target.value)} required />
                 </div>
-              ) : (
                 <div className="space-y-1.5">
-                  <Label>اليوم</Label>
-                  <select value={avDay ?? 0} onChange={(e) => setAvDay(Number(e.target.value))} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                    {["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"].map((d, i) => (
-                      <option key={i} value={i}>{d}</option>
-                    ))}
-                  </select>
+                  <Label>إلى</Label>
+                  <Input type="time" value={avEnd} onChange={(e) => setAvEnd(e.target.value)} required />
                 </div>
-              )}
-              <div className="space-y-1.5">
-                <Label>من</Label>
-                <Input type="time" value={avStart} onChange={(e) => setAvStart(e.target.value)} required />
+                <div className="flex items-end">
+                  <Button type="submit" className="w-full" disabled={avSaving || (avMode === "date" && !avDate)}>
+                    {avSaving ? "جاري..." : "+ إضافة الموعد"}
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>إلى</Label>
-                <Input type="time" value={avEnd} onChange={(e) => setAvEnd(e.target.value)} required />
-              </div>
-              <div className="sm:col-span-2 lg:col-span-4">
-                <Button type="submit" disabled={avSaving}>{avSaving ? "جاري..." : "إضافة الموعد"}</Button>
-              </div>
+
+              {avMsg && <p className="rounded-md bg-sage/15 p-2.5 text-xs font-semibold text-sage">{avMsg}</p>}
+
+              {(() => {
+                const daySlots = teacherAvailability.filter((a) =>
+                  avMode === "date"
+                    ? a.specificDate && String(a.specificDate).slice(0, 10) === avDate
+                    : !a.specificDate && a.dayOfWeek === avDay,
+                );
+                if (daySlots.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3">
+                    <small className="text-xs font-semibold text-muted-foreground">مواعيدك في هذا اليوم:</small>
+                    {daySlots
+                      .slice()
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                      .map((a) => (
+                        <Badge key={a.id} tone={a.isActive ? "sage" : "muted"}>
+                          {a.startTime} — {a.endTime}{!a.isActive ? " (معطّل)" : ""}
+                        </Badge>
+                      ))}
+                  </div>
+                );
+              })()}
             </form>
           </Card>
 
@@ -2549,6 +2590,7 @@ export function AdminScreen() {
     fetchAdminSchedules,
     adminLectures,
     fetchAdminLectures,
+    updateAdminLecture,
     fetchAdminLectureAttendance,
     fetchAdminTeacherProfile,
     fetchAdminStudentProfile,
@@ -2625,6 +2667,8 @@ export function AdminScreen() {
       fetchAdminBookings().catch(() => {});
       fetchAdminBookingsReport().catch(() => {});
       fetchCallsStudents().catch(() => {});
+      fetchAdminLectures({ status: "all" }).catch(() => {});
+      fetchFreeLectures().catch(() => {});
     }
     if (activeSection === "groups") {
       fetchAdminGroups().catch(() => {});
@@ -4681,6 +4725,11 @@ export function AdminScreen() {
             onUpdate={updateAdminSchedule}
             onDelete={deleteAdminSchedule}
           />
+          <OpsLecturesListCard
+            lectures={adminLectures}
+            fetchLectures={() => fetchAdminLectures({ status: "all" })}
+            onCancel={(id) => updateAdminLecture(id, { status: "cancelled" })}
+          />
           <AdminLectureReportsCard
             lectures={adminLectures}
             fetchLectures={fetchAdminLectures}
@@ -4741,6 +4790,8 @@ export function AdminScreen() {
             onFetchAvailability={fetchAdminTeacherAvailability}
             onCreate={opsCreateBooking}
             onFetchCallsStudents={fetchCallsStudents}
+            bookings={adminBookings}
+            lectures={[...adminLectures, ...freeLectures]}
           />
 
           {adminBookingsReport && (
@@ -5437,7 +5488,7 @@ function StudentsDirectorySection({
           </select>
           <select value={levelFilter} onChange={(e) => { setLevelFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
             <option value="">كل المستويات</option>
-            {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+            {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
           <select value={groupFilter} onChange={(e) => { setGroupFilter(e.target.value); setPage(1); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
             <option value="">كل المجموعات</option>
@@ -6065,7 +6116,7 @@ function AdminPackagesSection({
                 <Label>المستوى</Label>
                 <select value={pLevel} onChange={(e) => setPLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— بدون مستوى محدد —</option>
-                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                  {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
 
@@ -8349,7 +8400,7 @@ export function SalesScreen() {
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
                       <option value="">— اختر —</option>
-                      <option value="levels">كورس مستويات (A1–B2)</option>
+                      <option value="levels">كورس مستويات (Pre A1–B2)</option>
                       <option value="conversation">ورش محادثة</option>
                       <option value="calls">مكالمات محادثة فردية</option>
                       <option value="private">كورس خاص / VIP</option>
@@ -8880,10 +8931,16 @@ export function SupportScreen() {
     studentLinks,
     assignStudentToTeacher,
     unassignStudent,
+    supportLectures,
+    fetchSupportLectures,
+    opsUpdateBooking,
+    opsUpdateLecture,
+    fetchOpsStudentProfile,
   } = usePlatformStore();
   const { user } = useAuth();
 
   const [activeSection, setActiveSection] = useState<SupportSection>("students");
+  const [profileStudentId, setProfileStudentId] = useState<string | null>(null);
   const [assignStudentId, setAssignStudentId] = useState("");
   const [assignTeacherId, setAssignTeacherId] = useState("");
   const [assignMsg, setAssignMsg] = useState("");
@@ -8932,6 +8989,8 @@ export function SupportScreen() {
       fetchOpsBookings().catch(() => {});
       fetchCallsStudents().catch(() => {});
       fetchOpsTeachers().catch(() => {});
+      fetchSupportLectures().catch(() => {});
+      fetchFreeLectures().catch(() => {});
     }
     if (activeSection === "groups") fetchAdminGroups().catch(() => {});
     if (activeSection === "schedules") {
@@ -9083,6 +9142,7 @@ export function SupportScreen() {
             onStatusChange={(id, status) => updateStudentStatus(id, status).catch(() => {})}
             onActivate={activateOpsSubscription}
             onAddToGroup={addGroupMembers}
+            onViewProfile={(id) => setProfileStudentId(id)}
           />
 
           <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
@@ -9401,16 +9461,23 @@ export function SupportScreen() {
       )}
 
       {activeSection === "schedules" && (
-        <AdminSchedulesSection
-          schedules={adminSchedules}
-          teachers={teachers}
-          groups={adminGroups}
-          availability={adminTeacherAvailability}
-          onFetchAvailability={fetchAdminTeacherAvailability}
-          onCreate={createAdminSchedule}
-          onUpdate={updateAdminSchedule}
-          onDelete={deleteAdminSchedule}
-        />
+        <div className="space-y-4">
+          <AdminSchedulesSection
+            schedules={adminSchedules}
+            teachers={teachers}
+            groups={adminGroups}
+            availability={adminTeacherAvailability}
+            onFetchAvailability={fetchAdminTeacherAvailability}
+            onCreate={createAdminSchedule}
+            onUpdate={updateAdminSchedule}
+            onDelete={deleteAdminSchedule}
+          />
+          <OpsLecturesListCard
+            lectures={supportLectures}
+            fetchLectures={fetchSupportLectures}
+            onCancel={(id) => opsUpdateLecture(id, { status: "cancelled" })}
+          />
+        </div>
       )}
 
       {activeSection === "attendance" && (
@@ -9542,6 +9609,8 @@ export function SupportScreen() {
             onFetchAvailability={fetchAdminTeacherAvailability}
             onCreate={opsCreateBooking}
             onFetchCallsStudents={fetchCallsStudents}
+            bookings={opsBookings}
+            lectures={[...supportLectures, ...freeLectures]}
           />
           <Card>
             <h3 className="font-bold">الحجوزات الحديثة</h3>
@@ -9553,11 +9622,12 @@ export function SupportScreen() {
                     <th className="p-2">المدرس</th>
                     <th className="p-2">الموعد</th>
                     <th className="p-2">الحالة</th>
+                    <th className="p-2">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody>
                   {opsBookings.length === 0 ? (
-                    <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">لا توجد حجوزات.</td></tr>
+                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا توجد حجوزات.</td></tr>
                   ) : (
                     opsBookings.slice(0, 30).map((b) => {
                       const st: Record<string, { label: string; color: string }> = {
@@ -9573,6 +9643,13 @@ export function SupportScreen() {
                           <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
                           <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                           <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
+                          <td className="p-2">
+                            {b.status === "booked" && (
+                              <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء الحصة؟ ستُرجع للطالب ويتحرر موعد المدرس.")) opsUpdateBooking(b.id, { status: "cancelled", reason: "إلغاء من خدمة العملاء" }).catch(() => {}); }}>
+                                إلغاء
+                              </Button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -9616,6 +9693,15 @@ export function SupportScreen() {
           onDeleteLecture={deleteFreeLecture}
           onAddFile={addFreeLectureFile}
           onRemoveFile={removeFreeLectureFile}
+        />
+      )}
+
+      {profileStudentId && (
+        <AdminStudentProfileModal
+          studentId={profileStudentId}
+          fetchProfile={fetchOpsStudentProfile}
+          onChanged={() => fetchOpsStudents().catch(() => {})}
+          onClose={() => setProfileStudentId(null)}
         />
       )}
     </AppShell>
@@ -9725,7 +9811,7 @@ function AdminGroupsSection({
                 <Label>المستوى</Label>
                 <select value={gLevel} onChange={(e) => setGLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— بدون —</option>
-                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                  {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -9840,6 +9926,8 @@ function OpsCreateSessionCard({
   onFetchAvailability,
   onCreate,
   onFetchCallsStudents,
+  bookings,
+  lectures,
 }: {
   callsStudents: import("../hooks/use-platform-store").CallsStudentItem[];
   teachers: { id: string; fullName: string; specialty?: string | null; avatarUrl?: string | null }[];
@@ -9848,6 +9936,9 @@ function OpsCreateSessionCard({
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreate: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
   onFetchCallsStudents: () => Promise<void>;
+  bookings?: import("../hooks/use-platform-store").LessonBookingItem[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  lectures?: any[];
 }) {
   const [teacherId, setTeacherId] = useState("");
   const [studentId, setStudentId] = useState("");
@@ -9874,12 +9965,33 @@ function OpsCreateSessionCard({
   const studentList = linked.length > 0 || !teacherId ? linked : callsStudents;
   const selectedStudent = callsStudents.find((s) => s.studentId === studentId) ?? null;
 
+  // Times already taken for this teacher (booked sessions + scheduled/live lectures)
+  const busyEvents = useMemo(() => {
+    if (!teacherId) return [] as { start: number; end: number }[];
+    const evts: { start: number; end: number }[] = [];
+    for (const b of bookings ?? []) {
+      if (b.status !== "booked" || b.teacher?.id !== teacherId) continue;
+      const s = new Date(b.startsAt).getTime();
+      const e = b.endsAt ? new Date(b.endsAt).getTime() : s + 30 * 60_000;
+      evts.push({ start: s, end: e });
+    }
+    for (const l of lectures ?? []) {
+      const tid = l.teacherId ?? l.teacher?.id;
+      if (tid !== teacherId) continue;
+      if (l.status !== "scheduled" && l.status !== "live") continue;
+      const s = new Date(l.startsAt).getTime();
+      const e = l.endsAt ? new Date(l.endsAt).getTime() : s + 60 * 60_000;
+      evts.push({ start: s, end: e });
+    }
+    return evts;
+  }, [teacherId, bookings, lectures]);
+
   // Expand the teacher's availability on `date` into discrete time slots
   const timeSlots = useMemo(() => {
-    if (!teacherId || !date) return [] as { time: string; label: string }[];
+    if (!teacherId || !date) return [] as { time: string; label: string; busy: boolean }[];
     const d = new Date(`${date}T00:00:00`);
     const dow = d.getDay();
-    const out: { time: string; label: string }[] = [];
+    const out: { time: string; label: string; busy: boolean }[] = [];
     const seen = new Set<string>();
     for (const slot of availability ?? []) {
       if (slot.isActive === false) continue;
@@ -9901,13 +10013,16 @@ function OpsCreateSessionCard({
           seen.add(t24);
           const h12 = Math.floor(cur / 60) % 12 || 12;
           const ampm = Math.floor(cur / 60) < 12 ? "ص" : "م";
-          out.push({ time: t24, label: `${String(h12).padStart(2, "0")}:${mm} ${ampm}` });
+          const slotStart = new Date(`${date}T${t24}:00`).getTime();
+          const slotEnd = slotStart + duration * 60_000;
+          const busy = busyEvents.some((e) => slotStart < e.end && slotEnd > e.start);
+          out.push({ time: t24, label: `${String(h12).padStart(2, "0")}:${mm} ${ampm}`, busy });
         }
         cur += step;
       }
     }
     return out;
-  }, [teacherId, date, duration, availability]);
+  }, [teacherId, date, duration, availability, busyEvents]);
 
   function resetAll() {
     setPickedTime(null); setStudentId(""); setMeetingUrl(""); setNotes(""); setErr(""); setOk("");
@@ -10055,15 +10170,17 @@ function OpsCreateSessionCard({
                 <button
                   key={slot.time}
                   type="button"
+                  disabled={slot.busy}
                   onClick={() => setPickedTime(active ? null : slot.time)}
                   className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
-                    active
-                      ? "border-brand bg-brand text-white shadow-sm"
-                      : "border-border bg-background/60 text-foreground hover:border-brand/50 hover:bg-brand/5"
+                    slot.busy
+                      ? "cursor-not-allowed border-border bg-muted/70 text-muted-foreground line-through opacity-60"
+                      : active
+                        ? "border-brand bg-brand text-white shadow-sm"
+                        : "border-border bg-background/60 text-foreground hover:border-brand/50 hover:bg-brand/5"
                   }`}
                 >
-                  {active && <Check className="size-4" />}
-                  <span>{slot.label}</span>
+                  {slot.busy ? <span>{slot.label} · محجوز</span> : <>{active && <Check className="size-4" />}<span>{slot.label}</span></>}
                 </button>
               );
             })}
@@ -10180,6 +10297,14 @@ function OpsFreeLecturesSection({
   onRemoveFile: (id: string, index: number) => Promise<void>;
 }) {
   const [tab, setTab] = useState<"lectures" | "students">("lectures");
+  const [lecPeriod, setLecPeriod] = useState<"upcoming" | "past" | "cancelled">("upcoming");
+  const lecInPeriod = (l: import("../hooks/use-platform-store").FreeLecture, v: "upcoming" | "past" | "cancelled") => {
+    const end = l.endsAt ? Date.parse(l.endsAt) : Date.parse(l.startsAt);
+    if (v === "cancelled") return l.status === "cancelled";
+    if (l.status === "cancelled") return false;
+    if (v === "upcoming") return end > Date.now() && l.status !== "completed";
+    return end <= Date.now() || l.status === "completed";
+  };
   // student form
   const [sName, setSName] = useState("");
   const [sPhone, setSPhone] = useState("");
@@ -10303,7 +10428,7 @@ function OpsFreeLecturesSection({
                 <Label>المستوى</Label>
                 <select value={sLevel} onChange={(e) => setSLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">— بدون —</option>
-                  {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                  {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -10392,7 +10517,7 @@ function OpsFreeLecturesSection({
                     <Label>المستوى</Label>
                     <select value={lLevel} onChange={(e) => setLLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
                       <option value="">— بدون —</option>
-                      {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+                      {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1.5">
@@ -10435,11 +10560,27 @@ function OpsFreeLecturesSection({
             )}
           </Card>
 
+          <div className="flex flex-wrap gap-1.5">
+            {([["upcoming", "القادمة"], ["past", "السابقة"], ["cancelled", "الملغية"]] as const).map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => setLecPeriod(v)}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+                  lecPeriod === v ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {label} ({freeLectures.filter((l) => lecInPeriod(l, v)).length})
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-2">
-            {freeLectures.length === 0 ? (
-              <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد محاضرات مجانية بعد.</Card>
+            {freeLectures.filter((l) => lecInPeriod(l, lecPeriod)).length === 0 ? (
+              <Card className="py-10 text-center text-sm text-muted-foreground">لا توجد محاضرات في هذا القسم.</Card>
             ) : (
-              freeLectures.map((l) => (
+              freeLectures
+                .filter((l) => lecInPeriod(l, lecPeriod))
+                .map((l) => (
                 <Card key={l.id}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -10632,7 +10773,7 @@ function FreeLectureStudentsPanel({
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث بالاسم / الهاتف / البريد" className="sm:col-span-2" />
         <select value={level} onChange={(e) => setLevel(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
           <option value="">كل المستويات</option>
-          {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => <option key={l} value={l}>{l}</option>)}
+          {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
         <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
           <option value="">كل المجموعات</option>
@@ -11286,8 +11427,7 @@ function TeacherScheduleTimeline({
   onSaveAttendance: (lectureId: string, records: { studentId: string; status: "present" | "absent"; report?: string }[]) => Promise<void>;
 }) {
   const [typeF, setTypeF] = useState("");
-  const [statusF, setStatusF] = useState("");
-  const [periodF, setPeriodF] = useState<"all" | "upcoming" | "past">("all");
+  const [periodF, setPeriodF] = useState<"upcoming" | "past" | "cancelled">("upcoming");
   const [groupF, setGroupF] = useState("");
   const [q, setQ] = useState("");
   const [fromD, setFromD] = useState("");
@@ -11379,9 +11519,14 @@ function TeacherScheduleTimeline({
 
   const rows = all
     .filter((r) => !typeF || r.kind === typeF)
-    .filter((r) => !statusF || r.status === statusF)
     .filter((r) => !groupF || r.groupName === groupF)
-    .filter((r) => periodF === "all" || (periodF === "upcoming" ? new Date(r.startsAt).getTime() >= now : new Date(r.startsAt).getTime() < now))
+    .filter((r) => {
+      const end = (r.endsAt ? Date.parse(r.endsAt) : Date.parse(r.startsAt));
+      if (periodF === "cancelled") return r.status === "cancelled";
+      if (r.status === "cancelled") return false;
+      if (periodF === "upcoming") return end > now && r.status !== "completed";
+      return end <= now || r.status === "completed" || r.status === "no_show";
+    })
     .filter((r) => !q.trim() || [r.title, r.sub ?? "", r.groupName ?? ""].some((v) => v.toLowerCase().includes(q.trim().toLowerCase())))
     .filter((r) => !fromD || new Date(r.startsAt) >= new Date(`${fromD}T00:00:00`))
     .filter((r) => !toD || new Date(r.startsAt) <= new Date(`${toD}T23:59:59`))
@@ -11414,7 +11559,7 @@ function TeacherScheduleTimeline({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-1.5">
-        {([["all", "الكل"], ["upcoming", "القادمة"], ["past", "السابقة"]] as const).map(([v, label]) => (
+        {([["upcoming", "القادمة"], ["past", "السابقة"], ["cancelled", "الملغية"]] as const).map(([v, label]) => (
           <button
             key={v}
             onClick={() => setPeriodF(v)}
@@ -11427,22 +11572,13 @@ function TeacherScheduleTimeline({
         ))}
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <SearchBox value={q} onChange={setQ} placeholder="بحث باسم الطالب / المحاضرة / المجموعة" />
         <select value={typeF} onChange={(e) => setTypeF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
           <option value="">كل الأنواع</option>
           <option value="lecture">محاضرات أساسية</option>
           <option value="booking">حصص فردية (مكالمات)</option>
           <option value="free">محاضرات مجانية</option>
-        </select>
-        <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-          <option value="">كل الحالات</option>
-          <option value="scheduled">مجدولة</option>
-          <option value="live">مباشر</option>
-          <option value="booked">محجوزة</option>
-          <option value="completed">مكتملة</option>
-          <option value="no_show">لم يحضر</option>
-          <option value="cancelled">ملغاة</option>
         </select>
         {groups.length > 0 && (
           <select value={groupF} onChange={(e) => setGroupF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
@@ -11872,9 +12008,9 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
   studentId: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fetchProfile: (id: string) => Promise<any>;
-  onDeleteSub: (id: string) => Promise<void>;
-  onRestore: (id: string) => Promise<void>;
-  onChanged: () => void;
+  onDeleteSub?: (id: string) => Promise<void>;
+  onRestore?: (id: string) => Promise<void>;
+  onChanged?: () => void;
   onClose: () => void;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -11899,7 +12035,7 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
   async function subAction(fn: (id: string) => Promise<void>, id: string, confirmText: string) {
     if (!confirm(confirmText)) return;
     setBusy(true);
-    try { await fn(id); await reload(); onChanged(); } catch (e) { alert(e instanceof Error ? e.message : "فشلت العملية"); }
+    try { await fn(id); await reload(); onChanged?.(); } catch (e) { alert(e instanceof Error ? e.message : "فشلت العملية"); }
     finally { setBusy(false); }
   }
 
@@ -11945,10 +12081,12 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
                       <Badge tone={sub.status === "ACTIVE" ? "sage" : "muted"} className="ml-1">{sub.status}</Badge>
                     </div>
                     <div className="flex gap-1">
-                      {sub.sessionsTotal != null && (
+                      {sub.sessionsTotal != null && onRestore && (
                         <button disabled={busy} title="استرجاع الحصص" onClick={() => subAction(onRestore, sub.id, `استرجاع حصص "${sub.package.nameAr}" للطالب؟ (الرصيد هيرجع ${sub.sessionsTotal} حصة)`)} className="rounded-md px-2 py-1 text-[11px] font-bold text-brand hover:bg-brand/10">↺ استرجاع</button>
                       )}
-                      <button disabled={busy} title="حذف الباقة نهائياً" onClick={() => subAction(onDeleteSub, sub.id, `حذف باقة "${sub.package.nameAr}" نهائياً للطالب؟ لا يمكن التراجع.`)} className="rounded-md px-2 py-1 text-[11px] font-bold text-danger hover:bg-danger/10">حذف الباقة</button>
+                      {onDeleteSub && (
+                        <button disabled={busy} title="حذف الباقة نهائياً" onClick={() => subAction(onDeleteSub, sub.id, `حذف باقة "${sub.package.nameAr}" نهائياً للطالب؟ لا يمكن التراجع.`)} className="rounded-md px-2 py-1 text-[11px] font-bold text-danger hover:bg-danger/10">حذف الباقة</button>
+                      )}
                     </div>
                   </div>
                   {sub.sessionsTotal != null && (
@@ -12078,5 +12216,121 @@ function AdminEditUserModal({
       </Card>
       </div>
     </div>
+  );
+}
+
+// ─── Ops: basic lectures list with upcoming/past/cancelled tabs (admin + support) ──
+function OpsLecturesListCard({
+  lectures,
+  fetchLectures,
+  onCancel,
+}: {
+  lectures: import("../hooks/use-platform-store").AdminLectureItem[];
+  fetchLectures: () => Promise<void>;
+  onCancel?: (id: string) => Promise<void>;
+}) {
+  const [period, setPeriod] = useState<"upcoming" | "past" | "cancelled">("upcoming");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!loaded) {
+      fetchLectures().then(() => setLoaded(true)).catch(() => setLoaded(true));
+    }
+  }, [loaded, fetchLectures]);
+
+  const inPeriod = (l: import("../hooks/use-platform-store").AdminLectureItem, v: "upcoming" | "past" | "cancelled") => {
+    const end = l.endsAt ? Date.parse(l.endsAt) : Date.parse(l.startsAt);
+    if (v === "cancelled") return l.status === "cancelled";
+    if (l.status === "cancelled") return false;
+    if (v === "upcoming") return end > Date.now() && l.status !== "completed";
+    return end <= Date.now() || l.status === "completed";
+  };
+
+  const STATUS_LABEL: Record<string, { label: string; tone: "brand" | "sage" | "muted" | "danger" }> = {
+    scheduled: { label: "مجدولة", tone: "brand" },
+    live: { label: "مباشر الآن", tone: "sage" },
+    completed: { label: "مكتملة", tone: "muted" },
+    cancelled: { label: "ملغاة", tone: "danger" },
+  };
+  const st = (s: string) => STATUS_LABEL[s] ?? { label: s, tone: "muted" as const };
+
+  const shown = lectures.filter((l) => inPeriod(l, period));
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-bold">المحاضرات الأساسية ({shown.length})</h3>
+          <p className="text-xs text-muted-foreground">المحاضرات بتنقل تلقائياً للسابقة بعد انتهاء وقتها</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {([["upcoming", "القادمة"], ["past", "السابقة"], ["cancelled", "الملغية"]] as const).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setPeriod(v)}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+                period === v ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {label} ({lectures.filter((l) => inPeriod(l, v)).length})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {shown.length === 0 ? (
+          <div className="rounded-md bg-muted/60 p-6 text-center text-sm text-muted-foreground sm:col-span-2 xl:col-span-3">
+            لا توجد محاضرات في هذا القسم.
+          </div>
+        ) : (
+          shown.map((l) => (
+            <div key={l.id} className="flex flex-col rounded-xl border border-border bg-background/60 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <b className="min-w-0 truncate text-sm">{l.title}</b>
+                <Badge tone={st(l.status).tone}>{st(l.status).label}</Badge>
+              </div>
+              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <p className="flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5 shrink-0" />
+                  {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
+                </p>
+                <p className="flex items-center gap-1.5 font-lat">
+                  <Clock3 className="size-3.5 shrink-0" />
+                  {new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                  {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {l.teacher?.fullName && <Badge tone="muted">{l.teacher.fullName}</Badge>}
+                  {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
+                  {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                {l.meetingUrl && (
+                  <a
+                    href={l.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
+                  >
+                    رابط الاجتماع ↗
+                  </a>
+                )}
+                {onCancel && l.status !== "cancelled" && l.status !== "completed" && (
+                  <Button
+                    variant="ghost"
+                    className="min-h-8 px-2.5 text-xs text-danger hover:bg-danger/10"
+                    onClick={() => { if (confirm(`إلغاء محاضرة "${l.title}"؟`)) onCancel(l.id).catch(() => {}); }}
+                  >
+                    إلغاء
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
   );
 }

@@ -43,7 +43,7 @@ function LoginPage() {
               O
             </Link>
             <h1 className="mt-4 text-2xl font-bold">تسجيل الدخول</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               أهلاً بعودتك إلى עברית שוטפת— أكاديمية اللغات (عبري وإنجليزي).  
             </p>
           </div>

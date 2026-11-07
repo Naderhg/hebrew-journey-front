@@ -3,6 +3,13 @@ import { apiFetch, uploadFile } from "../lib/api";
 import type { UserRole } from "../lib/auth";
 import { useAuth } from "./use-auth";
 
+export const PLATFORM_LEVELS = ["Pre A1", "A1", "A1+", "A2", "A2+", "B1", "B1+", "B2"] as const;
+export type PlatformLevel = (typeof PLATFORM_LEVELS)[number];
+export const levelSortIndex = (l?: string | null) => {
+  const i = (PLATFORM_LEVELS as readonly string[]).indexOf(l ?? "");
+  return i === -1 ? PLATFORM_LEVELS.length : i;
+};
+
 export interface PlatformUser {
   id: string;
   fullName: string;
@@ -466,7 +473,7 @@ export interface CreateLectureInput {
   teacherId: string;
   groupName?: string;
   groupId?: string;
-  level?: "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
+  level?: PlatformLevel | string;
   startsAt: string; // ISO datetime
   endsAt?: string;
   meetingUrl?: string;
@@ -1219,6 +1226,9 @@ interface PlatformStoreValue {
   callsStudents: CallsStudentItem[];
   fetchCallsStudents: () => Promise<void>;
   opsCreateBooking: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
+  opsUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
+  opsUpdateLecture: (id: string, input: { status?: string; title?: string; meetingUrl?: string }) => Promise<void>;
+  fetchOpsStudentProfile: (studentId: string) => Promise<AdminStudentProfile>;
   opsBookings: LessonBookingItem[];
   fetchOpsBookings: () => Promise<void>;
   // ops directories + manual subscription activation
@@ -2448,6 +2458,20 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await Promise.all([fetchOpsBookings(), fetchCallsStudents()]);
   }
 
+  async function opsUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) {
+    await apiFetch(`/api/ops/bookings/${id}`, { method: "PATCH", body: input });
+    await fetchOpsBookings();
+  }
+
+  async function opsUpdateLecture(id: string, input: { status?: string; title?: string; meetingUrl?: string }) {
+    await apiFetch(`/api/ops/lectures/${id}`, { method: "PATCH", body: input });
+    await fetchSupportLectures();
+  }
+
+  async function fetchOpsStudentProfile(studentId: string) {
+    return apiFetch<AdminStudentProfile>(`/api/ops/students/${studentId}/profile`);
+  }
+
   // ─── Free lectures management (admin/support) ───
   async function fetchFreeStudents() {
     const res = await apiFetch<{ students: FreeLectureStudent[] }>("/api/ops/free-students");
@@ -2732,6 +2756,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         callsStudents,
         fetchCallsStudents,
         opsCreateBooking,
+        opsUpdateBooking,
+        opsUpdateLecture,
+        fetchOpsStudentProfile,
         opsBookings,
         fetchOpsBookings,
         opsTeachers,

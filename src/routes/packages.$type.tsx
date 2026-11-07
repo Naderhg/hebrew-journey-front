@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowRight, Check, GraduationCap, Phone, Users } from "lucide-react";
 import { Button } from "../components/ui";
-import { usePlatformStore, type PublicPackage } from "../hooks/use-platform-store";
+import { usePlatformStore, levelSortIndex, type PublicPackage } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 
 export const Route = createFileRoute("/packages/$type")({
@@ -32,6 +32,7 @@ function PackagesCategoryPage() {
   }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isCalls = type === "calls";
+  const sortedPackages = [...publicPackages].sort((a, b) => levelSortIndex(a.level) - levelSortIndex(b.level));
   const title = isCalls ? "نظام المكالمات" : "الباقات الأساسية";
   const subtitle = isCalls
     ? "حصص فردية أونلاين — احجز مواعيدك بنفسك"
@@ -90,7 +91,7 @@ function PackagesCategoryPage() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {publicPackages.map((p) => (
+              {sortedPackages.map((p) => (
                 <div key={p.id} className="tilt-hover flex flex-col rounded-2xl border border-[#e7edf7] bg-white p-7 shadow-sm">
                   <div className="flex items-start justify-between">
                     <h3 className="text-lg font-bold" style={{ color: NAVY }}>{p.nameAr}</h3>

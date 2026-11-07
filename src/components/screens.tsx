@@ -2348,52 +2348,6 @@ export function TeacherScreen() {
             </div>
           </Card>
 
-          {/* Bookings */}
-          <Card>
-            <h3 className="font-bold">حجوزات الطلاب</h3>
-            <div className="mt-3 space-y-2">
-              {teacherBookings.length === 0 ? (
-                <p className="text-sm text-muted-foreground">لا توجد حجوزات بعد.</p>
-              ) : (
-                teacherBookings.map((b) => {
-                  const st: Record<string, { label: string; color: string }> = {
-                    booked: { label: "محجوزة", color: "#0b2f6e" },
-                    completed: { label: "مكتملة", color: "#2f9e4f" },
-                    cancelled: { label: "ملغاة", color: "#c0392b" },
-                    no_show: { label: "لم يحضر", color: "#e67e22" },
-                  };
-                  const s = st[b.status] ?? st.booked;
-                  return (
-                    <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#eef2f9] bg-white px-4 py-3">
-                      <div>
-                        <b className="text-sm text-[#0b2f6e]">{b.student?.fullName ?? "طالب"}</b>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                        {b.cancelReason && <p className="text-xs text-red-600">سبب الإلغاء: {b.cancelReason}</p>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge style={{ background: s.color }}>{s.label}</Badge>
-                        {b.status === "booked" && (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("تأكيد حضور الطالب؟")) setBookingStatus(b.id, "completed"); }}>
-                              حضر
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("تأكيد غياب الطالب؟")) setBookingStatus(b.id, "no_show"); }}>
-                              غاب
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء الحصة؟ ستُرجع الحصة للطالب.")) teacherCancelBooking(b.id, "إلغاء من المدرس"); }}>
-                              إلغاء
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </Card>
         </div>
       )}
 

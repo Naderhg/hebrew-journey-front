@@ -89,10 +89,13 @@ function StudentSessionsPage() {
     );
   }
 
+  const now = Date.now();
+  const endMs = (b: { startsAt: string; endsAt?: string | null }) =>
+    b.endsAt ? new Date(b.endsAt).getTime() : new Date(b.startsAt).getTime() + 90 * 60_000;
   const upcoming = myBookings
-    .filter((b) => b.status === "booked" && new Date(b.startsAt) > new Date())
+    .filter((b) => b.status === "booked" && endMs(b) > now)
     .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
-  const past = myBookings.filter((b) => b.status !== "booked" || new Date(b.startsAt) <= new Date());
+  const past = myBookings.filter((b) => b.status !== "booked" || endMs(b) <= now);
 
   return (
     <AppShell role="STUDENT">
@@ -183,6 +186,11 @@ function StudentSessionsPage() {
                   <div>
                     <b className="text-sm text-[#0b2f6e]">{b.teacher?.fullName ?? "مدرس"}</b>
                     <p className="text-xs text-muted-foreground">{fmtDate(b.startsAt)}</p>
+                    {b.meetingUrl && b.status !== "cancelled" && (
+                      <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
+                        رابط الاجتماع ↗
+                      </a>
+                    )}
                     {b.cancelReason && <p className="text-xs text-red-600">سبب الإلغاء: {b.cancelReason}</p>}
                   </div>
                   <Badge style={{ background: st.color }}>{st.label}</Badge>

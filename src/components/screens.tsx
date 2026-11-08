@@ -6686,8 +6686,8 @@ export function LecturesScreen() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <b className="text-sm">{l.title}</b>
-                      <Badge tone={l.status === "live" ? "sage" : "brand"}>
-                        {l.status === "live" ? "مباشر الآن" : "مجدولة"}
+                      <Badge tone={l.status === "live" ? "sage" : l.status === "completed" ? "muted" : "brand"}>
+                        {l.status === "live" ? "مباشر الآن" : l.status === "completed" ? "مكتملة" : "مجدولة"}
                       </Badge>
                       {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
                       {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}

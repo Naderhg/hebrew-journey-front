@@ -67,7 +67,7 @@ function StudentFreeLecturesPage() {
                       {l.teacher && ` · ${l.teacher.fullName}`}
                     </p>
                     {l.description && <p className="mt-1 text-sm text-muted-foreground">{l.description}</p>}
-                    {l.meetingUrl && (l.status === "live" || l.status === "scheduled") && (
+                    {l.meetingUrl && l.status !== "cancelled" && (
                       <a
                         href={l.meetingUrl}
                         target="_blank"

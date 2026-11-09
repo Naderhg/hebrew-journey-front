@@ -4826,57 +4826,7 @@ export function AdminScreen() {
           )}
 
           {/* All bookings */}
-          <Card>
-            <h3 className="font-bold">كل الحجوزات</h3>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-right text-xs text-muted-foreground">
-                    <th className="p-2">الطالب</th>
-                    <th className="p-2">المدرس</th>
-                    <th className="p-2">الموعد</th>
-                    <th className="p-2">الحالة</th>
-                    <th className="p-2">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adminBookings.length === 0 ? (
-                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا توجد حجوزات.</td></tr>
-                  ) : (
-                    adminBookings.map((b) => {
-                      const st: Record<string, { label: string; color: string }> = {
-                        booked: { label: "محجوزة", color: "#0b2f6e" },
-                        completed: { label: "مكتملة", color: "#2f9e4f" },
-                        cancelled: { label: "ملغاة", color: "#c0392b" },
-                        no_show: { label: "لم يحضر", color: "#e67e22" },
-                      };
-                      const s = st[b.status] ?? st.booked;
-                      return (
-                        <tr key={b.id} className="border-b">
-                          <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
-                          <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
-                          <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
-                          <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
-                          <td className="p-2">
-                            {b.status === "booked" && (
-                              <div className="flex gap-1">
-                                <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء إداري؟")) adminUpdateBooking(b.id, { status: "cancelled", reason: "إلغاء إداري" }); }}>
-                                  إلغاء
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={() => { const url = prompt("رابط الاجتماع:"); if (url) adminUpdateBooking(b.id, { meetingUrl: url }); }}>
-                                  رابط
-                                </Button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <AdminAllBookingsCard bookings={adminBookings} onUpdate={adminUpdateBooking} />
         </div>
       )}
 
@@ -12302,6 +12252,155 @@ function OpsLecturesListCard({
             </div>
           ))
         )}
+      </div>
+    </Card>
+  );
+}
+
+// ─── Admin: all calls bookings with full filtering (student name, date, teacher, status, period) ──
+function AdminAllBookingsCard({
+  bookings,
+  onUpdate,
+}: {
+  bookings: import("../hooks/use-platform-store").LessonBookingItem[];
+  onUpdate: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
+}) {
+  const [q, setQ] = useState("");
+  const [teacherF, setTeacherF] = useState("");
+  const [statusF, setStatusF] = useState("");
+  const [periodF, setPeriodF] = useState<"" | "upcoming" | "past">("");
+  const [dateF, setDateF] = useState("");
+  const [fromD, setFromD] = useState("");
+  const [toD, setToD] = useState("");
+
+  const teachers = Array.from(
+    new Map(bookings.filter((b) => b.teacher?.id).map((b) => [b.teacher!.id, b.teacher!.fullName])).entries(),
+  );
+  const now = Date.now();
+  const hasFilters = !!(q || teacherF || statusF || periodF || dateF || fromD || toD);
+
+  const filtered = bookings.filter((b) => {
+    if (q.trim()) {
+      const needle = q.trim().toLowerCase();
+      const hay = `${b.student?.fullName ?? ""} ${b.student?.phone ?? ""} ${b.teacher?.fullName ?? ""}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    if (teacherF && b.teacher?.id !== teacherF) return false;
+    if (statusF && b.status !== statusF) return false;
+    const ms = new Date(b.startsAt).getTime();
+    if (periodF === "upcoming" && ms < now) return false;
+    if (periodF === "past" && ms >= now) return false;
+    if (dateF) {
+      const d = new Date(b.startsAt);
+      const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (ymd !== dateF) return false;
+    }
+    if (fromD && new Date(b.startsAt) < new Date(`${fromD}T00:00:00`)) return false;
+    if (toD && new Date(b.startsAt) > new Date(`${toD}T23:59:59`)) return false;
+    return true;
+  });
+
+  const st: Record<string, { label: string; color: string }> = {
+    booked: { label: "محجوزة", color: "#0b2f6e" },
+    completed: { label: "مكتملة", color: "#2f9e4f" },
+    cancelled: { label: "ملغاة", color: "#c0392b" },
+    no_show: { label: "لم يحضر", color: "#e67e22" },
+  };
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-bold">كل الحجوزات ({filtered.length} من {bookings.length})</h3>
+          <p className="text-xs text-muted-foreground">ابحث باسم الطالب أو صفِّ بالتاريخ والمدرس والحالة</p>
+        </div>
+        {hasFilters && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => { setQ(""); setTeacherF(""); setStatusF(""); setPeriodF(""); setDateF(""); setFromD(""); setToD(""); }}
+          >
+            مسح الفلاتر
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {([["", "الكل"], ["upcoming", "القادمة"], ["past", "السابقة"]] as const).map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setPeriodF(v)}
+            className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+              periodF === v ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+        <SearchBox value={q} onChange={setQ} placeholder="بحث باسم الطالب / الرقم / المدرس" />
+        <div className="space-y-0.5">
+          <Input type="date" value={dateF} onChange={(e) => setDateF(e.target.value)} title="تاريخ يوم محدد" />
+        </div>
+        <select value={teacherF} onChange={(e) => setTeacherF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">كل المدرسين</option>
+          {teachers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+        <select value={statusF} onChange={(e) => setStatusF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">كل الحالات</option>
+          <option value="booked">محجوزة</option>
+          <option value="completed">مكتملة</option>
+          <option value="no_show">لم يحضر</option>
+          <option value="cancelled">ملغاة</option>
+        </select>
+        <Input type="date" value={fromD} onChange={(e) => setFromD(e.target.value)} title="من تاريخ" />
+        <Input type="date" value={toD} onChange={(e) => setToD(e.target.value)} title="إلى تاريخ" />
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-right text-xs text-muted-foreground">
+              <th className="p-2">الطالب</th>
+              <th className="p-2">المدرس</th>
+              <th className="p-2">الموعد</th>
+              <th className="p-2">الحالة</th>
+              <th className="p-2">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا توجد حجوزات مطابقة للفلاتر.</td></tr>
+            ) : (
+              filtered.map((b) => {
+                const s = st[b.status] ?? st.booked;
+                return (
+                  <tr key={b.id} className="border-b">
+                    <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
+                    <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
+                    <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
+                    <td className="p-2">
+                      {b.status === "booked" && (
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء إداري؟")) onUpdate(b.id, { status: "cancelled", reason: "إلغاء إداري" }); }}>
+                            إلغاء
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { const url = prompt("رابط الاجتماع:"); if (url) onUpdate(b.id, { meetingUrl: url }); }}>
+                            رابط
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </Card>
   );

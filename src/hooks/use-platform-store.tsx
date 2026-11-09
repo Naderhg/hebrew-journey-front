@@ -2379,7 +2379,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
       method: "PATCH",
       body: input,
     });
-    await fetchAdminBookings();
+    await Promise.all([
+      fetchAdminBookings(),
+      fetchAdminBookingsReport().catch(() => {}),
+      fetchCallsStudents().catch(() => {}),
+    ]);
   }
 
   // ─── Groups ───
@@ -2462,12 +2466,16 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function opsCreateBooking(input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     await apiFetch("/api/ops/bookings", { method: "POST", body: { ...input, timeZone } });
-    await Promise.all([fetchOpsBookings(), fetchCallsStudents()]);
+    await Promise.all([
+      fetchOpsBookings(),
+      fetchCallsStudents(),
+      ...(user?.role === "ADMIN" ? [fetchAdminBookings(), fetchAdminBookingsReport().catch(() => {})] : []),
+    ]);
   }
 
   async function opsUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) {
     await apiFetch(`/api/ops/bookings/${id}`, { method: "PATCH", body: input });
-    await fetchOpsBookings();
+    await Promise.all([fetchOpsBookings(), fetchCallsStudents().catch(() => {})]);
   }
 
   async function opsUpdateLecture(id: string, input: { status?: string; title?: string; meetingUrl?: string }) {

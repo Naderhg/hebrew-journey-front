@@ -50,6 +50,7 @@ import {
   EXAM_TYPE_LABELS,
   QUESTION_TYPE_LABELS,
   PLATFORM_LEVELS,
+  type PlatformLevel,
   type Exam,
   type ExamQuestionItem,
   type ExamQuestions,
@@ -659,8 +660,15 @@ function PlacementResult({
   const navigate = useNavigate();
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const submitted = useRef(false);
-  const level =
-    scorePercent >= 80 ? "B2" : scorePercent >= 55 ? "B1" : scorePercent >= 30 ? "A2" : "A1";
+  const level: PlatformLevel =
+    scorePercent >= 90 ? "B2"
+    : scorePercent >= 78 ? "B1+"
+    : scorePercent >= 65 ? "B1"
+    : scorePercent >= 52 ? "A2+"
+    : scorePercent >= 40 ? "A2"
+    : scorePercent >= 28 ? "A1+"
+    : scorePercent >= 15 ? "A1"
+    : "Pre A1";
 
   useEffect(() => {
     if (!user || submitted.current) return;
@@ -2658,7 +2666,7 @@ export function AdminScreen() {
   const teachers = users.filter((u) => u.role === "TEACHER");
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDesc, setCourseDesc] = useState("");
-  const [courseLevel, setCourseLevel] = useState<"A1" | "A2" | "B1" | "B2">("B1");
+  const [courseLevel, setCourseLevel] = useState<PlatformLevel>("A1");
   const [courseType, setCourseType] = useState<MaterialType>("VIDEO");
   const [courseStatus, setCourseStatus] = useState<PublishStatus>("DRAFT");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
@@ -2699,7 +2707,7 @@ export function AdminScreen() {
   const [assignError, setAssignError] = useState("");
 
   const [qSection, setQSection] = useState<PlacementSection>("قراءة");
-  const [qLevel, setQLevel] = useState<"A1" | "A2" | "B1" | "B2">("B1");
+  const [qLevel, setQLevel] = useState<PlatformLevel>("A1");
   const [qType, setQType] = useState<PlacementQuestionType>("mcq");
   const [qPromptAr, setQPromptAr] = useState("");
   const [qHebrewText, setQHebrewText] = useState("");
@@ -3195,15 +3203,12 @@ export function AdminScreen() {
         <Label>المستوى</Label>
         <select
           value={courseLevel}
-          onChange={(e) =>
-            setCourseLevel(e.target.value as "A1" | "A2" | "B1" | "B2")
-          }
+          onChange={(e) => setCourseLevel(e.target.value as PlatformLevel)}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
-          <option value="A1">A1</option>
-          <option value="A2">A2</option>
-          <option value="B1">B1</option>
-          <option value="B2">B2</option>
+          {PLATFORM_LEVELS.map((l) => (
+            <option key={l} value={l}>{l}</option>
+          ))}
         </select>
       </div>
     </div>
@@ -4466,13 +4471,12 @@ export function AdminScreen() {
                   <Label>المستوى المستهدف</Label>
                   <select
                     value={qLevel}
-                    onChange={(e) => setQLevel(e.target.value as "A1" | "A2" | "B1" | "B2")}
+                    onChange={(e) => setQLevel(e.target.value as PlatformLevel)}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
-                    <option value="A1">A1</option>
-                    <option value="A2">A2</option>
-                    <option value="B1">B1</option>
-                    <option value="B2">B2</option>
+                    {PLATFORM_LEVELS.map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -6435,10 +6439,9 @@ function AdminCertificatesSection({
               <div className="space-y-1.5">
                 <Label>المستوى</Label>
                 <select value={cLevel} onChange={(e) => setCLevel(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="A1">A1</option>
-                  <option value="A2">A2</option>
-                  <option value="B1">B1</option>
-                  <option value="B2">B2</option>
+                  {PLATFORM_LEVELS.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">

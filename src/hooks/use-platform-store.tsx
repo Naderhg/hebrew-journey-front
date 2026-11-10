@@ -38,7 +38,7 @@ export interface CourseMaterial {
   id: string;
   title: string;
   description: string;
-  level: "A1" | "A2" | "B1" | "B2";
+  level: PlatformLevel | string;
   type: MaterialType;
   fileName: string;
   fileSize: string;
@@ -65,7 +65,7 @@ export interface PlacementQuestion {
   expectedAnswer?: string | null;
   paragraph?: string | null;
   audioUrl?: string | null;
-  levelTag: "A1" | "A2" | "B1" | "B2";
+  levelTag: PlatformLevel | string;
   isActive: boolean;
 }
 
@@ -175,7 +175,7 @@ interface CreateStaffUserInput {
 interface CreateMaterialInput {
   title: string;
   description: string;
-  level: "A1" | "A2" | "B1" | "B2";
+  level: PlatformLevel | string;
   type: MaterialType;
   fileName: string;
   fileSize: string;
@@ -195,7 +195,7 @@ interface CreatePlacementQuestionInput {
   expectedAnswer?: string;
   paragraph?: string;
   audioUrl?: string;
-  levelTag: "A1" | "A2" | "B1" | "B2";
+  levelTag: PlatformLevel | string;
 }
 
 interface CreateExamInput {

@@ -96,34 +96,56 @@ const todayLabel = () =>
 const dayGreeting = () => (new Date().getHours() < 12 ? "صباح الخير" : "مساء الخير");
 const firstNameOf = (fullName?: string) => fullName?.trim().split(/\s+/)[0] ?? "بك";
 
-export function MaterialPlayer({ material }: { material: { storageUrl: string; type: MaterialType; title: string; fileName: string } }) {
-  const url = mediaSrc(material.storageUrl);
-  if (material.type === "VIDEO") {
+function SingleMediaView({ url, type, title, fileName }: { url: string; type: MaterialType; title: string; fileName: string }) {
+  const src = mediaSrc(url);
+  if (type === "VIDEO") {
     return (
-      <video controls preload="metadata" className="w-full rounded-md bg-black" src={url}>
+      <video controls preload="metadata" className="w-full rounded-md bg-black" src={src}>
         متصفحك لا يدعم تشغيل الفيديو.
       </video>
     );
   }
-  if (material.type === "AUDIO") {
+  if (type === "AUDIO") {
     return (
-      <audio controls preload="metadata" className="w-full" src={url}>
+      <audio controls preload="metadata" className="w-full" src={src}>
         متصفحك لا يدعم تشغيل الصوت.
       </audio>
     );
   }
   return (
-    <div className="space-y-3">
-      <iframe src={url} title={material.title} className="h-[420px] w-full rounded-md border border-border bg-white" />
+    <div className="space-y-2">
+      <iframe src={src} title={title} className="h-[420px] w-full rounded-md border border-border bg-white" />
       <a
-        href={url}
+        href={src}
         target="_blank"
         rel="noreferrer"
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
       >
         <ExternalLink className="size-3.5" />
-        فتح الملف في تبويب جديد ({material.fileName})
+        فتح الملف في تبويب جديد ({fileName})
       </a>
+    </div>
+  );
+}
+
+export function MaterialPlayer({
+  material,
+}: {
+  material: { storageUrl: string; type: MaterialType; title: string; fileName: string; attachments?: MaterialAttachment[] | null };
+}) {
+  const extras = material.attachments ?? [];
+  return (
+    <div className="space-y-4">
+      <SingleMediaView url={material.storageUrl} type={material.type} title={material.title} fileName={material.fileName} />
+      {extras.map((att, idx) => (
+        <div key={idx} className="space-y-2 rounded-lg border border-border bg-background/60 p-3">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <b className="truncate">{att.name}</b>
+            <Badge tone="muted">{att.type === "VIDEO" ? "فيديو" : att.type === "AUDIO" ? "صوت" : "ملف"} · {att.size}</Badge>
+          </div>
+          <SingleMediaView url={att.url} type={att.type} title={att.name} fileName={att.name} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -1535,7 +1557,7 @@ export function TeacherScreen() {
                         <p className="mt-2 text-xs text-muted-foreground">{s.description}</p>
                       )}
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {s.meetingUrl && (
+                        {s.meetingUrl && s.location !== "offline" && (
                           <a
                             href={s.meetingUrl}
                             target="_blank"
@@ -2671,6 +2693,7 @@ export function AdminScreen() {
   const [courseStatus, setCourseStatus] = useState<PublishStatus>("DRAFT");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [extraAttachments, setExtraAttachments] = useState<MaterialAttachment[]>([]);
   const [courseUploading, setCourseUploading] = useState(false);
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
@@ -2802,14 +2825,29 @@ export function AdminScreen() {
         fileSize = courseType === "VIDEO" ? "120 MB" : "8.5 MB";
       }
 
-      // Upload any extra attachments (video + document + audio combos)
-      const finalAttachments: MaterialAttachment[] = [...extraAttachments];
+      // Upload any extra files + attachments (video + document + audio combos)
+      const inferMatType = (f: File): MaterialType => {
+        if (f.type.startsWith("video/") || /\.(mp4|mov|webm|mkv)$/i.test(f.name)) return "VIDEO";
+        if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg)$/i.test(f.name)) return "AUDIO";
+        return "DOCUMENT";
+      };
+      const uploadedExtras: MaterialAttachment[] = [];
+      for (const ef of extraFiles) {
+        const up = await uploadFile(ef, "courses");
+        uploadedExtras.push({
+          url: up.url,
+          type: inferMatType(ef),
+          name: ef.name,
+          size: `${(ef.size / (1024 * 1024)).toFixed(1)} MB`,
+        });
+      }
+      const finalAttachments: MaterialAttachment[] = [...extraAttachments, ...uploadedExtras];
 
       await addCourseMaterial({
         title: courseTitle,
         description: courseDesc || "مادة تدريبية مرفوعة من الإدارة",
         level: courseLevel,
-        type: courseType,
+        type: selectedFile ? inferMatType(selectedFile) : courseType,
         fileName,
         fileSize,
         assignedTeacherId: activeTeacherId,
@@ -2821,6 +2859,7 @@ export function AdminScreen() {
       setCourseTitle("");
       setCourseDesc("");
       setSelectedFile(null);
+      setExtraFiles([]);
       setExtraAttachments([]);
       setCourseSuccess(
         courseStatus === "PUBLISHED"
@@ -3224,13 +3263,52 @@ export function AdminScreen() {
     </div>
 
     <div className="space-y-1.5">
-      <Label>اختيار ملف الفيديو أو المستند</Label>
+      <Label>اختيار الملف الأساسي (فيديو / مستند / صوت)</Label>
       <Dropzone
         file={selectedFile}
         onFile={setSelectedFile}
         accept="video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx"
         hint="MP4, PDF, MP3, DOC, PPT"
       />
+    </div>
+
+    <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <Label>ملفات إضافية مع نفس الماتيريال (اختياري)</Label>
+          <p className="text-[11px] text-muted-foreground">يمكنك إرفاق فيديو + PDF + صوت أو عدة ملفات معاً في درس واحد</p>
+        </div>
+        <label className="cursor-pointer rounded-md bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/20">
+          + إضافة ملفات
+          <input
+            type="file"
+            multiple
+            accept="video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx"
+            className="hidden"
+            onChange={(e) => {
+              const list = Array.from(e.target.files ?? []);
+              if (list.length > 0) setExtraFiles((prev) => [...prev, ...list]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
+      {extraFiles.length > 0 && (
+        <div className="space-y-1 pt-1">
+          {extraFiles.map((f, idx) => (
+            <div key={idx} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs">
+              <span className="truncate font-medium">{f.name} <small className="font-lat text-muted-foreground">({(f.size / (1024 * 1024)).toFixed(1)} MB)</small></span>
+              <button
+                type="button"
+                onClick={() => setExtraFiles((prev) => prev.filter((_, i) => i !== idx))}
+                className="text-danger hover:underline"
+              >
+                إزالة
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
 
     <div className="space-y-1.5">
@@ -5730,7 +5808,7 @@ function AdminSchedulesSection({
       const input: CreateScheduleInput = {
         teacherId, title, dayOfWeek, startTime, endTime, location,
         ...(groupId ? { groupId } : {}),
-        ...(meetingUrl ? { meetingUrl } : {}),
+        ...(location === "online" && meetingUrl ? { meetingUrl } : {}),
       };
       if (editId) await onUpdate(editId, input);
       else await onCreate(input);
@@ -9555,19 +9633,19 @@ export function SupportScreen() {
                     <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا توجد حجوزات.</td></tr>
                   ) : (
                     opsBookings.slice(0, 30).map((b) => {
-                      const st: Record<string, { label: string; color: string }> = {
-                        booked: { label: "محجوزة", color: "#0b2f6e" },
-                        completed: { label: "مكتملة", color: "#2f9e4f" },
-                        cancelled: { label: "ملغاة", color: "#c0392b" },
-                        no_show: { label: "لم يحضر", color: "#e67e22" },
+                      const st: Record<string, { label: string; tone: "brand" | "sage" | "danger" | "gold" }> = {
+                        booked: { label: "محجوزة", tone: "brand" },
+                        completed: { label: "مكتملة", tone: "sage" },
+                        cancelled: { label: "ملغاة", tone: "danger" },
+                        no_show: { label: "لم يحضر", tone: "gold" },
                       };
-                      const s = st[b.status] ?? st.booked;
+                      const s = st[b.status] ?? st.booked!;
                       return (
                         <tr key={b.id} className="border-b">
                           <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
                           <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
                           <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
-                          <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
+                          <td className="p-2"><Badge tone={s.tone}>{s.label}</Badge></td>
                           <td className="p-2">
                             {b.status === "booked" && (
                               <Button size="sm" variant="ghost" onClick={() => { if (confirm("إلغاء الحصة؟ ستُرجع للطالب ويتحرر موعد المدرس.")) opsUpdateBooking(b.id, { status: "cancelled", reason: "إلغاء من خدمة العملاء" }).catch(() => {}); }}>
@@ -9925,8 +10003,8 @@ function OpsCreateSessionCard({
       } else if (slot.dayOfWeek !== dow) {
         continue;
       }
-      const [sh, sm] = String(slot.startTime).split(":").map(Number);
-      const [eh, em] = String(slot.endTime).split(":").map(Number);
+      const [sh = 0, sm = 0] = String(slot.startTime).split(":").map(Number);
+      const [eh = 0, em = 0] = String(slot.endTime).split(":").map(Number);
       let cur = sh * 60 + sm;
       const end = eh * 60 + em;
       const step = Math.max(duration, 30);
@@ -10214,7 +10292,7 @@ function OpsFreeLecturesSection({
   onFetchAvailability: (teacherId?: string) => Promise<void>;
   onCreateStudent: (input: { name: string; phone: string; level?: string | null; groupId?: string | null; notes?: string }) => Promise<void>;
   onDeleteStudent: (id: string) => Promise<void>;
-  onCreateLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string }) => Promise<void>;
+  onCreateLecture: (input: { title: string; description?: string; teacherId?: string; groupId?: string; level?: string | null; startsAt: string; endsAt?: string; meetingUrl?: string; studentIds?: string[] }) => Promise<void>;
   onUpdateLecture: (id: string, input: Record<string, unknown>) => Promise<void>;
   onSetLectureStudents: (id: string, studentIds: string[]) => Promise<void>;
   onDeleteLecture: (id: string) => Promise<void>;
@@ -10241,10 +10319,13 @@ function OpsFreeLecturesSection({
   const [lTitle, setLTitle] = useState("");
   const [lDesc, setLDesc] = useState("");
   const [lTeacherId, setLTeacherId] = useState("");
+  const [lTargetType, setLTargetType] = useState<"group" | "student">("group");
   const [lGroupId, setLGroupId] = useState("");
+  const [lStudentId, setLStudentId] = useState("");
   const [lLevel, setLLevel] = useState("");
-  const [lStarts, setLStarts] = useState("");
-  const [lEnds, setLEnds] = useState("");
+  const [lDate, setLDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [lDuration, setLDuration] = useState(60);
+  const [lPickedTime, setLPickedTime] = useState<string | null>(null);
   const [lUrl, setLUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -10252,29 +10333,57 @@ function OpsFreeLecturesSection({
   const [studentsOpenFor, setStudentsOpenFor] = useState<string | null>(null);
 
   useEffect(() => {
+    setLPickedTime(null);
     if (lTeacherId) onFetchAvailability(lTeacherId).catch(() => {});
   }, [lTeacherId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function pickSlot(slot: any) {
-    const [sh, sm] = slot.startTime.split(":").map(Number);
-    const [eh, em] = slot.endTime.split(":").map(Number);
-    const d = new Date();
-    if (slot.specificDate) {
-      const sd = new Date(slot.specificDate);
-      d.setFullYear(sd.getFullYear(), sd.getMonth(), sd.getDate());
-    } else {
-      const diff = ((slot.dayOfWeek ?? 0) - d.getDay() + 7) % 7;
-      d.setDate(d.getDate() + diff);
+  const lecTimeSlots = useMemo(() => {
+    if (!lTeacherId || !lDate) return [] as { time: string; label: string; busy: boolean }[];
+    const d = new Date(`${lDate}T00:00:00`);
+    const dow = d.getDay();
+    const busyEvts = freeLectures
+      .filter((fl) => fl.teacherId === lTeacherId && (fl.status === "scheduled" || fl.status === "live"))
+      .map((fl) => {
+        const s = new Date(fl.startsAt).getTime();
+        const e = fl.endsAt ? new Date(fl.endsAt).getTime() : s + 60 * 60_000;
+        return { start: s, end: e };
+      });
+    const out: { time: string; label: string; busy: boolean }[] = [];
+    const seen = new Set<string>();
+    for (const slot of availability ?? []) {
+      if (slot.isActive === false) continue;
+      if (slot.specificDate) {
+        if (String(slot.specificDate).slice(0, 10) !== lDate) continue;
+      } else if (slot.dayOfWeek !== dow) {
+        continue;
+      }
+      const [sh = 0, sm = 0] = String(slot.startTime).split(":").map(Number);
+      const [eh = 0, em = 0] = String(slot.endTime).split(":").map(Number);
+      let cur = sh * 60 + sm;
+      const end = eh * 60 + em;
+      const step = Math.max(lDuration, 30);
+      while (cur + lDuration <= end) {
+        const hh = String(Math.floor(cur / 60)).padStart(2, "0");
+        const mm = String(cur % 60).padStart(2, "0");
+        const t24 = `${hh}:${mm}`;
+        if (!seen.has(t24)) {
+          seen.add(t24);
+          const h12 = Math.floor(cur / 60) % 12 || 12;
+          const ampm = Math.floor(cur / 60) < 12 ? "ص" : "م";
+          const slotStart = new Date(`${lDate}T${t24}:00`).getTime();
+          const slotEnd = slotStart + lDuration * 60_000;
+          const busy = busyEvts.some((e) => slotStart < e.end && slotEnd > e.start);
+          out.push({ time: t24, label: `${String(h12).padStart(2, "0")}:${mm} ${ampm}`, busy });
+        }
+        cur += step;
+      }
     }
-    d.setHours(sh, sm, 0, 0);
-    if (!slot.specificDate && d.getTime() <= Date.now()) {
-      d.setDate(d.getDate() + 7); // this week's slot passed — take next week's
-    }
-    setLStarts(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
-    const e = new Date(d);
-    e.setHours(eh, em, 0, 0);
-    setLEnds(`${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
-  }
+    return out;
+  }, [lTeacherId, lDate, lDuration, availability, freeLectures]);
+
+  const lDateLabel = lDate
+    ? new Date(`${lDate}T00:00:00`).toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    : "—";
 
   async function handleCreateStudent(e: React.FormEvent) {
     e.preventDefault();
@@ -10289,20 +10398,24 @@ function OpsFreeLecturesSection({
   async function handleCreateLecture(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-    if (!lTitle || !lStarts) { setErr("العنوان والموعد مطلوبان"); return; }
+    if (!lTitle || !lDate || !lPickedTime) { setErr("العنوان والتاريخ والوقت مطلوبون"); return; }
+    if (lTargetType === "student" && !lStudentId) { setErr("اختر الطالب المستهدف"); return; }
+    const start = new Date(`${lDate}T${lPickedTime}:00`);
+    const end = new Date(start.getTime() + lDuration * 60_000);
     setSaving(true);
     try {
       await onCreateLecture({
         title: lTitle,
         ...(lDesc ? { description: lDesc } : {}),
         ...(lTeacherId ? { teacherId: lTeacherId } : {}),
-        ...(lGroupId ? { groupId: lGroupId } : {}),
+        ...(lTargetType === "group" && lGroupId ? { groupId: lGroupId } : {}),
+        ...(lTargetType === "student" && lStudentId ? { studentIds: [lStudentId] } : {}),
         level: lLevel || null,
-        startsAt: new Date(lStarts).toISOString(),
-        ...(lEnds ? { endsAt: new Date(lEnds).toISOString() } : {}),
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
         ...(lUrl ? { meetingUrl: lUrl } : {}),
       });
-      setLTitle(""); setLDesc(""); setLTeacherId(""); setLGroupId(""); setLLevel(""); setLStarts(""); setLEnds(""); setLUrl("");
+      setLTitle(""); setLDesc(""); setLTeacherId(""); setLGroupId(""); setLStudentId(""); setLLevel(""); setLPickedTime(null); setLUrl("");
       setShowLecForm(false);
     } catch (e2) { setErr(e2 instanceof Error ? e2.message : "فشل إنشاء المحاضرة"); } finally { setSaving(false); }
   }
@@ -10417,26 +10530,18 @@ function OpsFreeLecturesSection({
               </Button>
             </div>
             {showLecForm && (
-              <form onSubmit={handleCreateLecture} className="mt-4 space-y-3 rounded-md border border-border bg-muted/40 p-4">
+              <form onSubmit={handleCreateLecture} className="mt-4 space-y-4 rounded-xl border border-border bg-muted/40 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label>عنوان المحاضرة</Label>
-                    <Input value={lTitle} onChange={(e) => setLTitle(e.target.value)} required />
+                    <Input value={lTitle} onChange={(e) => setLTitle(e.target.value)} required placeholder="مثال: محاضرة تعريفية — مستوى A1" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>المدرس</Label>
                     <select value={lTeacherId} onChange={(e) => setLTeacherId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="">— بدون مدرس —</option>
+                      <option value="">— اختر المدرس —</option>
                       {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
                     </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>المجموعة المستهدفة</Label>
-                    <select value={lGroupId} onChange={(e) => setLGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                      <option value="">— بدون مجموعة —</option>
-                      {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                    </select>
-                    <small className="text-muted-foreground">المحاضرة تظهر للطلاب المختارين من زر "الطلاب" + أعضاء المجموعة لو حددتها</small>
                   </div>
                   <div className="space-y-1.5">
                     <Label>المستوى</Label>
@@ -10445,41 +10550,129 @@ function OpsFreeLecturesSection({
                       {PLATFORM_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>رابط الاجتماع</Label>
-                    <Input value={lUrl} onChange={(e) => setLUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
+
+                  {/* Target: group OR single student */}
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>موجهة إلى</Label>
+                    <div className="flex gap-1.5">
+                      {([["group", "مجموعة"], ["student", "طالب معين"]] as const).map(([v, label]) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setLTargetType(v)}
+                          className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
+                            lTargetType === v ? "bg-brand text-white" : "bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {lTargetType === "group" ? (
+                      <select value={lGroupId} onChange={(e) => setLGroupId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                        <option value="">— اختر المجموعة (أو اتركها وتحدد الطلاب لاحقاً) —</option>
+                        {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                      </select>
+                    ) : (
+                      <select value={lStudentId} onChange={(e) => setLStudentId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                        <option value="">— اختر الطالب —</option>
+                        {platformStudents.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.fullName}{s.phone ? ` — ${s.phone}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
-                  {lTeacherId && availability.length > 0 && (
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label>مواعيد المدرس المتاحة</Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {availability.map((slot) => {
-                          const dayName = slot.specificDate
-                            ? new Date(slot.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
-                            : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][slot.dayOfWeek ?? 0];
+
+                  {/* Date + Duration + Teacher availability grid (calls-style) */}
+                  <div className="space-y-1.5">
+                    <Label>التاريخ</Label>
+                    <Input
+                      type="date"
+                      value={lDate}
+                      onChange={(e) => { setLDate(e.target.value); setLPickedTime(null); }}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>مدة المحاضرة</Label>
+                    <select
+                      value={lDuration}
+                      onChange={(e) => { setLDuration(Number(e.target.value)); setLPickedTime(null); }}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value={30}>30 دقيقة</option>
+                      <option value={60}>60 دقيقة (ساعة)</option>
+                      <option value={90}>90 دقيقة (ساعة ونصف)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2 rounded-xl border border-border bg-background/70 p-3 sm:col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Clock3 className="size-4 text-brand" />
+                      <span className="text-xs font-bold">المواعيد المتاحة للمدرس</span>
+                      {lDate && <small className="text-xs text-muted-foreground">({lDateLabel})</small>}
+                    </div>
+                    {!lTeacherId ? (
+                      <div className="space-y-2 py-2 text-center text-xs text-muted-foreground">
+                        <p>اختر المدرس أولاً لعرض مواعيده المتاحة — أو اختر الوقت يدوياً:</p>
+                        <div className="mx-auto max-w-[200px]">
+                          <Input type="time" value={lPickedTime ?? ""} onChange={(e) => setLPickedTime(e.target.value || null)} />
+                        </div>
+                      </div>
+                    ) : lecTimeSlots.length === 0 ? (
+                      <div className="space-y-2 py-2 text-center text-xs text-muted-foreground">
+                        <p>لا توجد فترات متاحة للمدرس في هذا اليوم — جرّب تاريخاً آخر أو اختر وقتاً يدوياً:</p>
+                        {availability.length > 0 && (
+                          <p className="text-[11px]">
+                            أيام المدرس المتاحة:{" "}
+                            {Array.from(new Set(availability.map((a) =>
+                              a.specificDate
+                                ? new Date(a.specificDate).toLocaleDateString("ar-EG", { day: "numeric", month: "short" })
+                                : ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][a.dayOfWeek ?? 0]
+                            ))).join(" · ")}
+                          </p>
+                        )}
+                        <div className="mx-auto max-w-[200px]">
+                          <Input type="time" value={lPickedTime ?? ""} onChange={(e) => setLPickedTime(e.target.value || null)} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {lecTimeSlots.map((slot) => {
+                          const active = lPickedTime === slot.time;
                           return (
-                            <button key={slot.id} type="button" onClick={() => pickSlot(slot)}
-                              className="rounded-md border border-input bg-background px-2.5 py-1 text-xs hover:border-brand hover:bg-brand/5">
-                              {dayName} {slot.startTime}—{slot.endTime}
+                            <button
+                              key={slot.time}
+                              type="button"
+                              disabled={slot.busy}
+                              onClick={() => setLPickedTime(active ? null : slot.time)}
+                              className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                                slot.busy
+                                  ? "cursor-not-allowed border-border bg-muted/70 text-muted-foreground line-through opacity-60"
+                                  : active
+                                    ? "border-brand bg-brand text-white shadow-sm"
+                                    : "border-border bg-background text-foreground hover:border-brand/50 hover:bg-brand/5"
+                              }`}
+                            >
+                              {slot.busy ? <span>{slot.label} · محجوز</span> : <>{active && <Check className="size-3.5" />}<span>{slot.label}</span></>}
                             </button>
                           );
                         })}
                       </div>
-                    </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <Label>البداية</Label>
-                    <Input type="datetime-local" value={lStarts} onChange={(e) => setLStarts(e.target.value)} required />
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>النهاية</Label>
-                    <Input type="datetime-local" value={lEnds} onChange={(e) => setLEnds(e.target.value)} />
+
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>رابط الاجتماع (اختياري — يُنشأ تلقائياً إن تُرك فارغاً)</Label>
+                    <Input value={lUrl} onChange={(e) => setLUrl(e.target.value)} placeholder="https://zoom.us/j/..." />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label>الوصف</Label>
                     <textarea value={lDesc} onChange={(e) => setLDesc(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
                   </div>
                 </div>
+                {err && <p className="rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{err}</p>}
                 <Button type="submit" disabled={saving}>{saving ? "جاري الإنشاء..." : "إنشاء المحاضرة"}</Button>
               </form>
             )}
@@ -12303,11 +12496,11 @@ function AdminAllBookingsCard({
     return true;
   });
 
-  const st: Record<string, { label: string; color: string }> = {
-    booked: { label: "محجوزة", color: "#0b2f6e" },
-    completed: { label: "مكتملة", color: "#2f9e4f" },
-    cancelled: { label: "ملغاة", color: "#c0392b" },
-    no_show: { label: "لم يحضر", color: "#e67e22" },
+  const st: Record<string, { label: string; tone: "brand" | "sage" | "danger" | "gold" }> = {
+    booked: { label: "محجوزة", tone: "brand" },
+    completed: { label: "مكتملة", tone: "sage" },
+    cancelled: { label: "ملغاة", tone: "danger" },
+    no_show: { label: "لم يحضر", tone: "gold" },
   };
 
   return (
@@ -12379,13 +12572,13 @@ function AdminAllBookingsCard({
               <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">لا توجد حجوزات مطابقة للفلاتر.</td></tr>
             ) : (
               filtered.map((b) => {
-                const s = st[b.status] ?? st.booked;
+                const s = st[b.status] ?? st.booked!;
                 return (
                   <tr key={b.id} className="border-b">
                     <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
                     <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
                     <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
-                    <td className="p-2"><Badge style={{ background: s.color }}>{s.label}</Badge></td>
+                    <td className="p-2"><Badge tone={s.tone}>{s.label}</Badge></td>
                     <td className="p-2">
                       {b.status === "booked" && (
                         <div className="flex gap-1">

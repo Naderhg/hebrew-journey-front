@@ -45,6 +45,30 @@ export function getHomeRouteForRole(role?: string): string {
   }
 }
 
+const DEVICE_KEY = "ohran_device_id";
+
+function getDeviceId(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      const m = document.cookie.match(/(?:^|;\s*)ohran_device_id=([^;]+)/);
+      if (m?.[1]) id = decodeURIComponent(m[1]);
+    }
+    if (!id) {
+      const rand = typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()
+        : Math.random().toString(36).slice(2, 14).toUpperCase();
+      id = `DEV-${rand}`;
+    }
+    localStorage.setItem(DEVICE_KEY, id);
+    document.cookie = `${DEVICE_KEY}=${encodeURIComponent(id)}; path=/; max-age=${60 * 60 * 24 * 365 * 5}; SameSite=Lax`;
+    return id;
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function register(input: {
   phone: string;
   password: string;
@@ -54,7 +78,7 @@ export async function register(input: {
 }): Promise<{ user: AuthUser }> {
   const result = await apiFetch<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",
-    body: { ...input, role: "STUDENT" },
+    body: { ...input, role: "STUDENT", deviceId: getDeviceId() },
     skipAuth: true,
   });
   return result;
@@ -66,7 +90,7 @@ export async function login(input: {
 }): Promise<{ user: AuthUser; accessToken: string }> {
   const result = await apiFetch<{ user: AuthUser; accessToken: string; refreshToken: string }>("/api/auth/login", {
     method: "POST",
-    body: input,
+    body: { ...input, deviceId: getDeviceId() },
     skipAuth: true,
   });
   setAccessToken(result.accessToken);

@@ -1417,6 +1417,9 @@ export function TeacherScreen() {
                   <p className="mt-1 text-xs text-muted-foreground">{mat.description}</p>
                   <div className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
                     {mat.fileName} · {mat.fileSize}
+                    {(mat.attachments?.length ?? 0) > 0 && (
+                      <Badge tone="brand" className="mr-1.5">+{mat.attachments!.length} مرفق</Badge>
+                    )}
                   </div>
                   <Button
                     variant="secondary"
@@ -7617,6 +7620,9 @@ export function CoursesScreen() {
               <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
               <p className="mt-2 text-xs text-muted-foreground">
                 المدرس: {m.assignedTeacherName} · {m.fileSize}
+                {(m.attachments?.length ?? 0) > 0 && (
+                  <Badge tone="brand" className="mr-1.5">{1 + m.attachments!.length} ملفات</Badge>
+                )}
               </p>
               <Button
                 variant="secondary"

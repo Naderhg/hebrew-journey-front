@@ -617,8 +617,8 @@ export interface TeacherAnalytics {
     lectureRate: number;
     sessionRate: number;
   };
-  lectures: { id: string; title: string; startsAt: string; status?: string; groupName: string | null; groupSize: number | null; attended: number; absent?: number; earned: number }[];
-  bookings: { id: string; studentId: string; studentName: string; packageName: string | null; startsAt: string; status: string; attended: boolean; deducted: boolean; earned: number; sessionPrice: number }[];
+  lectures: { id: string; title: string; startsAt: string; endsAt?: string | null; status?: string; groupName: string | null; groupSize: number | null; attended: number; absent?: number; counted?: boolean; earned: number }[];
+  bookings: { id: string; studentId: string; studentName: string; packageName: string | null; startsAt: string; status: string; attended: boolean; deducted: boolean; ended?: boolean; earned: number; sessionPrice: number }[];
   students: { studentId: string; studentName: string; attended: number; noShow: number; lateCancel: number; remaining: number | null; earned: number; upcoming: number }[];
 }
 

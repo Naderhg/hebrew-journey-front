@@ -11080,7 +11080,11 @@ function TeacherAnalyticsSection({
                   </div>
                   <div className="flex items-center gap-2">
                     {l.status === "live" && <Badge tone="gold">جارية</Badge>}
-                    <span className="text-xs font-bold text-brand2">+{l.earned} ج.م</span>
+                    {l.counted === false ? (
+                      <span className="text-xs text-muted-foreground">تُحتسب بعد انتهاء الموعد</span>
+                    ) : (
+                      <span className="text-xs font-bold text-brand2">+{l.earned} ج.م</span>
+                    )}
                     <Badge tone="sage">{l.attended} حضور{l.groupSize ? ` / ${l.groupSize}` : ""}</Badge>
                     {(l.absent ?? 0) > 0 && <Badge tone="danger">{l.absent} غياب</Badge>}
                   </div>
@@ -11134,7 +11138,9 @@ function TeacherAnalyticsSection({
             <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حصص في هذه الفترة.</p>
           ) : (
             data.bookings.map((b) => {
-              const st = STATUS[b.status] ?? { label: b.status, tone: "muted" as const };
+              const st = b.status === "booked" && b.ended
+                ? { label: "انتهت — تم احتسابها", tone: "sage" as const }
+                : STATUS[b.status] ?? { label: b.status, tone: "muted" as const };
               return (
                 <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3">
                   <div className="min-w-0">

@@ -55,7 +55,7 @@ function StudentFreeLecturesPage() {
             return (
               <Card key={l.id}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <b>{l.title}</b>
                     <div className="mt-1 flex flex-wrap gap-1">
                       <Badge style={{ background: st.color }}>{st.label}</Badge>
@@ -67,18 +67,18 @@ function StudentFreeLecturesPage() {
                       {l.teacher && ` · ${l.teacher.fullName}`}
                     </p>
                     {l.description && <p className="mt-1 text-sm text-muted-foreground">{l.description}</p>}
-                    {l.meetingUrl && l.status !== "cancelled" && (
-                      <a
-                        href={l.meetingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block rounded-md bg-[#0b2f6e] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#092652]"
-                      >
-                        انضم للمحاضرة
-                      </a>
-                    )}
                   </div>
                 </div>
+                {l.meetingUrl && l.status !== "cancelled" && (
+                  <a
+                    href={l.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#0b2f6e] py-2.5 text-sm font-bold text-white transition hover:bg-[#092652]"
+                  >
+                    {l.status === "live" ? "انضم إلى المحاضرة الآن" : "دخول المحاضرة"}
+                  </a>
+                )}
 
                 {(l.files ?? []).length > 0 && (
                   <div className="mt-3 border-t border-border pt-3">

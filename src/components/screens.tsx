@@ -4784,14 +4784,18 @@ export function AdminScreen() {
           {/* Report summary */}
           {adminBookingsReport && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <Card className="p-4">
                   <b className="font-lat text-2xl text-sage">{(adminBookingsReport.totals.totalRevenue ?? 0).toLocaleString("ar-EG")} ج</b>
                   <p className="text-xs text-muted-foreground">إجمالي الفلوس الداخلة من كل الباقات ({adminBookingsReport.totals.subscriptionsCount ?? 0} اشتراك)</p>
                 </Card>
                 <Card className="p-4">
                   <b className="font-lat text-2xl text-brand">{(adminBookingsReport.totals.callsRevenue ?? 0).toLocaleString("ar-EG")} ج</b>
-                  <p className="text-xs text-muted-foreground">إيراد باقات المكالمات (أساسية: {(adminBookingsReport.totals.basicRevenue ?? 0).toLocaleString("ar-EG")} ج)</p>
+                  <p className="text-xs text-muted-foreground">إيراد باقات المكالمات</p>
+                </Card>
+                <Card className="p-4">
+                  <b className="font-lat text-2xl text-[#7a4fd0]">{(adminBookingsReport.totals.basicRevenue ?? 0).toLocaleString("ar-EG")} ج</b>
+                  <p className="text-xs text-muted-foreground">إيراد الباقات الأساسية فقط</p>
                 </Card>
                 <Card className="p-4">
                   <b className="font-lat text-2xl text-gold">{(adminBookingsReport.totals.teacherPayout ?? 0).toLocaleString("ar-EG")} ج</b>
@@ -6716,35 +6720,33 @@ export function LecturesScreen() {
           ) : (
             studentLectures.map((l) => (
               <div key={l.id} className="rounded-md border border-border bg-background/60 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <b className="text-sm">{l.title}</b>
-                      <Badge tone={l.status === "live" ? "sage" : l.status === "completed" ? "muted" : "brand"}>
-                        {l.status === "live" ? "مباشر الآن" : l.status === "completed" ? "مكتملة" : "مجدولة"}
-                      </Badge>
-                      {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
-                      {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
-                    </div>
-                    <small className="mt-1 block text-muted-foreground">
-                      {l.teacher?.fullName ?? "—"}
-                      {" · "}
-                      {new Date(l.startsAt).toLocaleString("ar-EG")}
-                      {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
-                    </small>
-                    {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <b className="text-sm">{l.title}</b>
+                    <Badge tone={l.status === "live" ? "sage" : l.status === "completed" ? "muted" : "brand"}>
+                      {l.status === "live" ? "مباشر الآن" : l.status === "completed" ? "مكتملة" : "مجدولة"}
+                    </Badge>
+                    {l.level && <Badge tone="muted">مستوى {l.level}</Badge>}
+                    {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
                   </div>
-                  {l.meetingUrl && (
-                    <a
-                      href={l.meetingUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-brand/90"
-                    >
-                      دخول المحاضرة ↗
-                    </a>
-                  )}
+                  <small className="mt-1 block text-muted-foreground">
+                    {l.teacher?.fullName ?? "—"}
+                    {" · "}
+                    {new Date(l.startsAt).toLocaleString("ar-EG")}
+                    {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
+                  </small>
+                  {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
                 </div>
+                {l.meetingUrl && l.status !== "cancelled" && (
+                  <a
+                    href={l.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                  >
+                    {l.status === "live" ? "انضم إلى المحاضرة الآن" : "دخول المحاضرة"}
+                  </a>
+                )}
               </div>
             ))
           )}
@@ -6762,20 +6764,10 @@ export function LecturesScreen() {
             ) : (
               studentSchedules.map((s) => (
                 <div key={s.id} className={`rounded-md border p-3 ${s.isLive ? "border-sage/50 bg-sage/5" : "border-border bg-background/60"}`}>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <b className="text-sm">{s.title}</b>
                     <div className="flex items-center gap-2">
                       {s.isLive && <Badge tone="sage">مباشر الآن</Badge>}
-                      {s.meetingUrl && (
-                        <a
-                          href={s.meetingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-md bg-brand px-2.5 py-1 text-xs font-semibold text-primary-foreground"
-                        >
-                          {s.isLive ? "انضم الآن ↗" : "دخول Zoom"}
-                        </a>
-                      )}
                       <Badge tone={s.location === "online" ? "brand" : "gold"}>
                         {s.location === "online" ? "أونلاين" : "أوفلاين"}
                       </Badge>
@@ -6785,6 +6777,16 @@ export function LecturesScreen() {
                     كل {DAY_NAMES[s.dayOfWeek]} · {s.startTime}–{s.endTime}
                     {(s.group?.name ?? s.groupName) && ` · مجموعة ${s.group?.name ?? s.groupName}`} · المدرس: {s.teacher.fullName}
                   </small>
+                  {s.meetingUrl && s.location !== "offline" && (
+                    <a
+                      href={s.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                    >
+                      {s.isLive ? "انضم الآن" : "دخول المحاضرة"}
+                    </a>
+                  )}
                 </div>
               ))
             )}
@@ -12480,12 +12482,17 @@ function AdminAllBookingsCard({
   const [dateF, setDateF] = useState("");
   const [fromD, setFromD] = useState("");
   const [toD, setToD] = useState("");
+  const [pkgF, setPkgF] = useState("");
+  const [modeF, setModeF] = useState("");
 
   const teachers = Array.from(
     new Map(bookings.filter((b) => b.teacher?.id).map((b) => [b.teacher!.id, b.teacher!.fullName])).entries(),
   );
   const now = Date.now();
-  const hasFilters = !!(q || teacherF || statusF || periodF || dateF || fromD || toD);
+  const hasFilters = !!(q || teacherF || statusF || periodF || dateF || fromD || toD || pkgF || modeF);
+
+  const pkgCategory = (b: import("../hooks/use-platform-store").LessonBookingItem) =>
+    b.subscription?.package?.category === "calls" ? "calls" : b.subscription ? "basic" : "none";
 
   const filtered = bookings.filter((b) => {
     if (q.trim()) {
@@ -12495,6 +12502,9 @@ function AdminAllBookingsCard({
     }
     if (teacherF && b.teacher?.id !== teacherF) return false;
     if (statusF && b.status !== statusF) return false;
+    if (pkgF && pkgCategory(b) !== pkgF) return false;
+    if (modeF === "online" && !b.meetingUrl) return false;
+    if (modeF === "offline" && b.meetingUrl) return false;
     const ms = new Date(b.startsAt).getTime();
     if (periodF === "upcoming" && ms < now) return false;
     if (periodF === "past" && ms >= now) return false;
@@ -12526,7 +12536,7 @@ function AdminAllBookingsCard({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => { setQ(""); setTeacherF(""); setStatusF(""); setPeriodF(""); setDateF(""); setFromD(""); setToD(""); }}
+            onClick={() => { setQ(""); setTeacherF(""); setStatusF(""); setPeriodF(""); setDateF(""); setFromD(""); setToD(""); setPkgF(""); setModeF(""); }}
           >
             مسح الفلاتر
           </Button>
@@ -12548,7 +12558,7 @@ function AdminAllBookingsCard({
         ))}
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <SearchBox value={q} onChange={setQ} placeholder="بحث باسم الطالب / الرقم / المدرس" />
         <div className="space-y-0.5">
           <Input type="date" value={dateF} onChange={(e) => setDateF(e.target.value)} title="تاريخ يوم محدد" />
@@ -12563,6 +12573,17 @@ function AdminAllBookingsCard({
           <option value="completed">مكتملة</option>
           <option value="no_show">لم يحضر</option>
           <option value="cancelled">ملغاة</option>
+        </select>
+        <select value={pkgF} onChange={(e) => setPkgF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">كل أنواع الباقات</option>
+          <option value="calls">باقات المكالمات</option>
+          <option value="basic">الباقات الأساسية</option>
+          <option value="none">بدون باقة</option>
+        </select>
+        <select value={modeF} onChange={(e) => setModeF(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">أونلاين + أوفلاين</option>
+          <option value="online">أونلاين (برابط اجتماع)</option>
+          <option value="offline">أوفلاين (بدون رابط)</option>
         </select>
         <Input type="date" value={fromD} onChange={(e) => setFromD(e.target.value)} title="من تاريخ" />
         <Input type="date" value={toD} onChange={(e) => setToD(e.target.value)} title="إلى تاريخ" />

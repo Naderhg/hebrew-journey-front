@@ -1000,7 +1000,7 @@ export interface LessonBookingItem {
   id: string;
   teacher?: { id: string; fullName: string };
   student?: { id: string; fullName: string; phone?: string | null };
-  subscription?: { id: string; package: { nameAr: string } } | null;
+  subscription?: { id: string; package: { nameAr: string; category?: string } } | null;
   startsAt: string;
   endsAt: string;
   status: "booked" | "completed" | "cancelled" | "no_show";

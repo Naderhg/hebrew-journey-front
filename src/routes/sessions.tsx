@@ -154,14 +154,19 @@ function StudentSessionsPage() {
                       {fmtDate(b.startsAt)}
                       {b.endsAt ? ` — ${new Date(b.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
                     </p>
-                    {b.meetingUrl && (
-                      <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
-                        رابط الاجتماع
-                      </a>
-                    )}
                   </div>
                   <Badge style={{ background: STATUS_LABELS.booked.color }}>{STATUS_LABELS.booked.label}</Badge>
                 </div>
+                {b.meetingUrl && (
+                  <a
+                    href={b.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#0b2f6e] py-2.5 text-sm font-bold text-white transition hover:bg-[#092652]"
+                  >
+                    دخول المحاضرة
+                  </a>
+                )}
                 <p className="mt-3 text-xs text-muted-foreground">
                   لتغيير الموعد أو الإلغاء، تواصل مع فريق الدعم.
                 </p>

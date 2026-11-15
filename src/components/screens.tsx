@@ -1580,17 +1580,17 @@ export function TeacherScreen() {
                       {s.description && (
                         <p className="mt-2 text-xs text-muted-foreground">{s.description}</p>
                       )}
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {s.meetingUrl && s.location !== "offline" && (
-                          <a
-                            href={s.meetingUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-brand/90"
-                          >
-                            {t("دخول الاجتماع ↗")}
-                          </a>
-                        )}
+                      {s.meetingUrl && s.location !== "offline" && (
+                        <a
+                          href={s.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                        >
+                          {s.isLive || tl?.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
+                        </a>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         {isToday && (!tl || tl.status === "scheduled") && (
                           <Button
                             variant="primary"
@@ -5984,11 +5984,6 @@ function AdminSchedulesSection({
                   <small className="mt-1 block text-muted-foreground">
                     {t("المدرس")}: {s.teacher?.fullName ?? "—"} · {t("كل")} {t(SCH_DAY_NAMES[s.dayOfWeek]!)} · {s.startTime}–{s.endTime}
                   </small>
-                  {s.meetingUrl && (
-                    <a href={s.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
-                      {t("رابط الاجتماع الثابت ↗")}
-                    </a>
-                  )}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Button variant="ghost" className="min-h-7 px-2.5 text-xs" onClick={() => startEdit(s)}>
@@ -6006,6 +6001,16 @@ function AdminSchedulesSection({
                   </button>
                 </div>
               </div>
+              {s.meetingUrl && s.location !== "offline" && (
+                <a
+                  href={s.meetingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                >
+                  {t("دخول المحاضرة")}
+                </a>
+              )}
             </Card>
           ))
         )}
@@ -9696,11 +9701,23 @@ export function SupportScreen() {
                           <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                           <td className="p-2"><Badge tone={s.tone}>{s.label}</Badge></td>
                           <td className="p-2">
-                            {b.status === "booked" && (
-                              <Button size="sm" variant="ghost" onClick={() => { if (confirm(t("إلغاء الحصة؟ ستُرجع للطالب ويتحرر موعد المدرس."))) opsUpdateBooking(b.id, { status: "cancelled", reason: "إلغاء من خدمة العملاء" }).catch(() => {}); }}>
-                                {t("إلغاء")}
-                              </Button>
-                            )}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {b.meetingUrl && b.status !== "cancelled" && (
+                                <a
+                                  href={b.meetingUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center justify-center rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:bg-brand/90"
+                                >
+                                  {t("دخول المحاضرة")}
+                                </a>
+                              )}
+                              {b.status === "booked" && (
+                                <Button size="sm" variant="ghost" onClick={() => { if (confirm(t("إلغاء الحصة؟ ستُرجع للطالب ويتحرر موعد المدرس."))) opsUpdateBooking(b.id, { status: "cancelled", reason: "إلغاء من خدمة العملاء" }).catch(() => {}); }}>
+                                  {t("إلغاء")}
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -10766,9 +10783,6 @@ function OpsFreeLecturesSection({
                         {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
                         {l.teacher && ` · ${l.teacher.fullName}`}
                       </p>
-                      {l.meetingUrl && (
-                        <a href={l.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand2 underline">{t("رابط الاجتماع")}</a>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Button
@@ -10793,6 +10807,16 @@ function OpsFreeLecturesSection({
                       </button>
                     </div>
                   </div>
+                  {l.meetingUrl && l.status !== "cancelled" && (
+                    <a
+                      href={l.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                    >
+                      {l.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
+                    </a>
+                  )}
 
                   {/* Files */}
                   <div className="mt-3 border-t border-border pt-3">
@@ -11516,17 +11540,17 @@ function TeacherFreeLecturesSection({
                   </p>
                   {l.description && <p className="mt-1 text-sm text-muted-foreground">{l.description}</p>}
                 </div>
-                {l.meetingUrl && (l.status === "live" || l.status === "scheduled") && (
-                  <a
-                    href={l.meetingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block rounded-md bg-[#0b2f6e] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#092652]"
-                  >
-                    {l.status === "live" ? t("ابدأ المحاضرة") : t("رابط الاجتماع")}
-                  </a>
-                )}
               </div>
+              {l.meetingUrl && (l.status === "live" || l.status === "scheduled") && (
+                <a
+                  href={l.meetingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                >
+                  {l.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
+                </a>
+              )}
 
               {(l.files ?? []).length > 0 && (
                 <div className="mt-3 border-t border-border pt-3">
@@ -11810,6 +11834,17 @@ function TeacherScheduleTimeline({
                   {r.sub && <p className="truncate pt-0.5" title={r.sub}>{r.sub}</p>}
                 </div>
 
+                {r.meetingUrl && (r.status === "scheduled" || r.status === "live" || r.status === "booked") && (
+                  <a
+                    href={r.meetingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                  >
+                    {r.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
+                  </a>
+                )}
+
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
                   {r.kind === "lecture" && r.status === "scheduled" && (
                     <Button variant="primary" className="text-xs" onClick={() => onLectureStatus(r.id, "live")}>{t("بدء المحاضرة")}</Button>
@@ -11822,16 +11857,6 @@ function TeacherScheduleTimeline({
                       <Button variant="primary" className="text-xs" onClick={() => onBookingStatus(r.id, "completed")}>{t("مكتملة")}</Button>
                       <Button variant="secondary" className="text-xs" onClick={() => onBookingStatus(r.id, "no_show")}>{t("لم يحضر")}</Button>
                     </>
-                  )}
-                  {r.meetingUrl && (r.status === "scheduled" || r.status === "live" || r.status === "booked") && (
-                    <a
-                      href={r.meetingUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
-                    >
-                      {t("دخول الاجتماع ↗")}
-                    </a>
                   )}
                   {r.kind === "lecture" && (ended || r.status === "completed") && (
                     <button
@@ -12496,18 +12521,18 @@ function OpsLecturesListCard({
                   {l.level && <Badge tone="muted">{t("مستوى")} {l.level}</Badge>}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
-                {l.meetingUrl && (
-                  <a
-                    href={l.meetingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-md bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand/20"
-                  >
-                    {t("رابط الاجتماع")} ↗
-                  </a>
-                )}
-                {onCancel && l.status !== "cancelled" && l.status !== "completed" && (
+              {l.meetingUrl && l.status !== "cancelled" && (
+                <a
+                  href={l.meetingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-brand/90"
+                >
+                  {l.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
+                </a>
+              )}
+              {onCancel && l.status !== "cancelled" && l.status !== "completed" && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
                   <Button
                     variant="ghost"
                     className="min-h-8 px-2.5 text-xs text-danger hover:bg-danger/10"
@@ -12515,8 +12540,8 @@ function OpsLecturesListCard({
                   >
                     {t("إلغاء")}
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -12672,16 +12697,28 @@ function AdminAllBookingsCard({
                     <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
                     <td className="p-2"><Badge tone={s.tone}>{s.label}</Badge></td>
                     <td className="p-2">
-                      {b.status === "booked" && (
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => { if (confirm(t("إلغاء إداري؟"))) onUpdate(b.id, { status: "cancelled", reason: t("إلغاء إداري") }); }}>
-                            {t("إلغاء")}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => { const url = prompt(t("رابط الاجتماع:")); if (url) onUpdate(b.id, { meetingUrl: url }); }}>
-                            {t("رابط")}
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {b.meetingUrl && b.status !== "cancelled" && (
+                          <a
+                            href={b.meetingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:bg-brand/90"
+                          >
+                            {t("دخول المحاضرة")}
+                          </a>
+                        )}
+                        {b.status === "booked" && (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => { if (confirm(t("إلغاء إداري؟"))) onUpdate(b.id, { status: "cancelled", reason: t("إلغاء إداري") }); }}>
+                              {t("إلغاء")}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { const url = prompt(t("رابط الاجتماع:")); if (url) onUpdate(b.id, { meetingUrl: url }); }}>
+                              {t("تعديل الرابط")}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

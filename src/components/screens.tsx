@@ -11370,15 +11370,15 @@ function AdminAnalyticsSection({
                 {agg.length === 0 ? (
                   <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">{t("لا توجد بيانات في هذه الفترة.")}</td></tr>
                 ) : (
-                  agg.map((t) => (
-                    <tr key={t.teacherId} className="cursor-pointer border-b border-border/50 hover:bg-muted/30" onClick={() => onTeacherChange(t.teacherId)}>
-                      <td className="p-2 font-semibold text-brand2 underline">{t.teacherName}</td>
-                      <td className="p-2">{t.lecturesCompleted}</td>
-                      <td className="p-2">{t.sessionsDeducted}</td>
-                      <td className="p-2">{t.studentsAttended}</td>
-                      <td className="p-2">{t.lectureEarnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} {t("ج.م")}</td>
-                      <td className="p-2">{t.sessionEarnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} {t("ج.م")}</td>
-                      <td className="p-2 font-bold text-brand2">{t.earnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} {t("ج.م")}</td>
+                  agg.map((row) => (
+                    <tr key={row.teacherId} className="cursor-pointer border-b border-border/50 hover:bg-muted/30" onClick={() => onTeacherChange(row.teacherId)}>
+                      <td className="p-2 font-semibold text-brand2 underline">{row.teacherName}</td>
+                      <td className="p-2">{row.lecturesCompleted}</td>
+                      <td className="p-2">{row.sessionsDeducted}</td>
+                      <td className="p-2">{row.studentsAttended}</td>
+                      <td className="p-2">{row.lectureEarnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} {t("ج.م")}</td>
+                      <td className="p-2">{row.sessionEarnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} {t("ج.م")}</td>
+                      <td className="p-2 font-bold text-brand2">{row.earnings.toLocaleString("ar-EG", { maximumFractionDigits: 0 })} {t("ج.م")}</td>
                     </tr>
                   ))
                 )}

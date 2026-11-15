@@ -408,7 +408,6 @@ function Landing() {
             <p>{t("اختبر مستواك مجانًا أولًا، ثم اختر الباقة التي تناسب وقتك وهدفك. بدون التزام طويل.")}</p>
             <div className="pricing-checks">
               <span><Check size={15} /> {t("اختبار تحديد مستوى مجاني")}</span>
-              <span><Check size={15} /> {t("إلغاء في أي وقت")}</span>
             </div>
           </div>
           <div className="pricing-cards">

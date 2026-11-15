@@ -142,13 +142,7 @@ function TeacherCard({ teacher }: { teacher: { name: string; badge: string; avat
       <h3>{teacher.name}</h3>
       <span className="specialty">{teacher.badge}</span>
       <p>{teacher.desc}</p>
-      <div className="teacher-card-slots">
-        {teacher.slots.length === 0 ? (
-          <small>{t("تُعلن المواعيد قريباً")}</small>
-        ) : (
-          teacher.slots.map((s) => <span key={s}>{s}</span>)
-        )}
-      </div>
+      
     </article>
   );
 }

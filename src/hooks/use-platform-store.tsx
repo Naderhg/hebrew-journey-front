@@ -2213,12 +2213,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   async function updateAdminLecture(id: string, input: Partial<CreateLectureInput>) {
     await apiFetch(`/api/admin/lectures/${id}`, { method: "PATCH", body: input });
-    await fetchAdminLectures();
+    await fetchAdminLectures({ status: "all" });
   }
 
   async function deleteAdminLecture(id: string) {
     await apiFetch(`/api/admin/lectures/${id}`, { method: "DELETE" });
-    await fetchAdminLectures();
+    await fetchAdminLectures({ status: "all" });
   }
 
   async function fetchAdminSchedules() {

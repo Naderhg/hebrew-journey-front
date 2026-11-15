@@ -1580,7 +1580,7 @@ export function TeacherScreen() {
                       {s.description && (
                         <p className="mt-2 text-xs text-muted-foreground">{s.description}</p>
                       )}
-                      {s.meetingUrl && s.location !== "offline" && (
+له                      {s.meetingUrl && s.location !== "offline" && (
                         <a
                           href={s.meetingUrl}
                           target="_blank"
@@ -2600,6 +2600,7 @@ export function AdminScreen() {
     adminLectures,
     fetchAdminLectures,
     updateAdminLecture,
+    deleteAdminLecture,
     fetchAdminLectureAttendance,
     fetchAdminTeacherProfile,
     fetchAdminStudentProfile,
@@ -4792,6 +4793,7 @@ export function AdminScreen() {
             lectures={adminLectures}
             fetchLectures={() => fetchAdminLectures({ status: "all" })}
             onCancel={(id) => updateAdminLecture(id, { status: "cancelled" })}
+            onDelete={deleteAdminLecture}
           />
           <AdminLectureReportsCard
             lectures={adminLectures}
@@ -12438,14 +12440,18 @@ function OpsLecturesListCard({
   lectures,
   fetchLectures,
   onCancel,
+  onDelete,
 }: {
   lectures: import("../hooks/use-platform-store").AdminLectureItem[];
   fetchLectures: () => Promise<void>;
   onCancel?: (id: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [period, setPeriod] = useState<"upcoming" | "past" | "cancelled">("upcoming");
   const [loaded, setLoaded] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     if (!loaded) {
@@ -12478,7 +12484,7 @@ function OpsLecturesListCard({
           <h3 className="font-bold">{t("المحاضرات الأساسية")} ({shown.length})</h3>
           <p className="text-xs text-muted-foreground">{t("المحاضرات بتنقل تلقائياً للسابقة بعد انتهاء وقتها")}</p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {([["upcoming", "القادمة"], ["past", "السابقة"], ["cancelled", "الملغية"]] as const).map(([v, label]) => (
             <button
               key={v}
@@ -12490,6 +12496,27 @@ function OpsLecturesListCard({
               {t(label)} ({lectures.filter((l) => inPeriod(l, v)).length})
             </button>
           ))}
+          {onDelete && period === "past" && shown.length > 1 && (
+            <Button
+              variant="ghost"
+              disabled={deletingAll}
+              className="min-h-8 gap-1.5 px-3 text-xs text-danger hover:bg-danger/10"
+              onClick={async () => {
+                if (!confirm(`${t("حذف كل المحاضرات السابقة نهائياً؟ ستختفي من عند المدرس والطلاب.")} (${shown.length})`)) return;
+                setDeletingAll(true);
+                try {
+                  for (const item of shown) {
+                    await onDelete(item.id);
+                  }
+                } finally {
+                  setDeletingAll(false);
+                }
+              }}
+            >
+              <Trash2 className="size-3.5" />
+              {deletingAll ? t("جاري الحذف...") : t("حذف كل السابقة")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -12531,15 +12558,36 @@ function OpsLecturesListCard({
                   {l.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
                 </a>
               )}
-              {onCancel && l.status !== "cancelled" && l.status !== "completed" && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
-                  <Button
-                    variant="ghost"
-                    className="min-h-8 px-2.5 text-xs text-danger hover:bg-danger/10"
-                    onClick={() => { if (confirm(t(`إلغاء محاضرة "${l.title}"؟`))) onCancel(l.id).catch(() => {}); }}
-                  >
-                    {t("إلغاء")}
-                  </Button>
+              {((onCancel && l.status !== "cancelled" && l.status !== "completed") || onDelete) && (
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+                  {onCancel && l.status !== "cancelled" && l.status !== "completed" ? (
+                    <Button
+                      variant="ghost"
+                      className="min-h-8 px-2.5 text-xs text-danger hover:bg-danger/10"
+                      onClick={() => { if (confirm(`${t("إلغاء محاضرة")} "${l.title}"؟`)) onCancel(l.id).catch(() => {}); }}
+                    >
+                      {t("إلغاء")}
+                    </Button>
+                  ) : <span />}
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      disabled={deletingId === l.id}
+                      className="min-h-8 gap-1.5 px-2.5 text-xs text-danger hover:bg-danger/10"
+                      onClick={async () => {
+                        if (!confirm(`${t("حذف المحاضرة نهائياً؟ ستختفي من عند المدرس والطلاب:")} "${l.title}"`)) return;
+                        setDeletingId(l.id);
+                        try {
+                          await onDelete(l.id);
+                        } finally {
+                          setDeletingId(null);
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                      {deletingId === l.id ? t("جاري الحذف...") : t("حذف المحاضرة")}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

@@ -1012,14 +1012,6 @@ export interface LessonBookingItem {
   createdAt?: string;
 }
 
-export interface AvailableSlot {
-  availabilityId: string;
-  teacherId: string;
-  teacherName: string;
-  startsAt: string;
-  endsAt: string;
-}
-
 export interface TeacherAvailabilitySlot {
   id: string;
   dayOfWeek: number | null;
@@ -1187,7 +1179,6 @@ interface PlatformStoreValue {
   // ─── Session-package bookings ───
   mySessions: SessionSubscription[];
   myBookings: LessonBookingItem[];
-  availableSlots: AvailableSlot[];
   teacherAvailability: TeacherAvailabilitySlot[];
   teacherBookings: LessonBookingItem[];
   adminBookings: LessonBookingItem[];
@@ -1196,9 +1187,6 @@ interface PlatformStoreValue {
   fetchHasCallsPackage: () => Promise<void>;
   hasCallsPackage: boolean;
   hasBasicPackage: boolean;
-  fetchAvailableSlots: () => Promise<void>;
-  bookSession: (input: { availabilityId: string; startsAt: string }) => Promise<void>;
-  rescheduleBooking: (id: string, input: { newAvailabilityId: string; newStartsAt: string }) => Promise<void>;
 
   fetchTeacherAvailability: () => Promise<void>;
   addTeacherAvailability: (input: { dayOfWeek: number | null; specificDate?: string | null; startTime: string; endTime: string }) => Promise<void>;
@@ -1345,7 +1333,6 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   // booking state
   const [mySessions, setMySessions] = useState<SessionSubscription[]>([]);
   const [myBookings, setMyBookings] = useState<LessonBookingItem[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [teacherAvailability, setTeacherAvailability] = useState<TeacherAvailabilitySlot[]>([]);
   const [teacherBookings, setTeacherBookings] = useState<LessonBookingItem[]>([]);
   const [adminBookings, setAdminBookings] = useState<LessonBookingItem[]>([]);
@@ -2292,29 +2279,6 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function fetchAvailableSlots() {
-    const res = await apiFetch<{ slots: AvailableSlot[] }>("/api/student/available-slots");
-    if (res) setAvailableSlots(res.slots ?? []);
-  }
-
-  async function bookSession(input: { availabilityId: string; startsAt: string }) {
-    await apiFetch("/api/student/bookings", {
-      method: "POST",
-      body: input,
-    });
-    await fetchMySessions();
-    await fetchAvailableSlots();
-  }
-
-  async function rescheduleBooking(id: string, input: { newAvailabilityId: string; newStartsAt: string }) {
-    await apiFetch(`/api/student/bookings/${id}/reschedule`, {
-      method: "PATCH",
-      body: input,
-    });
-    await fetchMySessions();
-    await fetchAvailableSlots();
-  }
-
   async function fetchTeacherAvailability() {
     const res = await apiFetch<{ availability: TeacherAvailabilitySlot[] }>("/api/teacher/availability");
     if (res) setTeacherAvailability(res.availability ?? []);
@@ -2732,7 +2696,6 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         // bookings
         mySessions,
         myBookings,
-        availableSlots,
         teacherAvailability,
         teacherBookings,
         hasCallsPackage,
@@ -2741,9 +2704,6 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         adminBookingsReport,
         fetchMySessions,
         fetchHasCallsPackage,
-        fetchAvailableSlots,
-        bookSession,
-        rescheduleBooking,
 
         fetchTeacherAvailability,
         addTeacherAvailability,

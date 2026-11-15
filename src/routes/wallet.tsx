@@ -4,6 +4,7 @@ import { Banknote, CalendarCheck, CircleCheck, Wallet, XCircle } from "lucide-re
 import { AppShell, PageHeader } from "../components/app-shell";
 import { Badge, Card, ProgressBar, SectionHeader } from "../components/ui";
 import { usePlatformStore } from "../hooks/use-platform-store";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/wallet")({
   component: StudentWalletPage,
@@ -33,6 +34,7 @@ const SUB_LABELS: Record<string, { label: string; tone: "sage" | "muted" | "gold
 
 function StudentWalletPage() {
   const { studentWallet, studentWalletBookings, fetchStudentWallet } = usePlatformStore();
+  const { t } = useI18n();
 
   useEffect(() => {
     fetchStudentWallet().catch(() => {});
@@ -41,20 +43,20 @@ function StudentWalletPage() {
   const active = studentWallet.find((w) => w.status === "ACTIVE") ?? studentWallet[0];
 
   const overview = [
-    { label: "إجمالي الحصص", value: active?.sessionsTotal ?? 0, icon: CalendarCheck, tone: "text-brand bg-brand/10" },
-    { label: "حصص حضرتها", value: active?.attended ?? 0, icon: CircleCheck, tone: "text-sage bg-sage/15" },
-    { label: "خصمت دون حضور", value: active?.deductedNotAttended ?? 0, icon: XCircle, tone: "text-gold bg-gold/15" },
-    { label: "الحصص المتبقية", value: active?.sessionsRemaining ?? 0, icon: Wallet, tone: "text-brand2 bg-brand2/10" },
+    { label: t("إجمالي الحصص"), value: active?.sessionsTotal ?? 0, icon: CalendarCheck, tone: "text-brand bg-brand/10" },
+    { label: t("حصص حضرتها"), value: active?.attended ?? 0, icon: CircleCheck, tone: "text-sage bg-sage/15" },
+    { label: t("خصمت دون حضور"), value: active?.deductedNotAttended ?? 0, icon: XCircle, tone: "text-gold bg-gold/15" },
+    { label: t("الحصص المتبقية"), value: active?.sessionsRemaining ?? 0, icon: Wallet, tone: "text-brand2 bg-brand2/10" },
   ];
 
   return (
     <AppShell role="STUDENT">
-      <PageHeader title="محفظتي" subtitle="تفاصيل باقتك واستهلاك حصصك — الحصة تُخصم عند الحضور أو عدم الحضور بدون إبلاغ مسبق" />
+      <PageHeader title={t("محفظتي")} subtitle={t("تفاصيل باقتك واستهلاك حصصك — الحصة تُخصم عند الحضور أو عدم الحضور بدون إبلاغ مسبق")} />
 
       <div dir="rtl" className="space-y-4">
         {studentWallet.length === 0 ? (
           <Card className="py-10 text-center text-sm text-muted-foreground">
-            لا توجد باقات حصص مفعّلة لديك حالياً.
+            {t("لا توجد باقات حصص مفعّلة لديك حالياً.")}
           </Card>
         ) : (
           <>
@@ -76,6 +78,7 @@ function StudentWalletPage() {
             {/* Packages */}
             {studentWallet.map((w) => {
               const st = SUB_LABELS[w.status] ?? { label: w.status, tone: "muted" as const };
+              const stLabel = SUB_LABELS[w.status]?.label ?? w.status;
               const usedPct = w.sessionsTotal > 0 ? (w.sessionsUsed / w.sessionsTotal) * 100 : 0;
               return (
                 <Card key={w.id}>
@@ -83,13 +86,13 @@ function StudentWalletPage() {
                     icon={Banknote}
                     tone="gold"
                     title={w.packageName}
-                    subtitle={`${w.price.toLocaleString("ar-EG")} ج.م · الحصة = ${w.sessionPrice.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} ج.م`}
-                    actions={<Badge tone={st.tone}>{st.label}</Badge>}
+                    subtitle={`${w.price.toLocaleString("ar-EG")} ${t("ج.م")} · ${t("الحصة")} = ${w.sessionPrice.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} ${t("ج.م")}`}
+                    actions={<Badge tone={st.tone}>{t(stLabel)}</Badge>}
                   />
 
                   <div className="mt-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>استخدمت {w.sessionsUsed} من {w.sessionsTotal} حصة</span>
+                      <span>{t("استخدمت")} {w.sessionsUsed} {t("من")} {w.sessionsTotal} {t("حصة")}</span>
                       <span>{Math.round(usedPct)}%</span>
                     </div>
                     <div className="mt-1.5"><ProgressBar value={usedPct} /></div>
@@ -97,20 +100,20 @@ function StudentWalletPage() {
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-2xl bg-muted/40 px-3 py-2.5">
-                      <p className="text-[11px] text-muted-foreground">حضرت</p>
-                      <b className="text-sm">{w.attended} حصة</b>
+                      <p className="text-[11px] text-muted-foreground">{t("حضرت")}</p>
+                      <b className="text-sm">{w.attended} {t("حصة")}</b>
                     </div>
                     <div className="rounded-2xl bg-muted/40 px-3 py-2.5">
-                      <p className="text-[11px] text-muted-foreground">خصمت دون حضور</p>
-                      <b className="text-sm">{w.deductedNotAttended} حصة</b>
-                      <p className="text-[10px] text-muted-foreground">لم تحضر {w.noShow} · إلغاء متأخر {w.lateCancel}</p>
+                      <p className="text-[11px] text-muted-foreground">{t("خصمت دون حضور")}</p>
+                      <b className="text-sm">{w.deductedNotAttended} {t("حصة")}</b>
+                      <p className="text-[10px] text-muted-foreground">{t("لم تحضر")} {w.noShow} · {t("إلغاء متأخر")} {w.lateCancel}</p>
                     </div>
                     <div className="rounded-2xl bg-muted/40 px-3 py-2.5">
-                      <p className="text-[11px] text-muted-foreground">المتبقي</p>
-                      <b className="text-sm">{w.sessionsRemaining ?? "—"} حصة</b>
+                      <p className="text-[11px] text-muted-foreground">{t("المتبقي")}</p>
+                      <b className="text-sm">{w.sessionsRemaining ?? "—"} {t("حصة")}</b>
                     </div>
                     <div className="rounded-2xl bg-muted/40 px-3 py-2.5">
-                      <p className="text-[11px] text-muted-foreground">الصلاحية</p>
+                      <p className="text-[11px] text-muted-foreground">{t("الصلاحية")}</p>
                       <b className="text-sm">{fmtDate(w.expiresAt)}</b>
                     </div>
                   </div>
@@ -120,10 +123,10 @@ function StudentWalletPage() {
 
             {/* Sessions log */}
             <Card>
-              <SectionHeader icon={CalendarCheck} tone="brand" title="سجل الحصص" subtitle="آخر حصصك المحجوزة والمكتملة" />
+              <SectionHeader icon={CalendarCheck} tone="brand" title={t("سجل الحصص")} subtitle={t("آخر حصصك المحجوزة والمكتملة")} />
               <div className="mt-3 space-y-2">
                 {studentWalletBookings.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حصص مسجلة بعد.</p>
+                  <p className="py-6 text-center text-sm text-muted-foreground">{t("لا توجد حصص مسجلة بعد.")}</p>
                 ) : (
                   studentWalletBookings.map((b) => {
                     const st = STATUS_LABELS[b.status] ?? { label: b.status, tone: "muted" as const };
@@ -136,7 +139,7 @@ function StudentWalletPage() {
                           </p>
                           {b.cancelReason && <p className="text-[10px] text-muted-foreground">{b.cancelReason}</p>}
                         </div>
-                        <Badge tone={st.tone}>{st.label}</Badge>
+                        <Badge tone={st.tone}>{t(st.label)}</Badge>
                       </div>
                     );
                   })

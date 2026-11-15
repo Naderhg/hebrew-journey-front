@@ -4,6 +4,7 @@ import { AppShell, PageHeader } from "../components/app-shell";
 import { Badge, Card } from "../components/ui";
 import { usePlatformStore } from "../hooks/use-platform-store";
 import { mediaSrc } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/free-lectures")({
   component: StudentFreeLecturesPage,
@@ -32,6 +33,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 function StudentFreeLecturesPage() {
   const { studentFreeLectures, fetchStudentFreeLectures } = usePlatformStore();
+  const { t } = useI18n();
 
   useEffect(() => {
     fetchStudentFreeLectures().catch(() => {});
@@ -40,14 +42,14 @@ function StudentFreeLecturesPage() {
   return (
     <AppShell role="STUDENT">
       <PageHeader
-        title="المحاضرة المجانية"
-        subtitle="محاضرات تعريفية مجانية من الأكاديمية — احجز مكانك من خلال فريق الدعم عبر واتساب"
+        title={t("المحاضرة المجانية")}
+        subtitle={t("محاضرات تعريفية مجانية من الأكاديمية — احجز مكانك من خلال فريق الدعم عبر واتساب")}
       />
 
       <div dir="rtl" className="space-y-3">
         {studentFreeLectures.length === 0 ? (
           <Card className="py-10 text-center text-sm text-muted-foreground">
-            لا توجد محاضرات مجانية مجدولة حالياً. احجز محاضرتك التعريفية عبر واتساب.
+            {t("لا توجد محاضرات مجانية مجدولة حالياً. احجز محاضرتك التعريفية عبر واتساب.")}
           </Card>
         ) : (
           studentFreeLectures.map((l) => {
@@ -58,7 +60,7 @@ function StudentFreeLecturesPage() {
                   <div className="min-w-0 flex-1">
                     <b>{l.title}</b>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      <Badge style={{ background: st.color }}>{st.label}</Badge>
+                      <Badge style={{ background: st.color }}>{t(st.label)}</Badge>
                       {l.group && <Badge tone="brand">{l.group.name}</Badge>}
                       {l.level && <Badge tone="gold">{l.level}</Badge>}
                     </div>
@@ -76,13 +78,13 @@ function StudentFreeLecturesPage() {
                     rel="noreferrer"
                     className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#0b2f6e] py-2.5 text-sm font-bold text-white transition hover:bg-[#092652]"
                   >
-                    {l.status === "live" ? "انضم إلى المحاضرة الآن" : "دخول المحاضرة"}
+                    {l.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
                   </a>
                 )}
 
                 {(l.files ?? []).length > 0 && (
                   <div className="mt-3 border-t border-border pt-3">
-                    <h4 className="text-xs font-bold text-muted-foreground">الملفات المرفقة</h4>
+                    <h4 className="text-xs font-bold text-muted-foreground">{t("الملفات المرفقة")}</h4>
                     <div className="mt-2 space-y-1">
                       {(l.files ?? []).map((f, i) => (
                         <a

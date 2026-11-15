@@ -4,6 +4,7 @@ import { ArrowRight, Check, GraduationCap, Phone, Users } from "lucide-react";
 import { Button } from "../components/ui";
 import { usePlatformStore, levelSortIndex, type PublicPackage } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/packages/$type")({
   head: ({ params }) => ({
@@ -20,6 +21,7 @@ function PackagesCategoryPage() {
   const type = Route.useParams().type as "basic" | "calls";
   const { publicPackages, fetchPublicPackages } = usePlatformStore();
   const { user } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
@@ -33,10 +35,10 @@ function PackagesCategoryPage() {
 
   const isCalls = type === "calls";
   const sortedPackages = [...publicPackages].sort((a, b) => levelSortIndex(a.level) - levelSortIndex(b.level));
-  const title = isCalls ? "نظام المكالمات" : "الباقات الأساسية";
+  const title = isCalls ? t("نظام المكالمات") : t("الباقات الأساسية");
   const subtitle = isCalls
-    ? "حصص فردية أونلاين — احجز مواعيدك بنفسك"
-    : "دروس لكل المستويات — أونلاين أو حضوري";
+    ? t("حصص فردية أونلاين — احجز مواعيدك بنفسك")
+    : t("دروس لكل المستويات — أونلاين أو حضوري");
 
   function handleBook(pkg: PublicPackage) {
     if (!user) {
@@ -58,7 +60,7 @@ function PackagesCategoryPage() {
       {/* Header */}
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
         <Link to="/" className="flex items-center gap-2 text-sm font-medium text-[#33436b] hover:text-[#0b2f6e]">
-          <ArrowRight className="size-4" /> العودة للرئيسية
+          <ArrowRight className="size-4" /> {t("العودة للرئيسية")}
         </Link>
         <div className="flex items-center gap-2">
           <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: `linear-gradient(135deg, ${GREEN}, #4f9e1f)` }}>
@@ -73,7 +75,7 @@ function PackagesCategoryPage() {
         <section className="pt-8 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#dfe8f7] bg-white px-4 py-1.5 text-xs font-semibold text-[#33436b] shadow-sm">
             {isCalls ? <Phone className="size-3.5" /> : <Users className="size-3.5" />}
-            {isCalls ? "حصص فردية أونلاين" : "باقات تعليمية شاملة"}
+            {isCalls ? t("حصص فردية أونلاين") : t("باقات تعليمية شاملة")}
           </span>
           <h1 className="mt-5 text-3xl font-bold lg:text-4xl" style={{ color: NAVY }}>{title}</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5a6b8c]">{subtitle}</p>
@@ -83,11 +85,11 @@ function PackagesCategoryPage() {
         <section className="mt-10">
           {loading ? (
             <div className="rounded-2xl border border-[#e7edf7] bg-white py-16 text-center text-sm text-[#5a6b8c]">
-              جاري تحميل الباقات...
+              {t("جاري تحميل الباقات...")}
             </div>
           ) : publicPackages.length === 0 ? (
             <div className="rounded-2xl border border-[#e7edf7] bg-white py-16 text-center text-sm text-[#5a6b8c]">
-              لا توجد باقات في هذه الفئة حالياً — تابعنا قريباً.
+              {t("لا توجد باقات في هذه الفئة حالياً — تابعنا قريباً.")}
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -96,7 +98,7 @@ function PackagesCategoryPage() {
                   <div className="flex items-start justify-between">
                     <h3 className="text-lg font-bold" style={{ color: NAVY }}>{p.nameAr}</h3>
                     <span className="rounded-full px-3 py-1 text-[11px] font-bold text-white" style={{ background: NAVY }}>
-                      {p.durationMonths} {p.durationUnit === "week" ? "أسبوع" : "شهر"}
+                      {p.durationMonths} {p.durationUnit === "week" ? t("أسبوع") : t("شهر")}
                     </span>
                   </div>
 
@@ -104,29 +106,29 @@ function PackagesCategoryPage() {
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {p.level && (
                       <span className="rounded-md bg-[#eef3fb] px-2 py-0.5 text-[10px] font-semibold" style={{ color: NAVY }}>
-                        المستوى: {p.level}
+                        {t("المستوى")}: {p.level}
                       </span>
                     )}
                     {p.studyMode && (
                       <span className="rounded-md bg-[#e4f4d4] px-2 py-0.5 text-[10px] font-semibold" style={{ color: "#4f9e1f" }}>
-                        {p.studyMode === "online" ? "أونلاين" : p.studyMode === "offline" ? "حضوري" : "أونلاين + حضوري"}
+                        {p.studyMode === "online" ? t("أونلاين") : p.studyMode === "offline" ? t("حضوري") : `${t("أونلاين")} + ${t("حضوري")}`}
                       </span>
                     )}
                     {p.sessionsTotal && (
                       <span className="rounded-md bg-[#fff3e0] px-2 py-0.5 text-[10px] font-semibold" style={{ color: "#e67e22" }}>
-                        {p.sessionsTotal} حصة
+                        {p.sessionsTotal} {t("حصة")}
                       </span>
                     )}
                     {p.sessionDurationMinutes && (
                       <span className="rounded-md bg-[#efe7fb] px-2 py-0.5 text-[10px] font-semibold" style={{ color: "#6d3fbf" }}>
-                        الحصة: {p.sessionDurationMinutes === 90 ? "ساعة ونصف" : p.sessionDurationMinutes === 60 ? "ساعة" : `${p.sessionDurationMinutes} دقيقة`}
+                        {t("الحصة")}: {p.sessionDurationMinutes === 90 ? t("ساعة ونصف") : p.sessionDurationMinutes === 60 ? t("ساعة") : `${p.sessionDurationMinutes} ${t("دقيقة")}`}
                       </span>
                     )}
                   </div>
 
                   <p className="mt-3 font-lat text-3xl font-bold" style={{ color: GREEN }}>
-                    {p.price} جنيه
-                    <small className="text-sm font-normal text-[#8a98b5]"> / للباقة</small>
+                    {p.price} {t("جنيه")}
+                    <small className="text-sm font-normal text-[#8a98b5]"> / {t("للباقة")}</small>
                   </p>
 
                   {p.description && <p className="mt-2 text-sm leading-6 text-[#5a6b8c]">{p.description}</p>}
@@ -160,7 +162,7 @@ function PackagesCategoryPage() {
                     className="mt-5 w-full"
                     onClick={() => handleBook(p)}
                   >
-                    {user ? "اشترك الآن" : "سجّل واشترك"}
+                    {user ? t("اشترك الآن") : t("سجّل واشترك")}
                   </Button>
                 </div>
               ))}

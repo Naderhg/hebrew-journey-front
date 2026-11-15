@@ -43,7 +43,35 @@ import { useAuth } from "../hooks/use-auth";
 import { usePlatformStore } from "../hooks/use-platform-store";
 import { getHomeRouteForRole, ROLE_LABELS, type UserRole } from "../lib/auth";
 import { apiFetch } from "../lib/api";
+import { useI18n, type Lang } from "../lib/i18n";
 import { Badge, Button, Card } from "./ui";
+
+// Language switcher shown in the top bar — ar / en / he.
+export function LanguageSwitcher({ className = "" }: { className?: string }) {
+  const { lang, setLang, t } = useI18n();
+  const options: { v: Lang; label: string; title: string }[] = [
+    { v: "ar", label: "ع", title: "العربية" },
+    { v: "en", label: "EN", title: "English" },
+    { v: "he", label: "עב", title: "עברית" },
+  ];
+  return (
+    <div className={`flex items-center rounded-lg border border-border bg-muted/50 p-0.5 ${className}`} role="group" aria-label="Language">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          title={t(o.title)}
+          onClick={() => setLang(o.v)}
+          className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${
+            lang === o.v ? "bg-brand text-white" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export interface SidebarItem {
   to: string;
@@ -219,6 +247,7 @@ export function AppShell({
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const { user, loading, logout } = useAuth();
+  const { t, dir } = useI18n();
   const {
     notifications,
     unreadCount,
@@ -286,15 +315,15 @@ export function AppShell({
       return true;
     });
   }
-  const displayName = user ? user.fullName : "غير مسجل الدخول";
-  const displaySubtitle = user ? `${ROLE_LABELS[currentUserRole]} · ${user.phone ?? user.email ?? ""}` : ROLE_LABELS[role];
+  const displayName = user ? user.fullName : t("غير مسجل الدخول");
+  const displaySubtitle = user ? `${t(ROLE_LABELS[currentUserRole])} · ${user.phone ?? user.email ?? ""}` : t(ROLE_LABELS[role]);
 
   const ROLE_HOME: Record<UserRole, string> = {
-    STUDENT: "مساحتي التعليمية",
-    TEACHER: "مساحة المدرس",
-    ADMIN: "مركز الإدارة",
-    SALES: "مساحة المبيعات",
-    SUPPORT: "خدمة العملاء",
+    STUDENT: t("مساحتي التعليمية"),
+    TEACHER: t("مساحة المدرس"),
+    ADMIN: t("مركز الإدارة"),
+    SALES: t("مساحة المبيعات"),
+    SUPPORT: t("خدمة العملاء"),
   };
 
   function itemMatches(item: SidebarItem) {
@@ -307,9 +336,9 @@ export function AppShell({
   for (const entry of navItems) {
     if (isGroup(entry)) {
       const hit = entry.items.find(itemMatches);
-      if (hit) { currentLabel = hit.label; break; }
+      if (hit) { currentLabel = t(hit.label); break; }
     } else if (itemMatches(entry)) {
-      currentLabel = entry.label;
+      currentLabel = t(entry.label);
       break;
     }
   }
@@ -317,8 +346,8 @@ export function AppShell({
   const query = navQuery.trim();
   const visibleNav: readonly NavEntry[] = query
     ? navItems.flatMap((entry): NavEntry[] => {
-        if (isGroup(entry)) return entry.items.filter((it) => it.label.includes(query));
-        return entry.label.includes(query) ? [entry] : [];
+        if (isGroup(entry)) return entry.items.filter((it) => t(it.label).includes(query) || it.label.includes(query));
+        return t(entry.label).includes(query) || entry.label.includes(query) ? [entry] : [];
       })
     : navItems;
 
@@ -338,7 +367,7 @@ export function AppShell({
         if (!notifOpen) fetchNotifications().catch(() => {});
       }}
       className="icon-button notification-button"
-      aria-label="الإشعارات"
+      aria-label={t("الإشعارات")}
     >
       <Bell size={19} />
       {unreadCount > 0 && <i />}
@@ -362,7 +391,7 @@ export function AppShell({
           className={cls}
         >
           <Icon size={18} strokeWidth={isActive ? 2.35 : 1.8} />
-          <span className="truncate">{item.label}</span>
+          <span className="truncate">{t(item.label)}</span>
           {item.badge && <em>{item.badge}</em>}
         </button>
       );
@@ -376,7 +405,7 @@ export function AppShell({
         className={cls}
       >
         <Icon size={18} strokeWidth={isActive ? 2.35 : 1.8} />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{t(item.label)}</span>
         {item.badge && <em>{item.badge}</em>}
       </Link>
     );
@@ -386,22 +415,22 @@ export function AppShell({
   const roleAvatarTone = ({ STUDENT: "mint", TEACHER: "peach", ADMIN: "navy", SALES: "blue", SUPPORT: "lavender" } as const)[role];
 
   async function handleChangeMyPassword() {
-    const password = prompt("اكتب كلمة المرور الجديدة (6 أحرف على الأقل):");
+    const password = prompt(t("اكتب كلمة المرور الجديدة (6 أحرف على الأقل):"));
     if (password === null) return;
     try {
       await apiFetch("/api/auth/me/password", { method: "PATCH", body: { password } });
-      alert("تم تغيير كلمة المرور — سجّل دخولك مرة أخرى");
+      alert(t("تم تغيير كلمة المرور — سجّل دخولك مرة أخرى"));
       setProfileOpen(false);
       await logout().catch(() => {});
       navigate({ to: "/login" });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "فشل تغيير كلمة المرور");
+      alert(err instanceof Error ? err.message : t("فشل تغيير كلمة المرور"));
     }
   }
 
   const userChip = (
     <div className="relative">
-      <button type="button" className="topbar-profile" onClick={() => setProfileOpen((o) => !o)} title="الملف الشخصي">
+      <button type="button" className="topbar-profile" onClick={() => setProfileOpen((o) => !o)} title={t("الملف الشخصي")}>
         <span className={`avatar avatar-${roleAvatarTone}`}>{displayName[0] ?? "؟"}</span>
         <div>
           <strong>{displayName}</strong>
@@ -417,7 +446,7 @@ export function AppShell({
               <span className={`avatar avatar-${roleAvatarTone}`}>{displayName[0] ?? "؟"}</span>
               <div className="min-w-0">
                 <b className="block truncate text-sm">{displayName}</b>
-                <small className="text-[11px] text-muted-foreground">{ROLE_LABELS[currentUserRole]}</small>
+                <small className="text-[11px] text-muted-foreground">{t(ROLE_LABELS[currentUserRole])}</small>
               </div>
             </div>
             <div className="mt-3 space-y-1.5 border-t border-border pt-3 text-[12px] text-muted-foreground">
@@ -425,7 +454,7 @@ export function AppShell({
               {user?.phone && <p className="font-lat">{user.phone}</p>}
             </div>
             <Button variant="secondary" className="mt-3 w-full" onClick={handleChangeMyPassword}>
-              تغيير كلمة المرور
+              {t("تغيير كلمة المرور")}
             </Button>
           </div>
         </>
@@ -435,14 +464,14 @@ export function AppShell({
 
   return (
     <>
-      <div dir="rtl" className="dash-theme relative min-h-screen overflow-x-hidden bg-paper text-ink">
+      <div dir={dir} className="dash-theme relative min-h-screen overflow-x-hidden bg-paper text-ink">
         <div className="flex min-h-screen flex-col lg:flex-row">
           {/* Mobile top bar */}
           <header className="glass m-3 flex items-center justify-between rounded-2xl px-4 py-3 lg:hidden">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              aria-label="فتح القائمة"
+              aria-label={t("فتح القائمة")}
               className="grid size-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <Menu className="size-5" />
@@ -451,12 +480,13 @@ export function AppShell({
               <div className="brand-symbol"><span>ח</span><i /></div>
               <div className="brand-copy">
                 <strong className="font-he">עברית שוטפת</strong>
-                <small>رحلتك إلى اللغات</small>
+                <small>{t("رحلتك إلى اللغات")}</small>
               </div>
             </Link>
             <div className="flex items-center gap-1">
+              <LanguageSwitcher />
               {notifBell}
-              <Badge tone="brand">{ROLE_LABELS[role]}</Badge>
+              <Badge tone="brand">{t(ROLE_LABELS[role])}</Badge>
             </div>
           </header>
 
@@ -474,21 +504,21 @@ export function AppShell({
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
               <div className="fixed inset-x-3 top-16 z-50 overflow-hidden rounded-2xl border border-border bg-background shadow-xl sm:start-auto sm:end-4 sm:w-96">
                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <b className="text-sm">الإشعارات</b>
+                  <b className="text-sm">{t("الإشعارات")}</b>
                   {unreadCount > 0 && (
                     <button
                       type="button"
                       onClick={() => markAllNotificationsRead().catch(() => {})}
                       className="text-[11px] font-semibold text-brand"
                     >
-                      تعليم الكل كمقروء
+                      {t("تعليم الكل كمقروء")}
                     </button>
                   )}
                 </div>
                 <div className="max-h-72 overflow-y-auto">
                   {notifications.length === 0 ? (
                     <p className="py-6 text-center text-xs text-muted-foreground">
-                      لا توجد إشعارات
+                      {t("لا توجد إشعارات")}
                     </p>
                   ) : (
                     notifications.map((n) => (
@@ -539,7 +569,7 @@ export function AppShell({
               <div className="brand-symbol"><span>ח</span><i /></div>
               <div className="brand-copy">
                 <strong className="font-he">עברית שוטפת</strong>
-                <small>رحلتك إلى اللغات</small>
+                <small>{t("رحلتك إلى اللغات")}</small>
               </div>
             </Link>
 
@@ -548,17 +578,17 @@ export function AppShell({
                 <RoleIcon className="size-4" />
               </span>
               <span className="role-chip-copy">
-                <strong>{ROLE_LABELS[role]}</strong>
+                <strong>{t(ROLE_LABELS[role])}</strong>
                 <small>{role}</small>
               </span>
             </div>
 
             <div className="sidebar-divider" />
 
-            <nav className="side-nav" aria-label="التنقل الرئيسي">
+            <nav className="side-nav" aria-label={t("التنقل الرئيسي")}>
               {query && visibleNav.length === 0 && (
                 <p className="px-3 py-6 text-center text-[11px] text-muted-foreground">
-                  لا توجد نتائج مطابقة
+                  {t("لا توجد نتائج مطابقة")}
                 </p>
               )}
               {query ? (
@@ -570,7 +600,7 @@ export function AppShell({
                   if (!isGroup(entry)) return <div key={entry.label} className="nav-group">{renderNavItem(entry)}</div>;
                   return (
                     <div className="nav-group" key={entry.group}>
-                      <p className="nav-group-label">{entry.group}</p>
+                      <p className="nav-group-label">{t(entry.group)}</p>
                       {entry.items.map((it) => renderNavItem(it, true))}
                     </div>
                   );
@@ -582,20 +612,20 @@ export function AppShell({
               {user && (
                 <div className="streak-card">
                   <div className="streak-icon"><Flame size={17} fill="currentColor" /></div>
-                  <div><strong>استمر في رحلتك</strong><small>كل يوم خطوة أقرب للطلاقة</small></div>
+                  <div><strong>{t("استمر في رحلتك")}</strong><small>{t("كل يوم خطوة أقرب للطلاقة")}</small></div>
                 </div>
               )}
               {user ? (
                 <button type="button" onClick={handleLogout} className="logout-button">
-                  <LogOut size={16} /> تسجيل الخروج
+                  <LogOut size={16} /> {t("تسجيل الخروج")}
                 </button>
               ) : (
                 <div className="grid grid-cols-2 gap-1.5">
                   <Link to="/login">
-                    <Button variant="ghost" className="w-full text-xs">دخول</Button>
+                    <Button variant="ghost" className="w-full text-xs">{t("دخول")}</Button>
                   </Link>
                   <Link to="/register">
-                    <Button variant="secondary" className="w-full text-xs">حساب طالب</Button>
+                    <Button variant="secondary" className="w-full text-xs">{t("حساب طالب")}</Button>
                   </Link>
                 </div>
               )}
@@ -620,10 +650,11 @@ export function AppShell({
                   <input
                     value={navQuery}
                     onChange={(e) => setNavQuery(e.target.value)}
-                    placeholder="ابحث في المنصة..."
-                    aria-label="بحث"
+                    placeholder={t("ابحث في المنصة...")}
+                    aria-label={t("بحث")}
                   />
                 </label>
+                <LanguageSwitcher className="hidden xl:flex" />
                 {notifBell}
                 {userChip}
               </div>
@@ -635,10 +666,10 @@ export function AppShell({
                   <div className="mx-auto size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
                   <p className="mt-4 text-sm text-muted-foreground">
                     {loading
-                      ? "جاري التحقق من الحساب…"
+                      ? t("جاري التحقق من الحساب…")
                       : !user
-                        ? "جاري تحويلك إلى تسجيل الدخول…"
-                        : "جاري تحويلك إلى لوحة التحكم الخاصة بك…"}
+                        ? t("جاري تحويلك إلى تسجيل الدخول…")
+                        : t("جاري تحويلك إلى لوحة التحكم الخاصة بك…")}
                   </p>
                 </Card>
               ) : (
@@ -646,7 +677,7 @@ export function AppShell({
               )}
               <footer className="app-footer mt-8">
                 <span>© {new Date().getFullYear()} עברית שוטפת</span>
-                <span>نتعلم العبرية، خطوة بخطوة <span className="footer-heart">♥</span></span>
+                <span>{t("نتعلم العبرية، خطوة بخطوة")} <span className="footer-heart">♥</span></span>
               </footer>
             </main>
           </div>

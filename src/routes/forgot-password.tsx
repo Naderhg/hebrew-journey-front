@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { apiFetch } from "../lib/api";
 import { Button, Card, Input, Label } from "../components/ui";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({ meta: [{ title: "עברית שוטפת — استعادة كلمة المرور" }] }),
@@ -13,6 +14,7 @@ function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { t } = useI18n();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +28,7 @@ function ForgotPasswordPage() {
       });
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "تعذر إرسال رابط الاستعادة — حاول لاحقاً");
+      setError(err instanceof Error ? err.message : t("تعذر إرسال رابط الاستعادة — حاول لاحقاً"));
     } finally {
       setLoading(false);
     }
@@ -42,15 +44,15 @@ function ForgotPasswordPage() {
             <Link to="/" className="inline-grid size-12 place-items-center rounded-md bg-brand font-lat text-xl font-bold text-primary-foreground">
               O
             </Link>
-            <h1 className="mt-4 text-2xl font-bold">استعادة كلمة المرور</h1>
+            <h1 className="mt-4 text-2xl font-bold">{t("استعادة كلمة المرور")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور
+              {t("أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور")}
             </p>
           </div>
 
           {done ? (
             <div className="rounded-md bg-sage/10 px-4 py-4 text-center text-sm font-semibold text-sage">
-              لو البريد مسجل لدينا، وصلك رابط إعادة التعيين — راجع بريدك الإلكتروني.
+              {t("لو البريد مسجل لدينا، وصلك رابط إعادة التعيين — راجع بريدك الإلكتروني.")}
             </div>
           ) : (
             <>
@@ -61,7 +63,7 @@ function ForgotPasswordPage() {
               )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <Label htmlFor="email">{t("البريد الإلكتروني")}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -72,7 +74,7 @@ function ForgotPasswordPage() {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "جاري الإرسال..." : "إرسال رابط الاستعادة"}
+                  {loading ? t("جاري الإرسال...") : t("إرسال رابط الاستعادة")}
                 </Button>
               </form>
             </>
@@ -80,7 +82,7 @@ function ForgotPasswordPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link to="/login" className="font-semibold text-brand hover:underline">
-              العودة لتسجيل الدخول
+              {t("العودة لتسجيل الدخول")}
             </Link>
           </p>
         </Card>

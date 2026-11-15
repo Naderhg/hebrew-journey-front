@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { apiFetch } from "../lib/api";
 import { Button, Card, Input, Label } from "../components/ui";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({ meta: [{ title: "עברית שוטפת — تعيين كلمة مرور جديدة" }] }),
@@ -18,12 +19,13 @@ function ResetPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { t } = useI18n();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (password !== confirm) {
-      setError("كلمتا المرور غير متطابقتين");
+      setError(t("كلمتا المرور غير متطابقتين"));
       return;
     }
     setLoading(true);
@@ -35,7 +37,7 @@ function ResetPasswordPage() {
       });
       navigate({ to: "/login" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "رابط غير صالح أو منتهي — اطلب رابطاً جديداً");
+      setError(err instanceof Error ? err.message : t("رابط غير صالح أو منتهي — اطلب رابطاً جديداً"));
     } finally {
       setLoading(false);
     }
@@ -51,15 +53,15 @@ function ResetPasswordPage() {
             <Link to="/" className="inline-grid size-12 place-items-center rounded-md bg-brand font-lat text-xl font-bold text-primary-foreground">
               O
             </Link>
-            <h1 className="mt-4 text-2xl font-bold">كلمة مرور جديدة</h1>
+            <h1 className="mt-4 text-2xl font-bold">{t("كلمة مرور جديدة")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              اختر كلمة مرور جديدة لحسابك
+              {t("اختر كلمة مرور جديدة لحسابك")}
             </p>
           </div>
 
           {!token ? (
             <div className="rounded-md bg-danger/10 px-4 py-4 text-center text-sm font-semibold text-danger">
-              رابط الاستعادة غير صالح — تأكد من فتح الرابط الكامل من بريدك.
+              {t("رابط الاستعادة غير صالح — تأكد من فتح الرابط الكامل من بريدك.")}
             </div>
           ) : (
             <>
@@ -70,7 +72,7 @@ function ResetPasswordPage() {
               )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">كلمة المرور الجديدة</Label>
+                  <Label htmlFor="password">{t("كلمة المرور الجديدة")}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -78,11 +80,11 @@ function ResetPasswordPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={8}
-                    placeholder="8 أحرف على الأقل"
+                    placeholder={t("8 أحرف على الأقل")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm">تأكيد كلمة المرور</Label>
+                  <Label htmlFor="confirm">{t("تأكيد كلمة المرور")}</Label>
                   <Input
                     id="confirm"
                     type="password"
@@ -90,11 +92,11 @@ function ResetPasswordPage() {
                     onChange={(e) => setConfirm(e.target.value)}
                     required
                     minLength={8}
-                    placeholder="أعد كتابة كلمة المرور"
+                    placeholder={t("أعد كتابة كلمة المرور")}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "جاري الحفظ..." : "حفظ كلمة المرور"}
+                  {loading ? t("جاري الحفظ...") : t("حفظ كلمة المرور")}
                 </Button>
               </form>
             </>
@@ -102,7 +104,7 @@ function ResetPasswordPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             <Link to="/forgot-password" className="font-semibold text-brand hover:underline">
-              طلب رابط استعادة جديد
+              {t("طلب رابط استعادة جديد")}
             </Link>
           </p>
         </Card>

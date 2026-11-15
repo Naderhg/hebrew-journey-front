@@ -4,6 +4,7 @@ import { Calendar, CalendarCheck, Clock, Plus } from "lucide-react";
 import { Button, Card, Badge } from "../components/ui";
 import { usePlatformStore, type SessionSubscription } from "../hooks/use-platform-store";
 import { AppShell, PageHeader } from "../components/app-shell";
+import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/sessions")({
   head: () => ({ meta: [{ title: "עברית שוטפת — حصصي" }] }),
@@ -39,6 +40,7 @@ function StudentSessionsPage() {
     hasCallsPackage,
     fetchHasCallsPackage,
   } = usePlatformStore();
+  const { t } = useI18n();
 
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -67,7 +69,7 @@ function StudentSessionsPage() {
     return (
       <AppShell role="STUDENT">
         <div className="flex min-h-[50vh] items-center justify-center text-sm text-[#5a6b8c]">
-          جاري التحقق من اشتراكك...
+          {t("جاري التحقق من اشتراكك...")}
         </div>
       </AppShell>
     );
@@ -78,10 +80,10 @@ function StudentSessionsPage() {
       <AppShell role="STUDENT">
         <div className="flex min-h-[50vh] items-center justify-center px-6">
           <div className="max-w-md rounded-2xl border border-[#e7edf7] bg-white p-8 text-center shadow-sm">
-            <h2 className="text-lg font-bold text-[#0b2f6e]">هذا القسم لباقات المكالمات فقط</h2>
+            <h2 className="text-lg font-bold text-[#0b2f6e]">{t("هذا القسم لباقات المكالمات فقط")}</h2>
             <p className="mt-2 text-sm text-[#5a6b8c]">
-              حصص الحجز الفردي متاحة فقط للطلاب المشتركين في باقة نظام المكالمات.
-              إذا كنت تريد حجز حصص فردية، يرجى الاشتراك في باقة المكالمات.
+              {t("حصص الحجز الفردي متاحة فقط للطلاب المشتركين في باقة نظام المكالمات.")}{" "}
+              {t("إذا كنت تريد حجز حصص فردية، يرجى الاشتراك في باقة المكالمات.")}
             </p>
           </div>
         </div>
@@ -100,11 +102,11 @@ function StudentSessionsPage() {
   return (
     <AppShell role="STUDENT">
       <PageHeader
-        title="حصصي الفردية"
-        subtitle="تابع حصصك المحجوزة ورصيدك المتبقي"
+        title={t("حصصي الفردية")}
+        subtitle={t("تابع حصصك المحجوزة ورصيدك المتبقي")}
         actions={
           <Button variant="ghost" onClick={refresh} disabled={loading}>
-            تحديث
+            {t("تحديث")}
           </Button>
         }
       />
@@ -114,7 +116,7 @@ function StudentSessionsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {mySessions.length === 0 ? (
           <Card className="col-span-full p-6 text-center text-sm text-muted-foreground">
-            لا يوجد رصيد حصص نشط — اشترِ باقة حصص للبدء.
+            {t("لا يوجد رصيد حصص نشط — اشترِ باقة حصص للبدء.")}
           </Card>
         ) : (
           mySessions.map((s) => <BalanceCard key={s.id} sub={s} />)
@@ -125,10 +127,10 @@ function StudentSessionsPage() {
       <Card className="p-5">
         <div className="mb-4 flex items-center gap-2">
           <Plus className="size-5 text-[#0b2f6e]" />
-          <h2 className="text-lg font-bold">حجز حصة جديدة</h2>
+          <h2 className="text-lg font-bold">{t("حجز حصة جديدة")}</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          حجز الحصص الفردية يتم من خلال فريق الدعم — تواصل معنا على واتساب وسنحدد لك موعداً ضمن أوقات المدرس المتاحة.
+          {t("حجز الحصص الفردية يتم من خلال فريق الدعم — تواصل معنا على واتساب وسنحدد لك موعداً ضمن أوقات المدرس المتاحة.")}
         </p>
       </Card>
 
@@ -136,10 +138,10 @@ function StudentSessionsPage() {
       <Card className="p-5">
         <div className="mb-4 flex items-center gap-2">
           <CalendarCheck className="size-5 text-[#2f9e4f]" />
-          <h2 className="text-lg font-bold">الحصص القادمة</h2>
+          <h2 className="text-lg font-bold">{t("الحصص القادمة")}</h2>
         </div>
         {upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground">لا توجد حصص محجوزة قادمة.</p>
+          <p className="text-sm text-muted-foreground">{t("لا توجد حصص محجوزة قادمة.")}</p>
         ) : (
           <div className="space-y-3">
             {upcoming.map((b) => (
@@ -148,14 +150,14 @@ function StudentSessionsPage() {
                   <div>
                     <div className="flex items-center gap-2 text-sm font-bold text-[#0b2f6e]">
                       <Clock className="size-4" />
-                      {b.teacher?.fullName ?? "مدرس"}
+                      {b.teacher?.fullName ?? t("مدرس")}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {fmtDate(b.startsAt)}
                       {b.endsAt ? ` — ${new Date(b.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
                     </p>
                   </div>
-                  <Badge style={{ background: STATUS_LABELS.booked.color }}>{STATUS_LABELS.booked.label}</Badge>
+                  <Badge style={{ background: STATUS_LABELS.booked.color }}>{t(STATUS_LABELS.booked.label)}</Badge>
                 </div>
                 {b.meetingUrl && (
                   <a
@@ -164,11 +166,11 @@ function StudentSessionsPage() {
                     rel="noreferrer"
                     className="mt-3 flex w-full items-center justify-center rounded-lg bg-[#0b2f6e] py-2.5 text-sm font-bold text-white transition hover:bg-[#092652]"
                   >
-                    دخول المحاضرة
+                    {t("دخول المحاضرة")}
                   </a>
                 )}
                 <p className="mt-3 text-xs text-muted-foreground">
-                  لتغيير الموعد أو الإلغاء، تواصل مع فريق الدعم.
+                  {t("لتغيير الموعد أو الإلغاء، تواصل مع فريق الدعم.")}
                 </p>
               </div>
             ))}
@@ -181,7 +183,7 @@ function StudentSessionsPage() {
         <Card className="p-5">
           <div className="mb-4 flex items-center gap-2">
             <Calendar className="size-5 text-muted-foreground" />
-            <h2 className="text-lg font-bold">سجل الحصص</h2>
+            <h2 className="text-lg font-bold">{t("سجل الحصص")}</h2>
           </div>
           <div className="space-y-2">
             {past.slice(0, 20).map((b) => {
@@ -189,16 +191,16 @@ function StudentSessionsPage() {
               return (
                 <div key={b.id} className="flex items-center justify-between rounded-lg border border-[#eef2f9] bg-white px-4 py-3">
                   <div>
-                    <b className="text-sm text-[#0b2f6e]">{b.teacher?.fullName ?? "مدرس"}</b>
+                    <b className="text-sm text-[#0b2f6e]">{b.teacher?.fullName ?? t("مدرس")}</b>
                     <p className="text-xs text-muted-foreground">{fmtDate(b.startsAt)}</p>
                     {b.meetingUrl && b.status !== "cancelled" && (
                       <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
-                        رابط الاجتماع ↗
+                        {t("رابط الاجتماع")} ↗
                       </a>
                     )}
-                    {b.cancelReason && <p className="text-xs text-red-600">سبب الإلغاء: {b.cancelReason}</p>}
+                    {b.cancelReason && <p className="text-xs text-red-600">{t("سبب الإلغاء")}: {b.cancelReason}</p>}
                   </div>
-                  <Badge style={{ background: st.color }}>{st.label}</Badge>
+                  <Badge style={{ background: st.color }}>{t(st.label)}</Badge>
                 </div>
               );
             })}
@@ -211,6 +213,7 @@ function StudentSessionsPage() {
 }
 
 function BalanceCard({ sub }: { sub: SessionSubscription }) {
+  const { t } = useI18n();
   const remaining = sub.sessionsRemaining ?? 0;
   const total = sub.sessionsTotal ?? 0;
   const used = sub.sessionsUsed ?? 0;
@@ -221,21 +224,21 @@ function BalanceCard({ sub }: { sub: SessionSubscription }) {
       <div className="flex items-center justify-between">
         <b className="text-sm text-[#0b2f6e]">{sub.packageName}</b>
         {expired ? (
-          <Badge style={{ background: "#c0392b" }}>منتهية</Badge>
+          <Badge style={{ background: "#c0392b" }}>{t("منتهية")}</Badge>
         ) : (
-          <Badge style={{ background: "#2f9e4f" }}>نشط</Badge>
+          <Badge style={{ background: "#2f9e4f" }}>{t("نشط")}</Badge>
         )}
       </div>
       <div className="mt-3 flex items-end gap-2">
         <span className="text-3xl font-bold text-[#2f9e4f]">{remaining}</span>
-        <span className="text-sm text-muted-foreground">/ {total} حصة متبقية</span>
+        <span className="text-sm text-muted-foreground">/ {total} {t("حصة متبقية")}</span>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#eef2f9]">
         <div className="h-full rounded-full bg-[#2f9e4f]" style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-        <span>استُخدمت {used}</span>
-        {sub.expiresAt && <span>تنتهي: {new Date(sub.expiresAt).toLocaleDateString("ar-EG")}</span>}
+        <span>{t("استُخدمت")} {used}</span>
+        {sub.expiresAt && <span>{t("تنتهي")}: {new Date(sub.expiresAt).toLocaleDateString("ar-EG")}</span>}
       </div>
     </Card>
   );

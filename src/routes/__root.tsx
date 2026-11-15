@@ -12,6 +12,7 @@ import { type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "../hooks/use-auth";
 import { PlatformStoreProvider } from "../hooks/use-platform-store";
+import { LanguageProvider } from "../lib/i18n";
 
 function NotFoundComponent() {
   return (
@@ -119,11 +120,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <PlatformStoreProvider>
-          <Outlet />
-        </PlatformStoreProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <PlatformStoreProvider>
+            <Outlet />
+          </PlatformStoreProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, LabelHTMLAttributes, ReactNode } from "react";
 import { cn } from "../lib/utils";
+import { useI18n } from "../lib/i18n";
 
 export function Button({ className, variant = "primary", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "dark" | "ghost" }) {
   const variants = { primary: "dash-btn-primary bg-brand text-primary-foreground hover:bg-brand/90", secondary: "bg-brand/10 text-brand hover:bg-brand/15", dark: "bg-ink text-primary-foreground hover:bg-ink/90", ghost: "border border-border bg-card text-foreground hover:bg-accent" };
@@ -103,17 +104,19 @@ export function HeroBanner({ tone = "green", icon: Icon, word, wordCaption, kick
 export function HeroAction({ className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={cn("text-button", className)} {...props} />;
 }
-export function SearchBox({ value, onChange, placeholder = "بحث..." }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-10 w-full max-w-60 rounded-xl border border-input bg-muted/40 px-3.5 text-xs transition focus:w-72 focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring" />;
+export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const { t } = useI18n();
+  return <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder ?? t("بحث...")} className="h-10 w-full max-w-60 rounded-xl border border-input bg-muted/40 px-3.5 text-xs transition focus:w-72 focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring" />;
 }
 export function Pagination({ page, pages, total, size, onPage }: { page: number; pages: number; total: number; size: number; onPage: (p: number) => void }) {
+  const { t } = useI18n();
   if (pages <= 1) return null;
   const from = (page - 1) * size + 1;
   const to = Math.min(total, page * size);
   const btn = "grid size-8 place-items-center rounded-lg text-xs font-semibold transition hover:bg-muted active:scale-90 disabled:opacity-40";
   return (
     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs text-muted-foreground">
-      <span>عرض {from}-{to} من أصل {total}</span>
+      <span>{t("عرض")} {from}-{to} {t("من أصل")} {total}</span>
       <div className="flex items-center gap-1">
         <button className={btn} disabled={page === 1} onClick={() => onPage(page - 1)}>›</button>
         {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
@@ -125,10 +128,11 @@ export function Pagination({ page, pages, total, size, onPage }: { page: number;
   );
 }
 export function Dropzone({ file, onFile, accept, hint }: { file: File | null; onFile: (f: File | null) => void; accept?: string; hint?: string }) {
+  const { t } = useI18n();
   return (
     <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-muted/30 px-4 py-8 text-center transition duration-300 hover:border-brand hover:bg-brand/5">
       <span className="grid size-11 place-items-center rounded-full bg-brand/10 text-brand text-lg transition group-hover:scale-110">⬆</span>
-      <b className="text-xs">{file ? file.name : "اضغط للرفع أو اسحب الملف هنا"}</b>
+      <b className="text-xs">{file ? file.name : t("اضغط للرفع أو اسحب الملف هنا")}</b>
       <small className="text-[10px] text-muted-foreground">{file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : hint}</small>
       <input type="file" accept={accept} className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
     </label>

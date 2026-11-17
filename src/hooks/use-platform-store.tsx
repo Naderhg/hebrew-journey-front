@@ -21,6 +21,7 @@ export interface PlatformUser {
   avatarUrl?: string | null;
   bio?: string | null;
   isActive: boolean;
+  adminPermissions?: string[];
   createdAt: string;
 }
 
@@ -169,6 +170,7 @@ interface CreateStaffUserInput {
   password?: string;
   email?: string;
   role: Exclude<UserRole, "STUDENT">;
+  adminPermissions?: string[];
   specialty?: string;
 }
 
@@ -1082,7 +1084,7 @@ interface PlatformStoreValue {
   deleteUser: (id: string) => Promise<void>;
   updateUserStatus: (id: string, isActive: boolean) => Promise<void>;
   resetUserPassword: (id: string, password: string) => Promise<void>;
-  updateAdminUser: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string }) => Promise<void>;
+  updateAdminUser: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string; adminPermissions?: string[] }) => Promise<void>;
   addCourseMaterial: (input: CreateMaterialInput) => Promise<CourseMaterial>;
   deleteCourseMaterial: (id: string) => Promise<void>;
   setMaterialStatus: (id: string, status: PublishStatus) => Promise<void>;
@@ -1384,7 +1386,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
           .catch(() => {});
       }
 
-      if (user?.role === "ADMIN") {
+      if (user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") {
         const [usersRes, matRes, qRes, examsRes, linksRes, resultsRes, packsRes, leadsRes, repRes, subsRes, certRes] = await Promise.allSettled([
           apiFetch<{ users: PlatformUser[] }>("/api/admin/users"),
           apiFetch<{ materials: CourseMaterial[] }>("/api/admin/materials"),
@@ -2433,7 +2435,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await Promise.all([
       fetchOpsBookings(),
       fetchCallsStudents(),
-      ...(user?.role === "ADMIN" ? [fetchAdminBookings(), fetchAdminBookingsReport().catch(() => {})] : []),
+      ...(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN"
+        ? [fetchAdminBookings(), ...(user?.role === "SUPER_ADMIN" ? [fetchAdminBookingsReport().catch(() => {})] : [])]
+        : []),
     ]);
   }
 

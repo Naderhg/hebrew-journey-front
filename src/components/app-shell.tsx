@@ -93,6 +93,7 @@ const ROLE_ICONS: Record<UserRole, LucideIcon> = {
   STUDENT: GraduationCap,
   TEACHER: BookOpen,
   ADMIN: ShieldCheck,
+  SUPER_ADMIN: ShieldCheck,
   SALES: BriefcaseBusiness,
   SUPPORT: Headphones,
 };
@@ -152,6 +153,7 @@ const adminNav: readonly NavEntry[] = [
     group: "المستخدمون",
     icon: UsersRound,
     items: [
+      { to: "/admin", section: "all-users", label: "كل المستخدمين", icon: Users },
       { to: "/admin", section: "teachers", label: "المدرسون", icon: UsersRound },
       { to: "/admin", section: "students", label: "الطلاب", icon: GraduationCap },
       { to: "/admin", section: "sales", label: "فريق المبيعات", icon: BriefcaseBusiness },
@@ -214,6 +216,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
   STUDENT: studentNav,
   TEACHER: teacherNav,
   ADMIN: adminNav,
+  SUPER_ADMIN: adminNav,
   SALES: [
     { to: "/sales", section: "leads", label: "العملاء المحتملون", icon: UsersRound },
     { to: "/sales", section: "calls", label: "سجل المكالمات", icon: Headphones },
@@ -305,6 +308,13 @@ export function AppShell({
   }, [isStudent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   let navItems = roleNavigationMap[role] ?? studentNav;
+  if (role === "ADMIN") {
+    navItems = navItems.map((entry) =>
+      isGroup(entry)
+        ? { ...entry, items: entry.items.filter((it) => it.section !== "all-users" && it.section !== "add-user") }
+        : entry,
+    );
+  }
   if (needsPlacement) navItems = placementOnlyNav;
   else if (isLocked) navItems = lockedStudentNav;
   else if (isStudent) {
@@ -322,6 +332,7 @@ export function AppShell({
     STUDENT: t("مساحتي التعليمية"),
     TEACHER: t("مساحة المدرس"),
     ADMIN: t("مركز الإدارة"),
+    SUPER_ADMIN: t("مركز الإدارة"),
     SALES: t("مساحة المبيعات"),
     SUPPORT: t("خدمة العملاء"),
   };
@@ -412,7 +423,7 @@ export function AppShell({
   }
 
   const RoleIcon = ROLE_ICONS[role];
-  const roleAvatarTone = ({ STUDENT: "mint", TEACHER: "peach", ADMIN: "navy", SALES: "blue", SUPPORT: "lavender" } as const)[role];
+  const roleAvatarTone = ({ STUDENT: "mint", TEACHER: "peach", ADMIN: "navy", SUPER_ADMIN: "navy", SALES: "blue", SUPPORT: "lavender" } as const)[role];
 
   async function handleChangeMyPassword() {
     const password = prompt(t("اكتب كلمة المرور الجديدة (6 أحرف على الأقل):"));

@@ -2533,6 +2533,7 @@ export type AdminSection =
   | "sales"
   | "support"
   | "add-user"
+  | "all-users"
   | "courses"
   | "exams"
   | "results"
@@ -2560,100 +2561,165 @@ export function AdminScreen() {
     allExamResults,
     leaderboard,
     loadingData,
-    addStaffUser,
-    deleteUser,
-    updateUserStatus,
-    resetUserPassword,
-    updateAdminUser,
-    addCourseMaterial,
-    deleteCourseMaterial,
-    setMaterialStatus,
-    addPlacementQuestion,
-    deletePlacementQuestion,
-    togglePlacementQuestion,
-    addExam,
-    setExamStatus,
-    deleteExam,
-    assignStudentToTeacher,
-    unassignStudent,
+    addStaffUser: rawAddStaffUser,
+    deleteUser: rawDeleteUser,
+    updateUserStatus: rawUpdateUserStatus,
+    resetUserPassword: rawResetUserPassword,
+    updateAdminUser: rawUpdateAdminUser,
+    addCourseMaterial: rawAddCourseMaterial,
+    deleteCourseMaterial: rawDeleteCourseMaterial,
+    setMaterialStatus: rawSetMaterialStatus,
+    addPlacementQuestion: rawAddPlacementQuestion,
+    deletePlacementQuestion: rawDeletePlacementQuestion,
+    togglePlacementQuestion: rawTogglePlacementQuestion,
+    addExam: rawAddExam,
+    setExamStatus: rawSetExamStatus,
+    deleteExam: rawDeleteExam,
+    assignStudentToTeacher: rawAssignStudentToTeacher,
+    unassignStudent: rawUnassignStudent,
     fetchAdminExamResults,
-    adminGradeResult,
+    adminGradeResult: rawAdminGradeResult,
     adminPackages,
     adminLeads,
     salesReport,
     adminSubscriptions,
     adminCertificates,
     fetchAdminOps,
-    createPackage,
-    updatePackage,
-    deletePackage,
-    assignLead,
-    issueCertificate,
-    deleteCertificate,
+    createPackage: rawCreatePackage,
+    updatePackage: rawUpdatePackage,
+    deletePackage: rawDeletePackage,
+    assignLead: rawAssignLead,
+    issueCertificate: rawIssueCertificate,
+    deleteCertificate: rawDeleteCertificate,
     adminPaymentRequests,
     fetchAdminPaymentRequests,
-    reviewPaymentRequest,
+    reviewPaymentRequest: rawReviewPaymentRequest,
     placementResults,
     fetchPlacementResults,
     adminSchedules,
     fetchAdminSchedules,
     adminLectures,
     fetchAdminLectures,
-    updateAdminLecture,
-    deleteAdminLecture,
+    updateAdminLecture: rawUpdateAdminLecture,
+    deleteAdminLecture: rawDeleteAdminLecture,
     fetchAdminLectureAttendance,
     fetchAdminTeacherProfile,
     fetchAdminStudentProfile,
-    resetStudentBoundIp,
-    deleteAdminSubscription,
-    restoreSubscriptionSessions,
-    createAdminSchedule,
-    updateAdminSchedule,
-    deleteAdminSchedule,
+    resetStudentBoundIp: rawResetStudentBoundIp,
+    deleteAdminSubscription: rawDeleteAdminSubscription,
+    restoreSubscriptionSessions: rawRestoreSubscriptionSessions,
+    createAdminSchedule: rawCreateAdminSchedule,
+    updateAdminSchedule: rawUpdateAdminSchedule,
+    deleteAdminSchedule: rawDeleteAdminSchedule,
     // session bookings
     adminBookings,
     adminBookingsReport,
     fetchAdminBookings,
     fetchAdminBookingsReport,
-    adminUpdateBooking,
+    adminUpdateBooking: rawAdminUpdateBooking,
     // groups
     adminGroups,
     groupMembers,
     fetchAdminGroups,
-    createAdminGroup,
-    updateAdminGroup,
-    deleteAdminGroup,
+    createAdminGroup: rawCreateAdminGroup,
+    updateAdminGroup: rawUpdateAdminGroup,
+    deleteAdminGroup: rawDeleteAdminGroup,
     fetchGroupMembers,
-    addGroupMembers,
-    removeGroupMember,
+    addGroupMembers: rawAddGroupMembers,
+    removeGroupMember: rawRemoveGroupMember,
     // admin teacher availability
     adminTeacherAvailability,
     fetchAdminTeacherAvailability,
     callsStudents,
     fetchCallsStudents,
-    opsCreateBooking,
+    opsCreateBooking: rawOpsCreateBooking,
     freeStudents,
     freeLectures,
     fetchFreeStudents,
-    createFreeStudent,
-    deleteFreeStudent,
+    createFreeStudent: rawCreateFreeStudent,
+    deleteFreeStudent: rawDeleteFreeStudent,
     fetchFreeLectures,
-    createFreeLecture,
-    updateFreeLecture,
-    setFreeLectureStudents,
-    deleteFreeLecture,
-    addFreeLectureFile,
-    removeFreeLectureFile,
+    createFreeLecture: rawCreateFreeLecture,
+    updateFreeLecture: rawUpdateFreeLecture,
+    setFreeLectureStudents: rawSetFreeLectureStudents,
+    deleteFreeLecture: rawDeleteFreeLecture,
+    addFreeLectureFile: rawAddFreeLectureFile,
+    removeFreeLectureFile: rawRemoveFreeLectureFile,
     adminAnalytics,
     fetchAdminAnalytics,
     opsStudents,
     fetchOpsStudents,
     opsPackages,
     fetchOpsPackages,
-    activateOpsSubscription,
-    updateStudentStatus,
+    activateOpsSubscription: rawActivateOpsSubscription,
+    updateStudentStatus: rawUpdateStudentStatus,
   } = usePlatformStore();
   const { t } = useI18n();
+  const { user: authUser } = useAuth();
+  const isSuperAdmin = authUser?.role === "SUPER_ADMIN";
+  const adminPerms = authUser?.adminPermissions ?? [];
+  const canCreate = isSuperAdmin || adminPerms.includes("CREATE");
+  const canEdit = isSuperAdmin || adminPerms.includes("EDIT");
+  const canDelete = isSuperAdmin || adminPerms.includes("DELETE");
+  const guardAction = (perm: "CREATE" | "EDIT" | "DELETE" | "SUPER", fn: (...args: any[]) => any) =>
+    (...args: any[]) => {
+      const ok = perm === "SUPER" ? isSuperAdmin : isSuperAdmin || adminPerms.includes(perm);
+      if (!ok) {
+        alert(t("ليس لديك صلاحية لهذا الإجراء — اطلبها من السوبر أدمن"));
+        return Promise.resolve(undefined);
+      }
+      return fn(...args);
+    };
+  const addStaffUser = guardAction("SUPER", rawAddStaffUser);
+  const deleteUser = guardAction("SUPER", rawDeleteUser);
+  const updateUserStatus = guardAction("SUPER", rawUpdateUserStatus);
+  const resetUserPassword = guardAction("SUPER", rawResetUserPassword);
+  const updateAdminUser = guardAction("SUPER", rawUpdateAdminUser);
+  const resetStudentBoundIp = guardAction("SUPER", rawResetStudentBoundIp);
+  const addCourseMaterial = guardAction("CREATE", rawAddCourseMaterial);
+  const addPlacementQuestion = guardAction("CREATE", rawAddPlacementQuestion);
+  const addExam = guardAction("CREATE", rawAddExam);
+  const createPackage = guardAction("CREATE", rawCreatePackage);
+  const createAdminSchedule = guardAction("CREATE", rawCreateAdminSchedule);
+  const createAdminGroup = guardAction("CREATE", rawCreateAdminGroup);
+  const addGroupMembers = guardAction("CREATE", rawAddGroupMembers);
+  const opsCreateBooking = guardAction("CREATE", rawOpsCreateBooking);
+  const createFreeStudent = guardAction("CREATE", rawCreateFreeStudent);
+  const createFreeLecture = guardAction("CREATE", rawCreateFreeLecture);
+  const addFreeLectureFile = guardAction("CREATE", rawAddFreeLectureFile);
+  const activateOpsSubscription = guardAction("CREATE", rawActivateOpsSubscription);
+  const issueCertificate = guardAction("CREATE", rawIssueCertificate);
+  const assignStudentToTeacher = guardAction("CREATE", rawAssignStudentToTeacher);
+  const assignLead = guardAction("EDIT", rawAssignLead);
+  const setMaterialStatus = guardAction("EDIT", rawSetMaterialStatus);
+  const togglePlacementQuestion = guardAction("EDIT", rawTogglePlacementQuestion);
+  const setExamStatus = guardAction("EDIT", rawSetExamStatus);
+  const adminGradeResult = guardAction("EDIT", rawAdminGradeResult);
+  const updatePackage = guardAction("EDIT", rawUpdatePackage);
+  const reviewPaymentRequest = guardAction("EDIT", rawReviewPaymentRequest);
+  const updateAdminSchedule = guardAction("EDIT", rawUpdateAdminSchedule);
+  const updateAdminGroup = guardAction("EDIT", rawUpdateAdminGroup);
+  const adminUpdateBooking = guardAction("EDIT", rawAdminUpdateBooking);
+  const updateFreeLecture = guardAction("EDIT", rawUpdateFreeLecture);
+  const setFreeLectureStudents = guardAction("EDIT", rawSetFreeLectureStudents);
+  const updateStudentStatus = guardAction("EDIT", rawUpdateStudentStatus);
+  const restoreSubscriptionSessions = guardAction("CREATE", rawRestoreSubscriptionSessions);
+  const updateAdminLecture = guardAction("EDIT", rawUpdateAdminLecture);
+  const deleteCourseMaterial = guardAction("DELETE", rawDeleteCourseMaterial);
+  const deletePlacementQuestion = guardAction("DELETE", rawDeletePlacementQuestion);
+  const deleteExam = guardAction("DELETE", rawDeleteExam);
+  const deletePackage = guardAction("DELETE", rawDeletePackage);
+  const deleteCertificate = guardAction("DELETE", rawDeleteCertificate);
+  const deleteAdminSchedule = guardAction("DELETE", rawDeleteAdminSchedule);
+  const deleteAdminGroup = guardAction("DELETE", rawDeleteAdminGroup);
+  const removeGroupMember = guardAction("DELETE", rawRemoveGroupMember);
+  const deleteFreeStudent = guardAction("DELETE", rawDeleteFreeStudent);
+  const deleteFreeLecture = guardAction("DELETE", rawDeleteFreeLecture);
+  const removeFreeLectureFile = guardAction("DELETE", rawRemoveFreeLectureFile);
+  const deleteAdminSubscription = guardAction("DELETE", rawDeleteAdminSubscription);
+  const unassignStudent = guardAction("DELETE", rawUnassignStudent);
+  const deleteAdminLecture = guardAction("DELETE", rawDeleteAdminLecture);
+
 
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
   const PAGE_SIZE = 5;
@@ -2677,7 +2743,7 @@ export function AdminScreen() {
     if (activeSection === "schedules") fetchAdminSchedules().catch(() => {});
     if (activeSection === "sessions") {
       fetchAdminBookings().catch(() => {});
-      fetchAdminBookingsReport().catch(() => {});
+      if (isSuperAdmin) fetchAdminBookingsReport().catch(() => {});
       fetchCallsStudents().catch(() => {});
       fetchAdminLectures({ status: "all" }).catch(() => {});
       fetchFreeLectures().catch(() => {});
@@ -2708,6 +2774,11 @@ export function AdminScreen() {
   const [newUserRole, setNewUserRole] = useState<Exclude<UserRole, "STUDENT">>("TEACHER");
   const [profileView, setProfileView] = useState<{ type: "teacher" | "student"; id: string } | null>(null);
   const [editingUser, setEditingUser] = useState<PlatformUser | null>(null);
+  const [newAdminPerms, setNewAdminPerms] = useState<string[]>([]);
+  const [auSearch, setAuSearch] = useState("");
+  const [auRole, setAuRole] = useState<string>("ALL");
+  const [auStatus, setAuStatus] = useState<string>("ALL");
+  const [auLevel, setAuLevel] = useState<string>("ALL");
   const [specialty, setSpecialty] = useState("");
   const [userSuccess, setUserSuccess] = useState("");
   const [userError, setUserError] = useState("");
@@ -2810,6 +2881,7 @@ export function AdminScreen() {
         phone,
         password: password || "עברית שוטפת@1234",
         role: newUserRole,
+        ...(newUserRole === "ADMIN" ? { adminPermissions: newAdminPerms } : {}),
         ...(specialty ? { specialty } : {}),
       });
       setFullName("");
@@ -2817,6 +2889,7 @@ export function AdminScreen() {
       setPassword("");
       setPhone("");
       setSpecialty("");
+      setNewAdminPerms([]);
       setUserSuccess(`${t("تم إضافة حساب")} (${t(ROLE_LABELS[newUserRole])}) ${t("في قاعدة البيانات بنجاح.")}`);
     } catch (err) {
       setUserError(err instanceof Error ? err.message : t("فشل إضافة المستخدم"));
@@ -3128,7 +3201,7 @@ export function AdminScreen() {
                         {t("الملف")}
                       </button>
                     )}
-                    {u.role !== "ADMIN" && (
+                    {isSuperAdmin && u.role !== "SUPER_ADMIN" && u.id !== authUser?.id && (
                       <>
                         <button
                           onClick={async () => {
@@ -3787,7 +3860,7 @@ export function AdminScreen() {
 
   return (
     <AppShell
-      role="ADMIN"
+      role={isSuperAdmin ? "SUPER_ADMIN" : "ADMIN"}
       activeSection={activeSection}
       onSelectSection={(s) => setActiveSection(s as AdminSection)}
     >
@@ -4104,6 +4177,49 @@ export function AdminScreen() {
         </Card>
       )}
 
+      {activeSection === "all-users" && (() => {
+        const q = auSearch.trim().toLowerCase();
+        const filteredUsers = users.filter((u) => {
+          if (auRole !== "ALL" && u.role !== auRole) return false;
+          if (auStatus === "ACTIVE" && !u.isActive) return false;
+          if (auStatus === "DISABLED" && u.isActive) return false;
+          if (auLevel !== "ALL" && (u.level ?? "NONE") !== auLevel) return false;
+          if (!q) return true;
+          return `${u.fullName} ${u.email ?? ""} ${u.phone ?? ""}`.toLowerCase().includes(q);
+        });
+        return (
+          <div className="space-y-4">
+            <Card>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="min-w-[200px] flex-1">
+                  <SearchBox value={auSearch} onChange={setAuSearch} placeholder={t("بحث بالاسم أو الهاتف أو الإيميل...")} />
+                </div>
+                <select value={auRole} onChange={(e) => setAuRole(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="ALL">{t("كل الأدوار")}</option>
+                  {(["STUDENT", "TEACHER", "ADMIN", "SUPER_ADMIN", "SALES", "SUPPORT"] as UserRole[]).map((r) => (
+                    <option key={r} value={r}>{t(ROLE_LABELS[r])}</option>
+                  ))}
+                </select>
+                <select value={auStatus} onChange={(e) => setAuStatus(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="ALL">{t("كل الحالات")}</option>
+                  <option value="ACTIVE">{t("نشط")}</option>
+                  <option value="DISABLED">{t("معطل")}</option>
+                </select>
+                <select value={auLevel} onChange={(e) => setAuLevel(e.target.value)} className="flex h-10 rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="ALL">{t("كل المستويات")}</option>
+                  <option value="NONE">{t("بدون مستوى")}</option>
+                  {PLATFORM_LEVELS.map((lv) => <option key={lv} value={lv}>{lv}</option>)}
+                </select>
+              </div>
+            </Card>
+            <Card>
+              <h2 className="font-bold">{t("كل المستخدمين")} ({filteredUsers.length})</h2>
+              {renderUsersTable(filteredUsers, t("لا يوجد مستخدمون مطابقون للفلاتر الحالية"))}
+            </Card>
+          </div>
+        );
+      })()}
+
       {activeSection === "add-user" && (
         <Card className="mx-auto max-w-xl">
           <div className="flex items-center gap-2">
@@ -4198,6 +4314,26 @@ export function AdminScreen() {
                 placeholder="staff@עברית שוטפת.com"
               />
             </div>
+
+            {newUserRole === "ADMIN" && (
+              <div className="space-y-1.5 rounded-md border border-border p-3">
+                <Label>{t("صلاحيات الأدمن")}</Label>
+                <p className="text-xs text-muted-foreground">{t("بدون صلاحيات = عرض فقط. امنح الصلاحيات التي تريدها لهذا الحساب.")}</p>
+                <div className="mt-2 flex flex-wrap gap-4">
+                  {([["CREATE", t("إنشاء")], ["EDIT", t("تعديل")], ["DELETE", t("حذف")]] as const).map(([v, label]) => (
+                    <label key={v} className="flex items-center gap-2 text-sm font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={newAdminPerms.includes(v)}
+                        onChange={(e) => setNewAdminPerms((p) => (e.target.checked ? [...p, v] : p.filter((x) => x !== v)))}
+                        className="size-4 accent-brand"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <Button type="submit" className="w-full">
               <Plus className="size-4" />
@@ -4806,7 +4942,7 @@ export function AdminScreen() {
       {activeSection === "sessions" && (
         <div className="space-y-4">
           {/* Report summary */}
-          {adminBookingsReport && (
+          {isSuperAdmin && adminBookingsReport && (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 <Card className="p-4">
@@ -6768,12 +6904,18 @@ export function LecturesScreen() {
                     {l.level && <Badge tone="muted">{t("مستوى")} {l.level}</Badge>}
                     {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
                   </div>
-                  <small className="mt-1 block text-muted-foreground">
-                    {l.teacher?.fullName ?? "—"}
-                    {" · "}
-                    {new Date(l.startsAt).toLocaleString("ar-EG")}
-                    {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleString("ar-EG")}` : ""}
-                  </small>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-brand/10 px-2.5 py-1.5 font-lat text-sm font-bold text-brand">
+                      <CalendarDays className="size-4" />
+                      {new Date(l.startsAt).toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long" })}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 font-lat text-sm font-bold">
+                      <Clock3 className="size-4" />
+                      {new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                      {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                    </span>
+                    <small className="text-muted-foreground">{l.teacher?.fullName ?? "—"}</small>
+                  </div>
                   {l.description && <p className="mt-1 text-xs text-muted-foreground">{l.description}</p>}
                 </div>
                 {l.meetingUrl && l.status !== "cancelled" && (
@@ -10781,9 +10923,9 @@ function OpsFreeLecturesSection({
                         {l.group && <Badge tone="brand">{l.group.name}</Badge>}
                         {l.level && <Badge tone="gold">{l.level}</Badge>}
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1.5 text-sm font-bold text-foreground">
                         {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-                        {l.teacher && ` · ${l.teacher.fullName}`}
+                        {l.teacher && <span className="font-normal text-muted-foreground"> · {l.teacher.fullName}</span>}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -12360,7 +12502,7 @@ function AdminEditUserModal({
   onClose,
 }: {
   user: PlatformUser;
-  onSave: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string }) => Promise<void>;
+  onSave: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string; adminPermissions?: string[] }) => Promise<void>;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -12369,6 +12511,7 @@ function AdminEditUserModal({
   const [email, setEmail] = useState(user.email ?? "");
   const [specialty, setSpecialty] = useState(user.specialty ?? "");
   const [password, setPassword] = useState("");
+  const [perms, setPerms] = useState<string[]>(user.adminPermissions ?? []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -12383,6 +12526,7 @@ function AdminEditUserModal({
         email: email.trim() || null,
         specialty: specialty.trim() || null,
         ...(password.trim() ? { password: password.trim() } : {}),
+        ...(user.role === "ADMIN" ? { adminPermissions: perms } : {}),
       });
       onClose();
     } catch (e2) {
@@ -12421,6 +12565,25 @@ function AdminEditUserModal({
             <Label>{t("كلمة مرور جديدة (اختياري — اتركها فارغة للإبقاء على الحالية)")}</Label>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("6 أحرف على الأقل")} />
           </div>
+          {user.role === "ADMIN" && (
+            <div className="space-y-1.5 rounded-md border border-border p-3">
+              <Label>{t("صلاحيات الأدمن")}</Label>
+              <p className="text-xs text-muted-foreground">{t("بدون صلاحيات = عرض فقط. امنح الصلاحيات التي تريدها لهذا الحساب.")}</p>
+              <div className="mt-2 flex flex-wrap gap-4">
+                {([["CREATE", t("إنشاء")], ["EDIT", t("تعديل")], ["DELETE", t("حذف")]] as const).map(([v, label]) => (
+                  <label key={v} className="flex items-center gap-2 text-sm font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={perms.includes(v)}
+                      onChange={(e) => setPerms((pp) => (e.target.checked ? [...pp, v] : pp.filter((x) => x !== v)))}
+                      className="size-4 accent-brand"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           {err && <p className="rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{err}</p>}
           <div className="flex gap-2 pt-1">
             <Button type="submit" disabled={saving} className="flex-1">
@@ -12532,13 +12695,13 @@ function OpsLecturesListCard({
                 <b className="min-w-0 truncate text-sm">{l.title}</b>
                 <Badge tone={st(l.status).tone}>{st(l.status).label}</Badge>
               </div>
-              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                <p className="flex items-center gap-1.5">
-                  <CalendarDays className="size-3.5 shrink-0" />
+              <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <CalendarDays className="size-4 shrink-0 text-brand" />
                   {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
                 </p>
-                <p className="flex items-center gap-1.5 font-lat">
-                  <Clock3 className="size-3.5 shrink-0" />
+                <p className="flex items-center gap-1.5 font-lat text-base font-bold text-foreground">
+                  <Clock3 className="size-4 shrink-0 text-brand" />
                   {new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
                   {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
                 </p>

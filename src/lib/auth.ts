@@ -1,6 +1,6 @@
 import { apiFetch, setAccessToken, getAccessToken, setRefreshToken, getRefreshToken } from "./api";
 
-export type UserRole = "STUDENT" | "TEACHER" | "ADMIN" | "SALES" | "SUPPORT";
+export type UserRole = "STUDENT" | "TEACHER" | "ADMIN" | "SUPER_ADMIN" | "SALES" | "SUPPORT";
 
 export interface AuthUser {
   id: string;
@@ -15,6 +15,7 @@ export interface AuthUser {
   isActive?: boolean;
   emailVerifiedAt?: string;
   createdAt?: string;
+  adminPermissions?: string[];
   // student onboarding/billing gates
   level?: string | null;
   placementCompletedAt?: string | null;
@@ -25,6 +26,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   STUDENT: "طالب",
   TEACHER: "مدرس",
   ADMIN: "أدمن",
+  SUPER_ADMIN: "سوبر أدمن",
   SALES: "سيلز",
   SUPPORT: "خدمة عملاء",
 };
@@ -32,6 +34,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export function getHomeRouteForRole(role?: string): string {
   switch (role?.toUpperCase()) {
     case "ADMIN":
+    case "SUPER_ADMIN":
       return "/admin";
     case "TEACHER":
       return "/teacher";

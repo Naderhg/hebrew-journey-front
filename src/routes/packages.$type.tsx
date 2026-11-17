@@ -24,14 +24,15 @@ function PackagesCategoryPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [lang, setLang] = useState<"hebrew" | "english">("hebrew");
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await fetchPublicPackages(type);
+      await fetchPublicPackages(type, lang);
       setLoading(false);
     })();
-  }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [type, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isCalls = type === "calls";
   const sortedPackages = [...publicPackages].sort((a, b) => levelSortIndex(a.level) - levelSortIndex(b.level));
@@ -81,6 +82,24 @@ function PackagesCategoryPage() {
           <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5a6b8c]">{subtitle}</p>
         </section>
 
+        {/* Language filter */}
+        <div className="mt-8 flex items-center justify-center gap-2">
+          {(["hebrew", "english"] as const).map((l) => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className={`rounded-full border px-5 py-2 text-sm font-bold transition-all ${
+                lang === l
+                  ? "border-transparent text-white shadow-md"
+                  : "border-[#dfe8f7] bg-white text-[#33436b] hover:border-[#b9c9e6]"
+              }`}
+              style={lang === l ? { background: NAVY } : undefined}
+            >
+              {l === "hebrew" ? t("العبرية") : t("الإنجليزية")}
+            </button>
+          ))}
+        </div>
+
         {/* Packages grid */}
         <section className="mt-10">
           {loading ? (
@@ -104,6 +123,10 @@ function PackagesCategoryPage() {
 
                   {/* level + study mode badges */}
                   <div className="mt-2 flex flex-wrap gap-1.5">
+                    {/* language badge */}
+                    <span className="rounded-md bg-[#fde8ef] px-2 py-0.5 text-[10px] font-semibold" style={{ color: "#c2265e" }}>
+                      {p.language === "english" ? t("الإنجليزية") : t("العبرية")}
+                    </span>
                     {p.level && (
                       <span className="rounded-md bg-[#eef3fb] px-2 py-0.5 text-[10px] font-semibold" style={{ color: NAVY }}>
                         {t("المستوى")}: {p.level}

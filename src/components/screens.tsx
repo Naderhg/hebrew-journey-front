@@ -5022,7 +5022,8 @@ export function AdminScreen() {
                         {adminBookingsReport.packages.map((p: any) => (
                           <tr key={p.id} className="border-b">
                             <td className="p-2 font-semibold">{p.nameAr}</td>
-                            <td className="p-2"><Badge tone={p.category === "calls" ? "gold" : "brand"}>{p.category === "calls" ? t("مكالمات") : t("أساسية")}</Badge></td>
+                            <td className="p-2"><Badge tone={p.category === "calls" ? "gold" : "brand"}>{p.category === "calls" ? t("مكالمات") : t("أساسية")}</Badge>
+                    <Badge tone="muted">{p.language === "english" ? t("الإنجليزية") : t("العبرية")}</Badge></td>
                             <td className="p-2 font-lat">{p.price} {t("ج")}</td>
                             <td className="p-2 text-xs">{p.durationMin ? `${p.durationMin} ${t("دقيقة")}` : "—"}</td>
                             <td className="p-2 font-lat">{p.count} ({p.activeCount})</td>
@@ -6181,6 +6182,7 @@ function AdminPackagesSection({
   const [pFeatures, setPFeatures] = useState("");
   const [pTeacherId, setPTeacherId] = useState("");
   const [pCategory, setPCategory] = useState<"basic" | "calls">("basic");
+    const [pLanguage, setPLanguage] = useState<"hebrew" | "english">("hebrew");
   const [pStudyMode, setPStudyMode] = useState<"online" | "offline" | "both">("online");
   const [pLevel, setPLevel] = useState("");
   const [pDurationUnit, setPDurationUnit] = useState<"month" | "week">("month");
@@ -6194,7 +6196,7 @@ function AdminPackagesSection({
 
   function resetForm() {
     setPName(""); setPDesc(""); setPPrice(""); setPMonths("1"); setPFeatures(""); setPTeacherId("");
-    setPCategory("basic"); setPStudyMode("online"); setPLevel(""); setPDurationUnit("month");
+    setPCategory("basic"); setPLanguage("hebrew"); setPStudyMode("online"); setPLevel(""); setPDurationUnit("month");
     setPPackageType("subscription"); setPSessionsTotal(""); setPValidityDays(""); setPSessionDuration("60");
     setEditId(null);
   }
@@ -6203,6 +6205,7 @@ function AdminPackagesSection({
     setPName(p.nameAr); setPDesc(p.description ?? ""); setPPrice(String(p.price));
     setPMonths(String(p.durationMonths)); setPFeatures(Array.isArray(p.features) ? p.features.join("\n") : "");
     setPTeacherId(p.teacher?.id ?? ""); setPCategory(p.category === "calls" ? "calls" : "basic");
+    setPLanguage(p.language === "english" ? "english" : "hebrew");
     setPStudyMode(p.studyMode === "offline" || p.studyMode === "both" ? p.studyMode : "online");
     setPLevel(p.level ?? ""); setPDurationUnit(p.durationUnit === "week" ? "week" : "month");
     setPPackageType(p.packageType === "sessions" ? "sessions" : "subscription");
@@ -6222,6 +6225,7 @@ function AdminPackagesSection({
         price: Number(pPrice),
         durationMonths: Number(pMonths) || 1,
         category: pCategory,
+        language: pLanguage,
         studyMode: pCategory === "calls" ? "online" : pStudyMode,
         level: pLevel || null,
         durationUnit: pDurationUnit,
@@ -6271,6 +6275,21 @@ function AdminPackagesSection({
                 <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
                   <input type="radio" name="category" checked={pCategory === "calls"} onChange={() => { setPCategory("calls"); setPStudyMode("online"); }} />
                   {t("نظام المكالمات (أونلاين فقط)")}
+                </label>
+              </div>
+            </div>
+
+            {/* Language */}
+            <div className="space-y-1.5">
+              <Label>{t("لغة الباقة")}</Label>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <input type="radio" name="language" checked={pLanguage === "hebrew"} onChange={() => setPLanguage("hebrew")} />
+                  {t("العبرية")}
+                </label>
+                <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <input type="radio" name="language" checked={pLanguage === "english"} onChange={() => setPLanguage("english")} />
+                  {t("الإنجليزية")}
                 </label>
               </div>
             </div>
@@ -7458,6 +7477,7 @@ export function SubscribeScreen() {
     createPaymentRequest,
   } = usePlatformStore();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+  const [subLang, setSubLang] = useState<"hebrew" | "english" | null>(null);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
   const [shot, setShot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -7576,12 +7596,27 @@ export function SubscribeScreen() {
             </Card>
           )}
 
+          <div className="mb-3 flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground">{t("لغة الباقة")}:</span>
+            {([null, "hebrew", "english"] as const).map((l) => (
+              <button
+                key={l ?? "all"}
+                onClick={() => setSubLang(l)}
+                className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${subLang === l ? "border-transparent bg-brand text-white" : "border-input bg-background text-muted-foreground hover:border-brand/50"}`}
+              >
+                {l === null ? t("الكل") : l === "hebrew" ? t("العبرية") : t("الإنجليزية")}
+              </button>
+            ))}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {publicPackages.map((pkg) => (
+            {publicPackages.filter((pkg) => !subLang || (pkg.language ?? "hebrew") === subLang).map((pkg) => (
               <Card key={pkg.id} className="flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <b>{pkg.nameAr}</b>
+                  <div className="flex items-center gap-1">
+                    <Badge tone="muted">{pkg.language === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
                   <Badge tone="brand">{pkg.durationMonths === 1 ? t("شهرياً") : `${pkg.durationMonths} ${t("شهور")}`}</Badge>
+                  </div>
                 </div>
                 <p className="mt-2 text-2xl font-bold text-brand">
                   {pkg.price} <span className="text-sm font-normal text-muted-foreground">{t("ج.م")}</span>

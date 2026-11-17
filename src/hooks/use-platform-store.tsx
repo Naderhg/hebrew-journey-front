@@ -268,6 +268,7 @@ export interface Package {
   validityDays?: number | null;
   sessionDurationMinutes?: number | null;
   category?: string;
+  language?: string;
   studyMode?: string;
   level?: string | null;
   durationUnit?: string;
@@ -971,6 +972,7 @@ export interface PublicPackage {
   features?: string[] | null;
   teacher?: { fullName: string; specialty?: string | null } | null;
   category?: string;
+  language?: string;
   studyMode?: string;
   level?: string | null;
   durationUnit?: string;
@@ -1131,8 +1133,8 @@ interface PlatformStoreValue {
   createStudentTicket: (input: { subject: string; description?: string; category: string }) => Promise<void>;
   // Admin extras
   fetchAdminOps: () => Promise<void>;
-  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
-  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) => Promise<void>;
+  createPackage: (input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week"; language?: "hebrew" | "english" }) => Promise<void>;
+  updatePackage: (id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week"; language?: "hebrew" | "english" }) => Promise<void>;
   deletePackage: (id: string) => Promise<void>;
   assignLead: (leadId: string, salesId: string | null) => Promise<void>;
   issueCertificate: (input: { studentId: string; title: string; level?: string; description?: string }) => Promise<void>;
@@ -1141,7 +1143,7 @@ interface PlatformStoreValue {
   createTeacherSchedule: (input: { title: string; groupName?: string; description?: string; dayOfWeek: number; startTime: string; endTime: string; location: string; meetingUrl?: string }) => Promise<void>;
   deleteTeacherSchedule: (id: string) => Promise<void>;
   // Chat
-  fetchPublicPackages: (category?: string) => Promise<void>;
+  fetchPublicPackages: (category?: string, language?: string) => Promise<void>;
   submitPublicLead: (input: { name: string; phone: string; email?: string; packageName?: string }) => Promise<void>;
   fetchMyChatTeachers: () => Promise<void>;
   fetchTeacherChat: (teacherId?: string) => Promise<void>;
@@ -1997,12 +1999,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (certRes.status === "fulfilled" && certRes.value?.certificates) setAdminCertificates(certRes.value.certificates);
   }
 
-  async function createPackage(input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) {
+  async function createPackage(input: { nameAr: string; description?: string; price: number; durationMonths: number; features?: string[]; teacherId?: string; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week"; language?: "hebrew" | "english" }) {
     await apiFetch("/api/admin/packages", { method: "POST", body: input });
     await fetchAdminOps();
   }
 
-  async function updatePackage(id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week" }) {
+  async function updatePackage(id: string, input: { nameAr?: string; description?: string; price?: number; durationMonths?: number; teacherId?: string; isActive?: boolean; packageType?: "subscription" | "sessions"; sessionsTotal?: number | null; validityDays?: number | null; sessionDurationMinutes?: number | null; category?: "basic" | "calls"; studyMode?: "online" | "offline" | "both"; level?: string | null; durationUnit?: "month" | "week"; language?: "hebrew" | "english" }) {
     await apiFetch(`/api/admin/packages/${id}`, { method: "PATCH", body: input });
     await fetchAdminOps();
   }
@@ -2041,9 +2043,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
 
   // ─── Chat & public packages ──────────────────────────────────────────────
 
-  async function fetchPublicPackages(category?: string) {
+  async function fetchPublicPackages(category?: string, language?: string) {
     try {
-      const qs = category ? `?category=${category}` : "";
+      const params = new URLSearchParams();
+      if (category) params.set("category", category);
+      if (language) params.set("language", language);
+      const qsStr = params.toString();
+      const qs = qsStr ? `?${qsStr}` : "";
       const res = await apiFetch<{ packages: PublicPackage[] }>(`/api/public/packages${qs}`, { skipAuth: true });
       if (res?.packages) setPublicPackages(res.packages);
     } catch { /* ignore */ }

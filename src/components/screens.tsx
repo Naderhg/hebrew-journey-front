@@ -26,6 +26,7 @@ import {
   Film,
   GraduationCap,
   Link2,
+  MessageCircle,
   Mic,
   Plus,
   Search,
@@ -79,6 +80,17 @@ import {
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, updateProfile, type UserRole } from "../lib/auth";
 import { SERVER_CONFIG, mediaSrc } from "../lib/api";
+
+// WhatsApp deep link — normalizes local numbers (e.g. 01x → 201x for Egypt)
+function waHref(phone?: string | null): string | null {
+  if (!phone) return null;
+  let d = phone.replace(/[^0-9]/g, "");
+  if (!d) return null;
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("0")) d = "20" + d.slice(1); // Egyptian local → international
+  else if (d.length === 10 && d.startsWith("1")) d = "20" + d;
+  return `https://wa.me/${d}`;
+}
 
 const meta = (title: string, description: string) => ({
   meta: [
@@ -3160,7 +3172,14 @@ export function AdminScreen() {
                 </td>
                 <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">{u.email || "—"}</td>
                 <td className="px-3 py-3.5 font-lat text-xs text-muted-foreground">
-                  {u.phone || "—"}
+                  <span className="flex items-center gap-1.5">
+                    {u.phone || "—"}
+                    {waHref(u.phone) && (
+                      <a href={waHref(u.phone)!} target="_blank" rel="noreferrer" title={t("واتساب")} className="grid size-6 place-items-center rounded-full bg-[#25D366]/15 text-[#128C4B] transition-colors hover:bg-[#25D366]/30">
+                        <MessageCircle className="size-3.5" />
+                      </a>
+                    )}
+                  </span>
                 </td>
                 <td className="px-3 py-3.5">
                   <Badge
@@ -5716,7 +5735,20 @@ function StudentsDirectorySection({
                     </td>
                     <td className="p-3">
                       <b className="block text-sm">{s.fullName}</b>
-                      <small className="block text-muted-foreground">{s.phone ?? s.email ?? "—"}</small>
+                      <span className="flex items-center gap-1.5">
+                        <small className="text-muted-foreground">{s.phone ?? s.email ?? "—"}</small>
+                        {waHref(s.phone) && (
+                          <a
+                            href={waHref(s.phone)!}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={t("واتساب")}
+                            className="grid size-6 place-items-center rounded-full bg-[#25D366]/15 text-[#128C4B] transition-colors hover:bg-[#25D366]/30"
+                          >
+                            <MessageCircle className="size-3.5" />
+                          </a>
+                        )}
+                      </span>
                       <small className="block text-[11px] text-muted-foreground/70">{t("انضم")} {s.createdAt}</small>
                     </td>
                     <td className="p-3">
@@ -9817,9 +9849,20 @@ export function SupportScreen() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <b className="text-sm">{s.fullName}</b>
-                      <small className="block text-muted-foreground">
-                        {s.phone ?? s.email ?? "—"} · {t("المدرس")}: {s.teacher}
-                      </small>
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <small>{s.phone ?? s.email ?? "—"} · {t("المدرس")}: {s.teacher}</small>
+                        {waHref(s.phone) && (
+                          <a
+                            href={waHref(s.phone)!}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={t("واتساب")}
+                            className="grid size-6 place-items-center rounded-full bg-[#25D366]/15 text-[#128C4B] transition-colors hover:bg-[#25D366]/30"
+                          >
+                            <MessageCircle className="size-3.5" />
+                          </a>
+                        )}
+                      </span>
                       <p className="mt-1 text-xs text-danger">{s.reason}</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -12438,7 +12481,14 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
         <div className="min-w-0 flex-1">
           <b className="text-lg">{s.fullName}</b>
           <p className="text-xs text-muted-foreground">{tr("انضم")} {new Date(s.createdAt).toLocaleDateString("ar-EG")} · {tr("المستوى")} {s.level ?? "—"}{s.placementScore != null ? ` (${s.placementScore}%)` : ""}</p>
-          <p className="mt-0.5 font-lat text-xs text-muted-foreground">{s.phone ?? ""} {s.email ? `· ${s.email}` : ""}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 font-lat text-xs text-muted-foreground">
+            {s.phone ?? ""} {s.email ? `· ${s.email}` : ""}
+            {waHref(s.phone) && (
+              <a href={waHref(s.phone)!} target="_blank" rel="noreferrer" title={tr("واتساب")} className="grid size-6 place-items-center rounded-full bg-[#25D366]/15 text-[#128C4B] transition-colors hover:bg-[#25D366]/30">
+                <MessageCircle className="size-3.5" />
+              </a>
+            )}
+          </p>
         </div>
         <div className="flex gap-1.5">
           <Badge tone={DIR_STATUS_TONES[s.studentStatus ?? ""] ?? "muted"}>{tr(DIR_STATUS_LABELS[s.studentStatus ?? ""] ?? s.studentStatus)}</Badge>

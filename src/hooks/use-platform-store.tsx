@@ -1456,7 +1456,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
       } else if (user?.role === "STUDENT") {
         // Locked students can only reach billing endpoints — skip the rest
         // until placement is done and a subscription is confirmed.
-        if (!user.placementCompletedAt) return;
+        if (!user.placementCompletedAt && !user.hasActiveSubscription) return;
         if (!user.hasActiveSubscription) {
           await fetchMyBilling().catch(() => {});
           return;

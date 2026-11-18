@@ -111,34 +111,63 @@ const firstNameOf = (fullName?: string) => fullName?.trim().split(/\s+/)[0] ?? "
 
 function SingleMediaView({ url, type, title, fileName }: { url: string; type: MaterialType; title: string; fileName: string }) {
   const { t } = useI18n();
+  const { user } = useAuth();
   const src = mediaSrc(url);
+  const wmText = user ? `${user.fullName}${user.phone ? " · " + user.phone : ""}` : "";
+  const stopMenu = (e: React.MouseEvent) => e.preventDefault();
   if (type === "VIDEO") {
     return (
-      <video controls preload="metadata" className="w-full rounded-md bg-black" src={src}>
-        {t("متصفحك لا يدعم تشغيل الفيديو.")}
-      </video>
+      <div className="relative overflow-hidden rounded-md" onContextMenu={stopMenu}>
+        <video controls controlsList="nodownload noremoteplayback" disablePictureInPicture preload="metadata" className="w-full rounded-md bg-black" src={src}>
+          {t("متصفحك لا يدعم تشغيل الفيديو.")}
+        </video>
+        {wmText && <FloatingWatermark text={wmText} />}
+      </div>
     );
   }
   if (type === "AUDIO") {
     return (
-      <audio controls preload="metadata" className="w-full" src={src}>
-        {t("متصفحك لا يدعم تشغيل الصوت.")}
-      </audio>
+      <div onContextMenu={stopMenu}>
+        <audio controls controlsList="nodownload" preload="metadata" className="w-full" src={src}>
+          {t("متصفحك لا يدعم تشغيل الصوت.")}
+        </audio>
+      </div>
     );
   }
+  const pdfSrc = /.pdf$/i.test(fileName) ? `${src}#toolbar=0&navpanes=0` : src;
   return (
-    <div className="space-y-2">
-      <iframe src={src} title={title} className="h-[420px] w-full rounded-md border border-border bg-white" />
-      <a
-        href={src}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
-      >
-        <ExternalLink className="size-3.5" />
-        {t("فتح الملف في تبويب جديد")} ({fileName})
-      </a>
+    <div className="relative overflow-hidden rounded-md" onContextMenu={stopMenu}>
+      <iframe src={pdfSrc} title={title} className="h-[420px] w-full rounded-md border border-border bg-white" />
+      {wmText && <FloatingWatermark text={wmText} />}
+      <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground"><FileText className="size-3" /> {fileName}</p>
     </div>
+  );
+}
+
+// Moving watermark — drifts around the media so screen recordings carry the viewer identity
+const WM_POSITIONS = [
+  { top: "8%", insetInlineStart: "5%" },
+  { top: "15%", insetInlineEnd: "6%" },
+  { top: "42%", insetInlineStart: "8%" },
+  { top: "55%", insetInlineEnd: "5%" },
+  { top: "78%", insetInlineStart: "6%" },
+  { top: "82%", insetInlineEnd: "8%" },
+];
+
+function FloatingWatermark({ text }: { text: string }) {
+  const [pos, setPos] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPos((p) => (p + 1) % WM_POSITIONS.length), 4000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute z-10 select-none whitespace-nowrap rounded-md bg-black/30 px-2 py-0.5 font-lat text-[11px] font-semibold text-white/70 backdrop-blur-[1px] transition-all duration-1000"
+      style={WM_POSITIONS[pos]}
+    >
+      {text}
+    </span>
   );
 }
 
@@ -627,7 +656,7 @@ export function PlacementScreen() {
               {currentQ.audioUrl && (
                 <div className="mt-4">
                   <small className="mb-1 block text-xs font-semibold text-muted-foreground">{t("استمع للمقطع ثم أجب")}</small>
-                  <audio controls src={mediaSrc(currentQ.audioUrl)} className="w-full" />
+                  <audio controls controlsList="nodownload" onContextMenu={(e) => e.preventDefault()} src={mediaSrc(currentQ.audioUrl)} className="w-full" />
                 </div>
               )}
 
@@ -2449,7 +2478,7 @@ function TeacherExamResults({
       {exam.questions.audioUrl && (
         <div className="rounded-md bg-muted/60 p-3">
           <small className="mb-1 block text-muted-foreground">{t("تسجيل الأدمن الصوتي للامتحان")}</small>
-          <audio controls src={mediaSrc(exam.questions.audioUrl)} className="w-full" />
+          <audio controls controlsList="nodownload" onContextMenu={(e) => e.preventDefault()} src={mediaSrc(exam.questions.audioUrl)} className="w-full" />
         </div>
       )}
       {exam.questions.paragraph && (
@@ -7367,7 +7396,7 @@ export function StudentHomeworkScreen() {
               {hw.type === "listening" && hw.questions?.audioUrl && (
                 <div className="mt-3 rounded-md border border-brand/30 bg-brand/5 p-3">
                   <small className="font-semibold text-brand">{t("استمع لتسجيل المدرس ثم أجب:")}</small>
-                  <audio controls src={mediaSrc(hw.questions.audioUrl)} className="mt-2 w-full" />
+                  <audio controls controlsList="nodownload" onContextMenu={(e) => e.preventDefault()} src={mediaSrc(hw.questions.audioUrl)} className="mt-2 w-full" />
                 </div>
               )}
 
@@ -8133,7 +8162,7 @@ export function ExamsScreen() {
                               <small className="mb-1 block text-muted-foreground">
                                 {t("استمع للتسجيل ثم اكتب ما سمعته وفهمته بالعبرية:")}
                               </small>
-                              <audio controls src={mediaSrc(exam.questions.audioUrl)} className="w-full" />
+                              <audio controls controlsList="nodownload" onContextMenu={(e) => e.preventDefault()} src={mediaSrc(exam.questions.audioUrl)} className="w-full" />
                             </div>
                           ) : (
                             <p className="text-xs text-muted-foreground">{t("لا يوجد تسجيل صوتي مرفق.")}</p>

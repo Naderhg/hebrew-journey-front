@@ -253,6 +253,34 @@ function Landing() {
             <span className="hero-star hero-star-b">✦</span>
             <span className="hero-circle-text">HEBREW JOURNEY · EVERY DAY</span>
           </div>
+          <div className="hero-packages" id="pricing">
+            <div className="hero-packages-head">
+              <span className="landing-eyebrow"><span className="eyebrow-dot" /> {t("اختر باقتك وابدأ فورًا")}</span>
+              <p>{t("اختبر مستواك مجانًا أولًا، ثم اختر الباقة التي تناسب وقتك وهدفك — بدون التزام طويل.")}</p>
+            </div>
+            <article className="pricing-card">
+              <div className="pricing-card-head">
+                <span className="pricing-card-icon"><BookOpenCheck size={20} /></span>
+                <div className="pricing-card-titles">
+                  <h3>{t("الباقات الأساسية")}</h3>
+                  <span className="pricing-tag">{t("الأكثر شمولًا")}</span>
+                </div>
+              </div>
+              <p>{t("دروس أونلاين أو حضوري لكل المستويات مع مدرسين معتمدين — منهج كامل من Pre A1 إلى B2.")}</p>
+              <Link to="/packages/basic" className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
+            </article>
+            <article className="pricing-card featured">
+              <div className="pricing-card-head">
+                <span className="pricing-card-icon"><Phone size={20} /></span>
+                <div className="pricing-card-titles">
+                  <h3>{t("نظام المكالمات")}</h3>
+                  <span className="pricing-tag">{t("مرونة كاملة")}</span>
+                </div>
+              </div>
+              <p>{t("حصص فردية أونلاين — احجز وغيّر مواعيدك حسب جدولك من غير التزام بجدول ثابت.")}</p>
+              <Link to="/packages/calls" className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
+            </article>
+          </div>
         </section>
 
         {/* ─── Trust bar ─── */}
@@ -400,53 +428,7 @@ function Landing() {
           </div>
         </section>
 
-        {/* ─── Pricing ─── */}
-        <section className="landing-pricing" id="pricing">
-          <div className="pricing-copy">
-            <span className="landing-eyebrow">{t("ابدأ بالطريقة التي تناسبك")}</span>
-            <h2>{t("رحلتك لا تحتاج")}<br /><em>{t("انتظارًا أطول.")}</em></h2>
-            <p>{t("اختبر مستواك مجانًا أولًا، ثم اختر الباقة التي تناسب وقتك وهدفك. بدون التزام طويل.")}</p>
-            <div className="pricing-checks">
-              <span><Check size={15} /> {t("اختبار تحديد مستوى مجاني")}</span>
-            </div>
-          </div>
-          <div className="pricing-cards">
-            <article className="pricing-card">
-              <div className="pricing-card-head">
-                <span className="pricing-card-icon"><BookOpenCheck size={20} /></span>
-                <div className="pricing-card-titles">
-                  <h3>{t("الباقات الأساسية")}</h3>
-                  <span className="pricing-tag">{t("الأكثر شمولًا")}</span>
-                </div>
-              </div>
-              <p>{t("دروس أونلاين أو حضوري لكل المستويات مع مدرسين معتمدين — منهج كامل من Pre A1 إلى B2.")}</p>
-              <ul>
-                <li><Check size={15} /> {t("عبرية أو إنجليزية — اختر لغتك")}</li>
-                <li><Check size={15} /> {t("أونلاين أو حضوري")}</li>
-                <li><Check size={15} /> {t("لكل المستويات Pre A1 — B2")}</li>
-                <li><Check size={15} /> {t("مدرسون معتمدون")}</li>
-              </ul>
-              <Link to="/packages/basic" className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
-            </article>
-            <article className="pricing-card featured">
-              <div className="pricing-card-head">
-                <span className="pricing-card-icon"><Phone size={20} /></span>
-                <div className="pricing-card-titles">
-                  <h3>{t("نظام المكالمات")}</h3>
-                  <span className="pricing-tag">{t("مرونة كاملة")}</span>
-                </div>
-              </div>
-              <p>{t("حصص فردية أونلاين — احجز وغيّر مواعيدك حسب جدولك من غير التزام بجدول ثابت.")}</p>
-              <ul>
-                <li><Check size={15} /> {t("عبرية أو إنجليزية — اختر لغتك")}</li>
-                <li><Check size={15} /> {t("حصص فردية (12/20/28)")}</li>
-                <li><Check size={15} /> {t("أونلاين فقط")}</li>
-                <li><Check size={15} /> {t("تواصل مع الدعم للحجز")}</li>
-              </ul>
-              <Link to="/packages/calls" className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
-            </article>
-          </div>
-        </section>
+                
 
         {/* ─── FAQ ─── */}
         <section className="landing-section" id="faq" style={{ paddingTop: 0 }}>

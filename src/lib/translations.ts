@@ -1261,7 +1261,7 @@ export const en: Record<string, string> = {
   "خصمت دون حضور": "Deducted without attendance",
   "خطة التعلم الشخصية": "Personal learning plan",
   "خطواتك واضحة اليوم — تابع تقدمك ونتائجك وخطة تعلمك من مكان واحد": "Your steps are clear today — follow your progress, results and learning plan from one place",
-  "دخول المحاضرة": "Enter lecture",
+  "دخول المحاضرة": "Join lecture",
   "درجتك": "Your grade",
   "دروس لكل المستويات — أونلاين أو حضوري": "Lessons for all levels — online or in-person",
   "رابط الاستعادة غير صالح — تأكد من فتح الرابط الكامل من بريدك.": "Invalid recovery link — make sure you opened the full link from your email.",

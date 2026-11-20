@@ -48,6 +48,8 @@ export interface CourseMaterial {
   attachments?: MaterialAttachment[] | null;
   assignedTeacherId: string;
   assignedTeacherName: string;
+  packageId?: string | null;
+  packageName?: string | null;
   createdAt: string;
 }
 
@@ -185,6 +187,7 @@ interface CreateMaterialInput {
   storageUrl: string;
   status: PublishStatus;
   attachments?: MaterialAttachment[];
+  packageId?: string | null;
 }
 
 interface CreatePlacementQuestionInput {

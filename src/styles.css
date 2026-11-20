@@ -280,6 +280,9 @@
 .landing-hero-note { display: flex; align-items: center; gap: 10px; margin-top: 35px; }
 .landing-hero-note p { margin: 0; color: #9aa7a2; font-size: 9px; line-height: 1.6; }
 .landing-hero-note strong { color: #54746b; font-size: 10px; }
+.hero-packages { grid-column: 1 / -1; position: relative; z-index: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 14px; }
+.hero-packages-head { grid-column: 1 / -1; text-align: center; margin-bottom: 4px; }
+.hero-packages-head p { margin: 6px auto 0; max-width: 520px; color: #7d8f88; font-size: 12.5px; line-height: 1.9; }
 .hero-visual { position: relative; min-height: 460px; display: flex; align-items: center; justify-content: center; }
 .hero-visual-backdrop { position: absolute; width: 370px; height: 370px; border-radius: 50%; background: #e4f0e9; box-shadow: 0 0 0 35px rgb(228 240 233 / 42%), 0 0 0 72px rgb(228 240 233 / 20%); }
 .hero-visual-backdrop::before, .hero-visual-backdrop::after { content: ""; position: absolute; border: 1px solid rgb(15 118 110 / 12%); border-radius: 50%; }
@@ -493,6 +496,7 @@
   .landing-nav a { padding: 11px; border-bottom: 1px solid #f0f3ef; }
   .landing-nav a:last-child { border-bottom: 0; }
   .landing-hero { grid-template-columns: 1fr; gap: 12px; padding-top: 50px; }
+  .hero-packages { margin-top: 18px; }
   .landing-hero-copy { text-align: center; }
   .landing-hero-copy > p { margin: auto; }
   .landing-hero-actions, .landing-hero-note { justify-content: center; }
@@ -545,6 +549,7 @@
   .testimonial-grid article { min-height: 207px; }
   .landing-pricing { padding-top: 65px; padding-bottom: 65px; }
   .pricing-cards { grid-template-columns: 1fr; }
+  .hero-packages { grid-template-columns: 1fr; }
   .landing-final-cta { padding-right: 20px; padding-left: 20px; }
   .landing-final-cta h2 { font-size: 28px; }
   .landing-footer-links { gap: 35px; }

@@ -2831,6 +2831,7 @@ export function AdminScreen() {
   const [courseType, setCourseType] = useState<MaterialType>("VIDEO");
   const [courseStatus, setCourseStatus] = useState<PublishStatus>("DRAFT");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
+  const [coursePackageId, setCoursePackageId] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [extraAttachments, setExtraAttachments] = useState<MaterialAttachment[]>([]);
@@ -2994,11 +2995,13 @@ export function AdminScreen() {
         assignedTeacherId: activeTeacherId,
         storageUrl,
         status: courseStatus,
+        ...(coursePackageId ? { packageId: coursePackageId } : {}),
         ...(finalAttachments.length > 0 ? { attachments: finalAttachments } : {}),
       });
 
       setCourseTitle("");
       setCourseDesc("");
+      setCoursePackageId("");
       setSelectedFile(null);
       setExtraFiles([]);
       setExtraAttachments([]);
@@ -3360,6 +3363,22 @@ export function AdminScreen() {
             </option>
           ))
         )}
+      </select>
+    </div>
+
+    <div className="space-y-1.5">
+      <Label>{t("ربط بباقة (اختياري) — تظهر تلقائياً للمشتركين فيها")}</Label>
+      <select
+        value={coursePackageId}
+        onChange={(e) => setCoursePackageId(e.target.value)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      >
+        <option value="">{t("بدون باقة — تظهر لطلاب المدرس المربوطين به فقط")}</option>
+        {adminPackages.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.nameAr}{p.category === "calls" ? " — " + t("مكالمات") : ""}
+          </option>
+        ))}
       </select>
     </div>
 
@@ -4464,6 +4483,7 @@ export function AdminScreen() {
                         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{m.description}</p>
                         <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
                           <span>{t("المدرس")}: {m.assignedTeacherName}</span>
+                          {m.packageName && <span className="font-bold text-brand">{t("الباقة")}: {m.packageName}</span>}
                           <span>{new Date(m.createdAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}</span>
                           <span className="font-lat">{m.fileSize}</span>
                         </div>
@@ -6973,7 +6993,9 @@ export function LecturesScreen() {
               {t("لا توجد محاضرات مباشرة مجدولة حالياً.")}
             </div>
           ) : (
-            studentLectures.map((l) => (
+            [...studentLectures]
+              .sort((a, b) => { const aU = Date.parse(a.startsAt) >= Date.now(), bU = Date.parse(b.startsAt) >= Date.now(); if (aU !== bU) return aU ? -1 : 1; return aU ? Date.parse(a.startsAt) - Date.parse(b.startsAt) : Date.parse(b.startsAt) - Date.parse(a.startsAt); })
+              .map((l) => (
               <div key={l.id} className="rounded-md border border-border bg-background/60 p-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -11989,7 +12011,7 @@ function TeacherScheduleTimeline({
     .filter((r) => !q.trim() || [r.title, r.sub ?? "", r.groupName ?? ""].some((v) => v.toLowerCase().includes(q.trim().toLowerCase())))
     .filter((r) => !fromD || new Date(r.startsAt) >= new Date(`${fromD}T00:00:00`))
     .filter((r) => !toD || new Date(r.startsAt) <= new Date(`${toD}T23:59:59`))
-    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    .sort((a, b) => { const aU = Date.parse(a.startsAt) >= now, bU = Date.parse(b.startsAt) >= now; if (aU !== bU) return aU ? -1 : 1; return aU ? Date.parse(a.startsAt) - Date.parse(b.startsAt) : Date.parse(b.startsAt) - Date.parse(a.startsAt); });
 
   const STATUS: Record<string, { label: string; tone: "brand" | "sage" | "muted" | "danger" }> = {
     scheduled: { label: "مجدولة", tone: "brand" },
@@ -12752,7 +12774,11 @@ function OpsLecturesListCard({
   };
   const st = (s: string) => STATUS_LABEL[s] ?? { label: s, tone: "muted" as const };
 
-  const shown = lectures.filter((l) => inPeriod(l, period));
+  const shown = lectures
+    .filter((l) => inPeriod(l, period))
+    .sort((a, b) => period === "upcoming"
+      ? Date.parse(a.startsAt) - Date.parse(b.startsAt)
+      : Date.parse(b.startsAt) - Date.parse(a.startsAt));
 
   return (
     <Card>

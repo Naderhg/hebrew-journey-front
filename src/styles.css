@@ -582,3 +582,10 @@
 /* ─── Brand logo image (replaces letter mark) ─── */
 .landing-brand-logo { width: 36px; height: 36px; border-radius: 11px; object-fit: cover; box-shadow: 0 7px 16px rgb(15 118 110 / 18%); }
 .brand-logo-img { width: 34px; height: 34px; border-radius: 10px; object-fit: cover; box-shadow: 0 8px 18px rgb(15 118 110 / 16%); }
+
+/* ─── DEV Community credit link ─── */
+.dev-credit { display: inline-flex; align-items: center; gap: 5px; color: inherit; font-size: inherit; text-decoration: none; opacity: .85; transition: opacity .2s; }
+.dev-credit:hover { opacity: 1; text-decoration: underline; }
+.dev-credit b { font-weight: 700; color: #0f766e; }
+.app-footer .dev-credit b { color: #0f766e; }
+.landing-footer .dev-credit b { color: #7fd4c4; }

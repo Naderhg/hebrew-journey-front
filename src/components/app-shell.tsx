@@ -689,6 +689,9 @@ export function AppShell({
               <footer className="app-footer mt-8">
                 <span>© {new Date().getFullYear()} עברית שוטפת</span>
                 <span>{t("نتعلم العبرية، خطوة بخطوة")} <span className="footer-heart">♥</span></span>
+                <a href="https://deev-community.com" target="_blank" rel="noreferrer" className="dev-credit">
+                  {t("تطوير")} <b>DEV Community</b>
+                </a>
               </footer>
             </main>
           </div>

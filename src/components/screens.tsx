@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   ExternalLink,
   FileCheck,
+  FileSpreadsheet,
   FileText,
   Film,
   GraduationCap,
@@ -80,6 +81,7 @@ import {
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, updateProfile, type UserRole } from "../lib/auth";
 import { SERVER_CONFIG, mediaSrc } from "../lib/api";
+import { exportToExcel, excelStamp } from "../lib/excel";
 
 // WhatsApp deep link — normalizes local numbers (e.g. 01x → 201x for Egypt)
 function waHref(phone?: string | null): string | null {
@@ -5403,6 +5405,14 @@ function AdminBookingsSection({
               <option value="approved">{t("مؤكدة")}</option>
               <option value="rejected">{t("مرفوضة")}</option>
             </select>
+            <Button
+              variant="ghost"
+              className="min-h-9 gap-1.5 px-3 text-xs"
+              disabled={requests.length === 0}
+              onClick={() => exportPaymentRequests(requests, t)}
+            >
+              <FileSpreadsheet className="size-4" /> {t("تصدير Excel")}
+            </Button>
             <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onRefresh}>
               {t("تحديث")}
             </Button>
@@ -6563,7 +6573,17 @@ function AdminPackagesSection({
       </div>
 
       <Card>
-        <h2 className="text-lg font-bold">{t("كل الاشتراكات")} ({subscriptions.length})</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-bold">{t("كل الاشتراكات")} ({subscriptions.length})</h2>
+          <Button
+            variant="ghost"
+            className="min-h-9 gap-1.5 px-3 text-xs"
+            disabled={subscriptions.length === 0}
+            onClick={() => exportSubscriptions(subscriptions, t)}
+          >
+            <FileSpreadsheet className="size-4" /> {t("تصدير Excel")}
+          </Button>
+        </div>
         <div className="mt-4 space-y-2">
           {subscriptions.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("لا توجد اشتراكات بعد.")}</p>
@@ -6587,6 +6607,50 @@ function AdminPackagesSection({
   );
 }
 
+const PAYMENT_STATUS_AR: Record<string, string> = { PAID: "مدفوع", PARTIAL: "جزئي", PENDING: "معلق", UNPAID: "غير مدفوع" };
+const SUB_STATUS_AR: Record<string, string> = { ACTIVE: "نشط", EXPIRED: "منتهي", CANCELLED: "ملغي", PENDING: "معلق" };
+const REQ_STATUS_AR: Record<string, string> = { pending: "قيد المراجعة", approved: "مؤكدة", rejected: "مرفوضة" };
+
+function exportSalesReport(report: AdminSalesReport | null, t: (k: string) => string) {
+  if (!report) return;
+  const headers = [t("المندوب"), t("الإيميل"), t("العملاء"), t("جدد"), t("محوّلون"), t("مفقودون"), t("مكالمات"), t("اشتراكات"), t("اشتراكات مدفوعة"), t("الإيراد"), t("نسبة التحويل %")];
+  const rows: (string | number)[][] = report.perSales.map((r) => [r.name, r.email ?? "", r.leads, r.newLeads, r.converted, r.lost, r.calls, r.subscriptions, r.paidSubscriptions, r.revenue, r.conversionRate]);
+  rows.push([]);
+  rows.push([t("الإجمالي"), "", report.totals.leads, "", "", "", report.totals.calls, report.totals.subscriptions, report.totals.paidSubscriptions, report.totals.revenue, ""]);
+  exportToExcel("sales-report-" + excelStamp(), [{ name: "تقرير المبيعات", headers, rows }]);
+}
+
+function exportSubscriptions(subs: Subscription[], t: (k: string) => string) {
+  const headers = [t("الطالب"), t("الهاتف"), t("الإيميل"), t("الباقة"), t("سعر الباقة"), t("المبلغ المدفوع"), t("حالة الاشتراك"), t("حالة الدفع"), t("تاريخ البدء"), t("تاريخ الانتهاء"), t("أُنشئ بواسطة"), t("تاريخ الإنشاء")];
+  const rows: (string | number)[][] = subs.map((s) => [
+    s.student.fullName, s.student.phone ?? "", s.student.email ?? "", s.package.nameAr,
+    s.package.price, s.paidAmount ?? s.package.price,
+    SUB_STATUS_AR[s.status] ?? s.status, PAYMENT_STATUS_AR[s.paymentStatus] ?? s.paymentStatus,
+    s.startDate ? s.startDate.slice(0, 10) : "", s.endDate ? s.endDate.slice(0, 10) : "",
+    s.createdBy?.fullName ?? "", s.createdAt ? s.createdAt.slice(0, 10) : "",
+  ]);
+  const paid = subs.filter((x) => x.paymentStatus === "PAID").reduce((a, x) => a + (x.paidAmount ?? x.package.price), 0);
+  rows.push([]);
+  rows.push([t("إجمالي الإيرادات (المدفوعة)"), "", "", "", "", paid]);
+  exportToExcel("subscriptions-" + excelStamp(), [{ name: "الاشتراكات", headers, rows }]);
+}
+
+function exportPaymentRequests(requests: PaymentRequestItem[], t: (k: string) => string) {
+  const headers = [t("الطالب"), t("الهاتف"), t("الإيميل"), t("الباقة"), t("السعر"), t("طريقة الدفع"), t("الحالة"), t("سبب الرفض"), t("راجعها"), t("تاريخ الطلب"), t("تاريخ المراجعة")];
+  const rows: (string | number)[][] = requests.map((r) => [
+    r.student?.fullName ?? "", r.student?.phone ?? "", r.student?.email ?? "",
+    r.package?.nameAr ?? "", r.package?.price ?? "",
+    r.method === "instapay" ? "إنستاباي" : "محفظة",
+    REQ_STATUS_AR[r.status] ?? r.status,
+    r.rejectReason ?? "", r.reviewedBy?.fullName ?? "",
+    r.createdAt ? r.createdAt.slice(0, 10) : "", r.reviewedAt ? r.reviewedAt.slice(0, 10) : "",
+  ]);
+  const approvedTotal = requests.filter((x) => x.status === "approved").reduce((a, x) => a + (x.package?.price ?? 0), 0);
+  rows.push([]);
+  rows.push(["إجمالي المؤكدة", "", "", "", approvedTotal]);
+  exportToExcel("payment-requests-" + excelStamp(), [{ name: "طلبات الدفع", headers, rows }]);
+}
+
 function AdminSalesReportSection({ report, onRefresh }: { report: AdminSalesReport | null; onRefresh: () => Promise<void> }) {
   const { t } = useI18n();
   return (
@@ -6594,7 +6658,16 @@ function AdminSalesReportSection({ report, onRefresh }: { report: AdminSalesRepo
       <Card>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold">{t("تقرير المبيعات الإجمالي")}</h2>
-          <Button variant="secondary" className="text-xs" onClick={() => onRefresh()}>{t("تحديث")}</Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              className="min-h-9 gap-1.5 px-3 text-xs"
+              onClick={() => exportSalesReport(report, t)}
+            >
+              <FileSpreadsheet className="size-4" /> {t("تصدير Excel")}
+            </Button>
+            <Button variant="secondary" className="text-xs" onClick={() => onRefresh()}>{t("تحديث")}</Button>
+          </div>
         </div>
         {report && (
           <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">

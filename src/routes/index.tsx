@@ -493,6 +493,9 @@ function Landing() {
         <div className="landing-footer-bottom">
           <span>© {new Date().getFullYear()} עברית שוטפת. {t("جميع الحقوق محفوظة.")}</span>
           <span>{t("صُنع للرحلة، من أجل الحياة")} <Heart size={13} fill="currentColor" /></span>
+          <a href="https://deev-community.com" target="_blank" rel="noreferrer" className="dev-credit">
+            {t("تطوير")} <b>DEV Community</b>
+          </a>
         </div>
       </footer>
     </div>

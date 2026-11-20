@@ -152,6 +152,7 @@ function Landing() {
   const { t, dir } = useI18n();
   const { publicSchedules, fetchPublicSchedules, publicTeachers, fetchPublicTeachers } = usePlatformStore();
   const [mobileNav, setMobileNav] = useState(false);
+  const [heroLang, setHeroLang] = useState<"hebrew" | "english">("hebrew");
 
   useEffect(() => {
     fetchPublicSchedules();
@@ -257,6 +258,19 @@ function Landing() {
             <div className="hero-packages-head">
               <span className="landing-eyebrow"><span className="eyebrow-dot" /> {t("اختر باقتك وابدأ فورًا")}</span>
               <p>{t("اختبر مستواك مجانًا أولًا، ثم اختر الباقة التي تناسب وقتك وهدفك — بدون التزام طويل.")}</p>
+              <div className="hero-lang-pick" role="group" aria-label={t("لغة التعلم")}>
+                {(["hebrew", "english"] as const).map((l) => (
+                  <button
+                    type="button"
+                    key={l}
+                    onClick={() => setHeroLang(l)}
+                    className={"hero-lang-option" + (heroLang === l ? " active" : "")}
+                  >
+                    <b>{l === "hebrew" ? "עברית" : "English"}</b>
+                    <span>{l === "hebrew" ? t("العبرية") : t("الإنجليزية")}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <article className="pricing-card">
               <div className="pricing-card-head">
@@ -267,7 +281,7 @@ function Landing() {
                 </div>
               </div>
               <p>{t("دروس أونلاين أو حضوري لكل المستويات مع مدرسين معتمدين — منهج كامل من Pre A1 إلى B2.")}</p>
-              <Link to="/packages/basic" className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
+              <Link to="/packages/$type" params={{ type: "basic" }} search={{ lang: heroLang }} className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
             </article>
             <article className="pricing-card featured">
               <div className="pricing-card-head">
@@ -278,7 +292,7 @@ function Landing() {
                 </div>
               </div>
               <p>{t("حصص فردية أونلاين — احجز وغيّر مواعيدك حسب جدولك من غير التزام بجدول ثابت.")}</p>
-              <Link to="/packages/calls" className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
+              <Link to="/packages/$type" params={{ type: "calls" }} search={{ lang: heroLang }} className="pricing-card-cta">{t("تصفح الباقات")} <ArrowLeft size={16} /></Link>
             </article>
           </div>
         </section>

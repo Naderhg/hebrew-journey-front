@@ -7,6 +7,9 @@ import { useAuth } from "../hooks/use-auth";
 import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/packages/$type")({
+  validateSearch: (search: Record<string, unknown>): { lang?: "hebrew" | "english" } => ({
+    lang: search.lang === "english" ? "english" : search.lang === "hebrew" ? "hebrew" : undefined,
+  }),
   head: ({ params }) => ({
     meta: [{ title: params.type === "calls" ? "نظام المكالمات" : "الباقات الأساسية" }],
   }),
@@ -24,7 +27,8 @@ function PackagesCategoryPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [lang, setLang] = useState<"hebrew" | "english">("hebrew");
+  const { lang: searchLang } = Route.useSearch();
+  const [lang, setLang] = useState<"hebrew" | "english">(searchLang ?? "hebrew");
 
   useEffect(() => {
     (async () => {

@@ -488,7 +488,7 @@ export function AppShell({
               <Menu className="size-5" />
             </button>
             <Link to="/" className="brand-mark">
-              <div className="brand-symbol"><span>ח</span><i /></div>
+              <img src="/logo.jpg" alt="עברית שוטפת" className="brand-logo-img" />
               <div className="brand-copy">
                 <strong className="font-he">עברית שוטפת</strong>
                 <small>{t("رحلتك إلى اللغات")}</small>
@@ -577,7 +577,7 @@ export function AppShell({
             }`}
           >
             <Link to="/" className="brand-mark px-1" aria-label="עברית שוטפת">
-              <div className="brand-symbol"><span>ח</span><i /></div>
+              <img src="/logo.jpg" alt="עברית שוטפת" className="brand-logo-img" />
               <div className="brand-copy">
                 <strong className="font-he">עברית שוטפת</strong>
                 <small>{t("رحلتك إلى اللغات")}</small>

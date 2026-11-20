@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { Eye, EyeOff, LockKeyhole, Phone, User, AlertCircle, Sparkles } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
 import { useI18n } from "../lib/i18n";
-import { Badge, Button, Card, Input, Label } from "../components/ui";
-import { LanguageSwitcher } from "../components/app-shell";
+import { Badge, Button, Input, Label } from "../components/ui";
+import { AuthShell } from "../components/auth-shell";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "עברית שוטפת  — إنشاء حساب طالب" }] }),
@@ -12,9 +13,10 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
   const { register } = useAuth();
-  const { t, dir } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
@@ -35,47 +37,47 @@ function RegisterPage() {
   }
 
   return (
-    <div dir={dir} className="relative min-h-screen overflow-hidden bg-paper text-ink">
-      <div className="page-glow absolute inset-0 -z-10" />
-      <div className="grid-fade absolute inset-0 -z-10 opacity-40" />
-      <div className="absolute end-4 top-4 z-10">
-        <LanguageSwitcher />
-      </div>
-      <div className="flex min-h-screen items-center justify-center px-5 py-10">
-        <Card className="w-full max-w-md p-8">
-          <div className="mb-8 text-center">
-            <Link to="/" className="inline-grid size-12 place-items-center rounded-md bg-brand font-lat text-xl font-bold text-primary-foreground">
-              O
+    <AuthShell>
+      <div className="auth-card">
+        <div className="mb-8">
+          <div className="flex items-center gap-2">
+            <Link to="/" className="hidden size-12 place-items-center rounded-xl bg-white shadow-md ring-1 ring-border lg:inline-grid">
+              <img src="/logo.jpg" alt="עברית שוטפת" className="size-10 rounded-lg object-cover" />
             </Link>
-            <div className="mt-4 flex justify-center">
-              <Badge tone="brand">{t("حساب طالب جديد")}</Badge>
-            </div>
-            <h1 className="mt-3 text-2xl font-bold">{t("إنشاء حساب طالب")}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t("التسجيل المتاح عبر المنصة مخصص للطلاب فقط — يبدأ مسارك باختبار تحديد المستوى وخطة تعلم شخصية في العبرية أو الإنجليزية")}
-            </p>
           </div>
+          <h1 className="mt-5 text-2xl font-bold text-[#0d3b56]">{t("إنشاء حساب طالب")}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {t("ابدأ مسارك باختبار تحديد المستوى وخطة تعلم شخصية — التسجيل مخصص للطلاب فقط.")}
+          </p>
+        </div>
 
-          {error && (
-            <div className="mb-4 rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">{t("الاسم الكامل")}</Label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">{t("الاسم الكامل")}</Label>
+            <div className="auth-input-wrap">
+              <User className="auth-input-icon" />
               <Input
                 id="fullName"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                placeholder="اسمك الكامل"
+                placeholder={t("اسمك الكامل")}
+                className="ps-10"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">{t("رقم الهاتف")}</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">{t("رقم الهاتف")}</Label>
+            <div className="auth-input-wrap">
+              <Phone className="auth-input-icon" />
               <Input
                 id="phone"
                 type="tel"
@@ -84,35 +86,47 @@ function RegisterPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 required
                 placeholder="01xxxxxxxxx"
+                className="ps-10 text-start"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{t("كلمة المرور")}</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">{t("كلمة المرور")}</Label>
+            <div className="auth-input-wrap">
+              <LockKeyhole className="auth-input-icon" />
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                placeholder="8 أحرف على الأقل"
+                placeholder={t("8 أحرف على الأقل")}
+                className="ps-10 pe-11"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="auth-pass-toggle"
+                aria-label={showPassword ? t("إخفاء كلمة المرور") : t("إظهار كلمة المرور")}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
             </div>
+          </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t("جاري إنشاء حساب الطالب...") : t("إنشاء حساب طالب")}
-            </Button>
-          </form>
+          <Button type="submit" className="auth-submit w-full" disabled={loading}>
+            {loading ? t("جاري إنشاء حساب الطالب...") : t("إنشاء حساب طالب")}
+          </Button>
+        </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            {t("لديك حساب بالفعل؟")}{" "}
-            <Link to="/login" className="font-semibold text-brand hover:underline">
-              {t("سجل الدخول")}
-            </Link>
-          </p>
-          
-        </Card>
+        <p className="mt-7 text-center text-sm text-muted-foreground">
+          {t("لديك حساب بالفعل؟")}{" "}
+          <Link to="/login" className="font-semibold text-brand hover:underline">
+            {t("سجل الدخول")}
+          </Link>
+        </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

@@ -118,7 +118,7 @@ function LandingBrand() {
   const { t } = useI18n();
   return (
     <a className="landing-brand" href="#top" aria-label="עברית שוטפת">
-      <span className="landing-brand-symbol">ח<i /></span>
+      <img src="/logo.jpg" alt="עברית שוטפת" className="landing-brand-logo" />
       <span>
         <strong className="font-he">עברית שוטפת</strong>
         <small>{t("أكاديمية اللغات العملية")}</small>

@@ -8,6 +8,7 @@ import {
   BarChart3,
   Camera,
   Rocket,
+  RefreshCw,
   CalendarDays,
   Check,
   Circle,
@@ -5000,6 +5001,7 @@ export function AdminScreen() {
             fetchLectures={() => fetchAdminLectures({ status: "all" })}
             onCancel={(id) => updateAdminLecture(id, { status: "cancelled" })}
             onDelete={deleteAdminLecture}
+            onRegenerate={(id) => updateAdminLecture(id, { regenerateLink: true })}
           />
           <AdminLectureReportsCard
             lectures={adminLectures}
@@ -12813,17 +12815,20 @@ function OpsLecturesListCard({
   fetchLectures,
   onCancel,
   onDelete,
+  onRegenerate,
 }: {
   lectures: import("../hooks/use-platform-store").AdminLectureItem[];
   fetchLectures: () => Promise<void>;
   onCancel?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onRegenerate?: (id: string) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [period, setPeriod] = useState<"upcoming" | "past" | "cancelled">("upcoming");
   const [loaded, setLoaded] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loaded) {
@@ -12934,17 +12939,38 @@ function OpsLecturesListCard({
                   {l.status === "live" ? t("انضم إلى المحاضرة الآن") : t("دخول المحاضرة")}
                 </a>
               )}
-              {((onCancel && l.status !== "cancelled" && l.status !== "completed") || onDelete) && (
+              {((onCancel && l.status !== "cancelled" && l.status !== "completed") || onDelete || (onRegenerate && l.status !== "cancelled" && l.status !== "completed")) && (
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-                  {onCancel && l.status !== "cancelled" && l.status !== "completed" ? (
-                    <Button
-                      variant="ghost"
-                      className="min-h-8 px-2.5 text-xs text-danger hover:bg-danger/10"
-                      onClick={() => { if (confirm(`${t("إلغاء محاضرة")} "${l.title}"؟`)) onCancel(l.id).catch(() => {}); }}
-                    >
-                      {t("إلغاء")}
-                    </Button>
-                  ) : <span />}
+                  <div className="flex items-center gap-1">
+                    {onRegenerate && l.status !== "cancelled" && l.status !== "completed" && (
+                      <Button
+                        variant="ghost"
+                        disabled={regeneratingId === l.id}
+                        className="min-h-8 gap-1.5 px-2.5 text-xs text-brand hover:bg-brand/10"
+                        onClick={async () => {
+                          if (!confirm(`${t("تجديد رابط الاجتماع؟")} "${l.title}" — ${t("اللينك القديم هيبقى مش شغال.")}`)) return;
+                          setRegeneratingId(l.id);
+                          try {
+                            await onRegenerate(l.id);
+                          } catch {} finally {
+                            setRegeneratingId(null);
+                          }
+                        }}
+                      >
+                        <RefreshCw className={`size-3.5 ${regeneratingId === l.id ? "animate-spin" : ""}`} />
+                        {regeneratingId === l.id ? t("جاري التجديد...") : t("تجديد الرابط")}
+                      </Button>
+                    )}
+                    {onCancel && l.status !== "cancelled" && l.status !== "completed" && (
+                      <Button
+                        variant="ghost"
+                        className="min-h-8 px-2.5 text-xs text-danger hover:bg-danger/10"
+                        onClick={() => { if (confirm(`${t("إلغاء محاضرة")} "${l.title}"؟`)) onCancel(l.id).catch(() => {}); }}
+                      >
+                        {t("إلغاء")}
+                      </Button>
+                    )}
+                  </div>
                   {onDelete && (
                     <Button
                       variant="ghost"
@@ -12980,7 +13006,7 @@ function AdminAllBookingsCard({
   onUpdate,
 }: {
   bookings: import("../hooks/use-platform-store").LessonBookingItem[];
-  onUpdate: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
+  onUpdate: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string; regenerateLink?: boolean }) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [q, setQ] = useState("");
@@ -12992,6 +13018,8 @@ function AdminAllBookingsCard({
   const [toD, setToD] = useState("");
   const [pkgF, setPkgF] = useState("");
   const [modeF, setModeF] = useState("");
+  const [dateSort, setDateSort] = useState<"asc" | "desc">("desc");
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const teachers = Array.from(
     new Map(bookings.filter((b) => b.teacher?.id).map((b) => [b.teacher!.id, b.teacher!.fullName])).entries(),
@@ -13025,6 +13053,12 @@ function AdminAllBookingsCard({
     if (toD && new Date(b.startsAt) > new Date(`${toD}T23:59:59`)) return false;
     return true;
   });
+
+  const sorted = [...filtered].sort((a, b) =>
+    dateSort === "asc"
+      ? Date.parse(a.startsAt) - Date.parse(b.startsAt)
+      : Date.parse(b.startsAt) - Date.parse(a.startsAt)
+  );
 
   const st: Record<string, { label: string; tone: "brand" | "sage" | "danger" | "gold" }> = {
     booked: { label: t("محجوزة"), tone: "brand" },
@@ -13103,16 +13137,26 @@ function AdminAllBookingsCard({
             <tr className="border-b text-right text-xs text-muted-foreground">
               <th className="p-2">{t("الطالب")}</th>
               <th className="p-2">{t("المدرس")}</th>
-              <th className="p-2">{t("الموعد")}</th>
+              <th className="p-2">
+                <button
+                  type="button"
+                  onClick={() => setDateSort((s) => (s === "asc" ? "desc" : "asc"))}
+                  className="inline-flex items-center gap-1 font-bold text-foreground transition hover:text-brand"
+                  title={dateSort === "asc" ? t("الأقدم أولاً — اضغط للأحدث أولاً") : t("الأحدث أولاً — اضغط للأقدم أولاً")}
+                >
+                  {t("الموعد")}
+                  <span className="text-[10px]">{dateSort === "asc" ? "↑" : "↓"}</span>
+                </button>
+              </th>
               <th className="p-2">{t("الحالة")}</th>
               <th className="p-2">{t("إجراءات")}</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">{t("لا توجد حجوزات مطابقة للفلاتر.")}</td></tr>
             ) : (
-              filtered.map((b) => {
+              sorted.map((b) => {
                 const s = st[b.status] ?? st.booked!;
                 return (
                   <tr key={b.id} className="border-b">
@@ -13139,6 +13183,24 @@ function AdminAllBookingsCard({
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => { const url = prompt(t("رابط الاجتماع:")); if (url) onUpdate(b.id, { meetingUrl: url }); }}>
                               {t("تعديل الرابط")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={regeneratingId === b.id}
+                              className="gap-1 text-brand hover:bg-brand/10"
+                              onClick={async () => {
+                                if (!confirm(`${t("تجديد رابط الاجتماع؟")} "${b.student?.fullName ?? ""}" — ${t("اللينك القديم هيبقى مش شغال.")}`)) return;
+                                setRegeneratingId(b.id);
+                                try {
+                                  await onUpdate(b.id, { regenerateLink: true });
+                                } catch {} finally {
+                                  setRegeneratingId(null);
+                                }
+                              }}
+                            >
+                              <RefreshCw className={`size-3.5 ${regeneratingId === b.id ? "animate-spin" : ""}`} />
+                              {regeneratingId === b.id ? t("جاري التجديد...") : t("تجديد الرابط")}
                             </Button>
                           </>
                         )}

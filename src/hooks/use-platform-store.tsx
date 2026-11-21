@@ -1174,7 +1174,7 @@ interface PlatformStoreValue {
   fetchPlacementResults: () => Promise<void>;
   fetchAdminLectures: (filter?: { status?: string }) => Promise<void>;
   createAdminLecture: (input: CreateLectureInput) => Promise<void>;
-  updateAdminLecture: (id: string, input: Partial<CreateLectureInput>) => Promise<void>;
+  updateAdminLecture: (id: string, input: Partial<CreateLectureInput> & { regenerateLink?: boolean }) => Promise<void>;
   deleteAdminLecture: (id: string) => Promise<void>;
   fetchAdminSchedules: () => Promise<void>;
   createAdminSchedule: (input: CreateScheduleInput) => Promise<void>;
@@ -1204,7 +1204,7 @@ interface PlatformStoreValue {
   teacherCancelBooking: (id: string, reason?: string) => Promise<void>;
   fetchAdminBookings: (filter?: { status?: string; teacherId?: string; studentId?: string }) => Promise<void>;
   fetchAdminBookingsReport: () => Promise<void>;
-  adminUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
+  adminUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string; regenerateLink?: boolean }) => Promise<void>;
   // groups
   adminGroups: GroupItem[];
   groupMembers: GroupMemberItem[];
@@ -1222,8 +1222,8 @@ interface PlatformStoreValue {
   callsStudents: CallsStudentItem[];
   fetchCallsStudents: () => Promise<void>;
   opsCreateBooking: (input: { studentId: string; teacherId: string; startsAt: string; endsAt?: string; meetingUrl?: string; notes?: string }) => Promise<void>;
-  opsUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) => Promise<void>;
-  opsUpdateLecture: (id: string, input: { status?: string; title?: string; meetingUrl?: string }) => Promise<void>;
+  opsUpdateBooking: (id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string; regenerateLink?: boolean }) => Promise<void>;
+  opsUpdateLecture: (id: string, input: { status?: string; title?: string; meetingUrl?: string; regenerateLink?: boolean }) => Promise<void>;
   fetchOpsStudentProfile: (studentId: string) => Promise<AdminStudentProfile>;
   opsBookings: LessonBookingItem[];
   fetchOpsBookings: () => Promise<void>;
@@ -2222,7 +2222,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     await fetchAdminLectures();
   }
 
-  async function updateAdminLecture(id: string, input: Partial<CreateLectureInput>) {
+  async function updateAdminLecture(id: string, input: Partial<CreateLectureInput> & { regenerateLink?: boolean }) {
     await apiFetch(`/api/admin/lectures/${id}`, { method: "PATCH", body: input });
     await fetchAdminLectures({ status: "all" });
   }
@@ -2349,7 +2349,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (res) setAdminBookingsReport(res);
   }
 
-  async function adminUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) {
+  async function adminUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string; regenerateLink?: boolean }) {
     await apiFetch(`/api/admin/bookings/${id}`, {
       method: "PATCH",
       body: input,
@@ -2450,12 +2450,12 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     ]);
   }
 
-  async function opsUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string }) {
+  async function opsUpdateBooking(id: string, input: { status?: string; notes?: string; meetingUrl?: string; reason?: string; regenerateLink?: boolean }) {
     await apiFetch(`/api/ops/bookings/${id}`, { method: "PATCH", body: input });
     await Promise.all([fetchOpsBookings(), fetchCallsStudents().catch(() => {})]);
   }
 
-  async function opsUpdateLecture(id: string, input: { status?: string; title?: string; meetingUrl?: string }) {
+  async function opsUpdateLecture(id: string, input: { status?: string; title?: string; meetingUrl?: string; regenerateLink?: boolean }) {
     await apiFetch(`/api/ops/lectures/${id}`, { method: "PATCH", body: input });
     await fetchSupportLectures();
   }

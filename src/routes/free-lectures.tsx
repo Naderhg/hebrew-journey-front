@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell, PageHeader } from "../components/app-shell";
 import { Badge, Card } from "../components/ui";
+import { CalendarDays, Clock3 } from "lucide-react";
 import { usePlatformStore } from "../hooks/use-platform-store";
 import { mediaSrc } from "../lib/api";
 import { useI18n } from "../lib/i18n";
@@ -64,10 +65,24 @@ function StudentFreeLecturesPage() {
                       {l.group && <Badge tone="brand">{l.group.name}</Badge>}
                       {l.level && <Badge tone="gold">{l.level}</Badge>}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {fmtDate(l.startsAt)}
-                      {l.teacher && ` · ${l.teacher.fullName}`}
-                    </p>
+                    {(() => {
+                      const d = new Date(l.startsAt);
+                      const e = l.endsAt ? new Date(l.endsAt) : null;
+                      return (
+                        <span className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#0b2f6e]/10 px-2.5 py-1.5 font-lat text-sm font-bold text-[#0b2f6e]">
+                            <CalendarDays className="size-4" />
+                            {d.toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#eef2f9] px-2.5 py-1.5 font-lat text-sm font-bold text-[#0b2f6e]">
+                            <Clock3 className="size-4" />
+                            {d.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                            {e ? ` → ${e.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                          </span>
+                          {l.teacher && <small className="text-muted-foreground">{l.teacher.fullName}</small>}
+                        </span>
+                      );
+                    })()}
                     {l.description && <p className="mt-1 text-sm text-muted-foreground">{l.description}</p>}
                   </div>
                 </div>

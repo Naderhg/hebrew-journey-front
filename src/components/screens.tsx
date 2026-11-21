@@ -991,10 +991,10 @@ export function ProgressScreen() {
                         {r.status === "present" ? t("حاضر") : t("غائب")}
                       </Badge>
                     </div>
-                    <small className="text-muted-foreground">
-                      {new Date(r.lecture.startsAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long" })}
+                    <p className="mt-0.5 text-sm font-semibold text-foreground">
+                      {new Date(r.lecture.startsAt).toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
                       {r.lecture.teacher?.fullName ? ` · ${r.lecture.teacher.fullName}` : ""}
-                    </small>
+                    </p>
                     <p className="mt-1.5 border-t border-border/60 pt-1.5 text-sm text-muted-foreground">{r.report}</p>
                   </div>
                 ))}
@@ -1617,10 +1617,17 @@ export function TeacherScreen() {
                           </Badge>
                         </div>
                       </div>
-                      <small className="mt-1 block text-muted-foreground">
-                        {t("كل")} {t(DAY_NAMES[s.dayOfWeek])} · {s.startTime}–{s.endTime}
-                        {(s.group?.name ?? s.groupName) && ` · ${t("مجموعة")} ${s.group?.name ?? s.groupName}`}
-                      </small>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5 font-lat text-sm font-bold text-brand">
+                          <CalendarDays className="size-4" />
+                          {t("كل")} {t(DAY_NAMES[s.dayOfWeek])}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 font-lat text-sm font-bold">
+                          <Clock3 className="size-4" />
+                          {s.startTime}–{s.endTime}
+                        </span>
+                        {(s.group?.name ?? s.groupName) && <small className="text-muted-foreground">{t("مجموعة")} {s.group?.name ?? s.groupName}</small>}
+                      </div>
                       {s.description && (
                         <p className="mt-2 text-xs text-muted-foreground">{s.description}</p>
                       )}
@@ -2010,10 +2017,9 @@ export function TeacherScreen() {
                           {l.status === "live" ? t("مباشر") : l.status === "completed" ? t("مكتملة") : t("مجدولة")}
                         </Badge>
                       </div>
-                      <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <CalendarDays className="size-3.5 shrink-0" />
-                        {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-                      </p>
+                      <div className="mt-2">
+                        <LectureWhen startsAt={l.startsAt} endsAt={l.endsAt} />
+                      </div>
                       {l.groupName && <Badge tone="muted" className="mt-2">{l.groupName}</Badge>}
                     </button>
                   );
@@ -6213,9 +6219,17 @@ function AdminSchedulesSection({
                     <Badge tone={s.isActive ? "sage" : "danger"}>{s.isActive ? t("مفعل") : t("معطل")}</Badge>
                     {(s.group?.name ?? s.groupName) && <Badge tone="muted">{s.group?.name ?? s.groupName}</Badge>}
                   </div>
-                  <small className="mt-1 block text-muted-foreground">
-                    {t("المدرس")}: {s.teacher?.fullName ?? "—"} · {t("كل")} {t(SCH_DAY_NAMES[s.dayOfWeek]!)} · {s.startTime}–{s.endTime}
-                  </small>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5 font-lat text-sm font-bold text-brand">
+                      <CalendarDays className="size-4" />
+                      {t("كل")} {t(SCH_DAY_NAMES[s.dayOfWeek]!)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 font-lat text-sm font-bold">
+                      <Clock3 className="size-4" />
+                      {s.startTime}–{s.endTime}
+                    </span>
+                    <small className="text-muted-foreground">{t("المدرس")}: {s.teacher?.fullName ?? "—"}</small>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Button variant="ghost" className="min-h-7 px-2.5 text-xs" onClick={() => startEdit(s)}>
@@ -7082,12 +7096,12 @@ export function LecturesScreen() {
                     {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-brand/10 px-2.5 py-1.5 font-lat text-sm font-bold text-brand">
-                      <CalendarDays className="size-4" />
-                      {new Date(l.startsAt).toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long" })}
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-3 py-2 font-lat text-base font-bold text-brand">
+                      <CalendarDays className="size-5" />
+                      {new Date(l.startsAt).toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 font-lat text-sm font-bold">
-                      <Clock3 className="size-4" />
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 font-lat text-base font-bold">
+                      <Clock3 className="size-5" />
                       {new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
                       {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
                     </span>
@@ -7131,10 +7145,19 @@ export function LecturesScreen() {
                       </Badge>
                     </div>
                   </div>
-                  <small className="mt-1 block text-muted-foreground">
-                    {t("كل")} {t(DAY_NAMES[s.dayOfWeek] ?? "")} · {s.startTime}–{s.endTime}
-                    {(s.group?.name ?? s.groupName) && ` · ${t("مجموعة")} ${s.group?.name ?? s.groupName}`} · {t("المدرس")}: {s.teacher.fullName}
-                  </small>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5 font-lat text-sm font-bold text-brand">
+                      <CalendarDays className="size-4" />
+                      {t("كل")} {t(DAY_NAMES[s.dayOfWeek] ?? "")}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 font-lat text-sm font-bold">
+                      <Clock3 className="size-4" />
+                      {s.startTime}–{s.endTime}
+                    </span>
+                    <small className="text-muted-foreground">
+                      {(s.group?.name ?? s.groupName) && `${t("مجموعة")} ${s.group?.name ?? s.groupName} · `}{t("المدرس")}: {s.teacher.fullName}
+                    </small>
+                  </div>
                   {s.meetingUrl && s.location !== "offline" && (
                     <a
                       href={s.meetingUrl}
@@ -10046,7 +10069,7 @@ export function SupportScreen() {
                         <tr key={b.id} className="border-b">
                           <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
                           <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
-                          <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                          <td className="p-2 text-sm font-semibold">{new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
                           <td className="p-2"><Badge tone={s.tone}>{s.label}</Badge></td>
                           <td className="p-2">
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -11127,10 +11150,10 @@ function OpsFreeLecturesSection({
                         {l.group && <Badge tone="brand">{l.group.name}</Badge>}
                         {l.level && <Badge tone="gold">{l.level}</Badge>}
                       </div>
-                      <p className="mt-1.5 text-sm font-bold text-foreground">
-                        {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-                        {l.teacher && <span className="font-normal text-muted-foreground"> · {l.teacher.fullName}</span>}
-                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <LectureWhen startsAt={l.startsAt} endsAt={l.endsAt} />
+                        {l.teacher && <span className="text-xs font-semibold text-muted-foreground">{l.teacher.fullName}</span>}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Button
@@ -11495,10 +11518,10 @@ function TeacherAnalyticsSection({
                 <div key={l.id} className="flex items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3">
                   <div className="min-w-0">
                     <b className="block truncate text-sm">{l.title}</b>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(l.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      {l.groupName && ` · ${l.groupName}`}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <LectureWhen startsAt={l.startsAt} endsAt={l.endsAt} size="sm" />
+                      {l.groupName && <span className="text-xs text-muted-foreground">{l.groupName}</span>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {l.status === "live" && <Badge tone="gold">{t("جارية")}</Badge>}
@@ -11567,10 +11590,10 @@ function TeacherAnalyticsSection({
                 <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-muted/30 px-4 py-3">
                   <div className="min-w-0">
                     <b className="block text-sm">{b.studentName}</b>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      {b.packageName && ` · ${b.packageName}`}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <LectureWhen startsAt={b.startsAt} size="sm" />
+                      {b.packageName && <span className="text-xs text-muted-foreground">{b.packageName}</span>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {b.deducted && (
@@ -11875,17 +11898,9 @@ function TeacherFreeLecturesSection({
                     {l.group && <Badge tone="brand">{l.group.name}</Badge>}
                     {l.level && <Badge tone="gold">{l.level}</Badge>}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {new Date(l.startsAt).toLocaleString("ar-EG", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {l.endsAt &&
-                      ` — ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}`}
-                  </p>
+                  <div className="mt-2">
+                    <LectureWhen startsAt={l.startsAt} endsAt={l.endsAt} />
+                  </div>
                   {l.description && <p className="mt-1 text-sm text-muted-foreground">{l.description}</p>}
                 </div>
               </div>
@@ -12172,8 +12187,7 @@ function TeacherScheduleTimeline({
                 </div>
 
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                  <p className="flex items-center gap-1.5"><CalendarDays className="size-3.5 shrink-0" />{fmt(r.startsAt)}</p>
-                  <p className="flex items-center gap-1.5 font-lat"><Clock3 className="size-3.5 shrink-0" />{fmtTime(r.startsAt)}{r.endsAt ? ` → ${fmtTime(r.endsAt)}` : ""}</p>
+                  <LectureWhen startsAt={r.startsAt} endsAt={r.endsAt} size="sm" />
                   <div className="flex flex-wrap gap-1 pt-1">
                     {r.level && <Badge tone="muted">{t("مستوى")} {r.level}</Badge>}
                     {r.groupName && <Badge tone="muted">{r.groupName}</Badge>}
@@ -12469,7 +12483,7 @@ function AdminTeacherProfileModal({ teacherId, fetchProfile, onClose }: { teache
               d.schedules.map((s: any) => (
                 <div key={s.id} className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5 text-xs">
                   <span><b>{s.title}</b>{s.group?.name ? ` · ${s.group.name}` : ""}</span>
-                  <span className="text-muted-foreground">{DAY_NAMES[s.dayOfWeek]} {s.startTime}–{s.endTime}</span>
+                  <span className="font-semibold text-foreground">{DAY_NAMES[s.dayOfWeek]} {s.startTime}–{s.endTime}</span>
                 </div>
               ))}
           </div>
@@ -12516,7 +12530,7 @@ function AdminTeacherProfileModal({ teacherId, fetchProfile, onClose }: { teache
               <div key={l.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
                 <div className="min-w-0">
                   <b className="block truncate">{l.title}</b>
-                  <span className="text-muted-foreground">{new Date(l.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{l.group?.name ? ` · ${l.group.name}` : ""} · {l._count?.attendance ?? 0} {tr("حاضر")}</span>
+                  <span className="text-sm font-semibold text-foreground">{new Date(l.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{l.group?.name ? ` · ${l.group.name}` : ""} · {l._count?.attendance ?? 0} {tr("حاضر")}</span>
                 </div>
                 <Badge tone={profSt(l.status).tone}>{tr(profSt(l.status).label)}</Badge>
               </div>
@@ -12531,7 +12545,7 @@ function AdminTeacherProfileModal({ teacherId, fetchProfile, onClose }: { teache
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             d.bookings.map((b: any) => (
               <div key={b.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
-                <span>{b.student?.fullName} · {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="text-sm font-semibold text-foreground">{b.student?.fullName} · {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
                 <Badge tone={profSt(b.status).tone}>{tr(profSt(b.status).label)}</Badge>
               </div>
             ))}
@@ -12679,7 +12693,7 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               d.bookings.slice(0, 20).map((b: any) => (
                 <div key={b.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
-                  <span>{b.teacher?.fullName} · {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="text-sm font-semibold text-foreground">{b.teacher?.fullName} · {new Date(b.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
                   <Badge tone={profSt(b.status).tone}>{tr(profSt(b.status).label)}</Badge>
                 </div>
               ))}
@@ -12695,7 +12709,7 @@ function AdminStudentProfileModal({ studentId, fetchProfile, onDeleteSub, onRest
             d.lectureAttendance.map((a: any) => (
               <div key={a.id} className="rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span><b>{a.lecture.title}</b> · {new Date(a.lecture.startsAt).toLocaleDateString("ar-EG")}{a.lecture.teacher?.fullName ? ` · ${a.lecture.teacher.fullName}` : ""}</span>
+                  <span className="text-sm font-semibold text-foreground"><b>{a.lecture.title}</b> · {new Date(a.lecture.startsAt).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}{a.lecture.teacher?.fullName ? ` · ${a.lecture.teacher.fullName}` : ""}</span>
                   <Badge tone={a.status === "present" ? "sage" : "danger"}>{a.status === "present" ? tr("حاضر") : tr("غائب")}</Badge>
                 </div>
                 {a.report && <p className="mt-1 border-t border-border/60 pt-1 text-muted-foreground">{a.report}</p>}
@@ -12810,6 +12824,36 @@ function AdminEditUserModal({
 }
 
 // ─── Ops: basic lectures list with upcoming/past/cancelled tabs (admin + support) ──
+// Shared date+time chips for lectures/bookings — big, bold, scannable.
+function LectureWhen({
+  startsAt,
+  endsAt,
+  size = "md",
+}: {
+  startsAt: string;
+  endsAt?: string | null | undefined;
+  size?: "md" | "sm";
+}) {
+  const d = new Date(startsAt);
+  const e = endsAt ? new Date(endsAt) : null;
+  const pad = size === "sm" ? "px-2 py-1" : "px-3 py-2";
+  const txt = size === "sm" ? "text-xs" : "text-sm";
+  const icon = size === "sm" ? "size-3.5" : "size-4";
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+      <span className={`inline-flex items-center gap-1.5 rounded-lg bg-brand/10 ${pad} font-lat ${txt} font-bold text-brand`}>
+        <CalendarDays className={icon} />
+        {d.toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+      </span>
+      <span className={`inline-flex items-center gap-1.5 rounded-lg bg-muted ${pad} font-lat ${txt} font-bold`}>
+        <Clock3 className={icon} />
+        {d.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+        {e ? ` → ${e.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+      </span>
+    </span>
+  );
+}
+
 function OpsLecturesListCard({
   lectures,
   fetchLectures,
@@ -12914,15 +12958,7 @@ function OpsLecturesListCard({
                 <Badge tone={st(l.status).tone}>{st(l.status).label}</Badge>
               </div>
               <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-                <p className="flex items-center gap-1.5 font-semibold text-foreground">
-                  <CalendarDays className="size-4 shrink-0 text-brand" />
-                  {new Date(l.startsAt).toLocaleString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}
-                </p>
-                <p className="flex items-center gap-1.5 font-lat text-base font-bold text-foreground">
-                  <Clock3 className="size-4 shrink-0 text-brand" />
-                  {new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
-                  {l.endsAt ? ` → ${new Date(l.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
-                </p>
+                <LectureWhen startsAt={l.startsAt} endsAt={l.endsAt} />
                 <div className="flex flex-wrap gap-1 pt-1">
                   {l.teacher?.fullName && <Badge tone="muted">{l.teacher.fullName}</Badge>}
                   {l.groupName && <Badge tone="muted">{l.groupName}</Badge>}
@@ -13162,7 +13198,7 @@ function AdminAllBookingsCard({
                   <tr key={b.id} className="border-b">
                     <td className="p-2 font-semibold">{b.student?.fullName ?? "—"}</td>
                     <td className="p-2">{b.teacher?.fullName ?? "—"}</td>
-                    <td className="p-2 text-xs">{new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="p-2 text-sm font-semibold">{new Date(b.startsAt).toLocaleString("ar-EG", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</td>
                     <td className="p-2"><Badge tone={s.tone}>{s.label}</Badge></td>
                     <td className="p-2">
                       <div className="flex flex-wrap items-center gap-1.5">

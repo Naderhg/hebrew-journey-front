@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Calendar, CalendarCheck, Clock, Plus } from "lucide-react";
+import { Calendar, CalendarCheck, CalendarDays, Clock, Plus } from "lucide-react";
 import { Button, Card, Badge } from "../components/ui";
 import { usePlatformStore, type SessionSubscription } from "../hooks/use-platform-store";
 import { AppShell, PageHeader } from "../components/app-shell";
@@ -17,6 +17,24 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "ملغاة", color: "#c0392b" },
   no_show: { label: "لم يحضر", color: "#e67e22" },
 };
+
+function WhenChips({ iso, endsAt }: { iso: string; endsAt?: string | null }) {
+  const d = new Date(iso);
+  const e = endsAt ? new Date(endsAt) : null;
+  return (
+    <span className="mt-1.5 flex flex-wrap items-center gap-2">
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#0b2f6e]/10 px-2.5 py-1.5 font-lat text-sm font-bold text-[#0b2f6e]">
+        <CalendarDays className="size-4" />
+        {d.toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
+      </span>
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#eef2f9] px-2.5 py-1.5 font-lat text-sm font-bold text-[#0b2f6e]">
+        <Clock className="size-4" />
+        {d.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+        {e ? ` → ${e.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
+      </span>
+    </span>
+  );
+}
 
 function fmtDate(iso: string) {
   try {
@@ -152,10 +170,7 @@ function StudentSessionsPage() {
                       <Clock className="size-4" />
                       {b.teacher?.fullName ?? t("مدرس")}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {fmtDate(b.startsAt)}
-                      {b.endsAt ? ` — ${new Date(b.endsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}` : ""}
-                    </p>
+                    <WhenChips iso={b.startsAt} endsAt={b.endsAt} />
                   </div>
                   <Badge style={{ background: STATUS_LABELS.booked.color }}>{t(STATUS_LABELS.booked.label)}</Badge>
                 </div>
@@ -192,7 +207,7 @@ function StudentSessionsPage() {
                 <div key={b.id} className="flex items-center justify-between rounded-lg border border-[#eef2f9] bg-white px-4 py-3">
                   <div>
                     <b className="text-sm text-[#0b2f6e]">{b.teacher?.fullName ?? t("مدرس")}</b>
-                    <p className="text-xs text-muted-foreground">{fmtDate(b.startsAt)}</p>
+                    <p className="mt-0.5 text-sm font-semibold text-[#0b2f6e]">{fmtDate(b.startsAt)}</p>
                     {b.meetingUrl && b.status !== "cancelled" && (
                       <a href={b.meetingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#2f6fed]">
                         {t("رابط الاجتماع")} ↗

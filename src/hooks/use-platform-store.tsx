@@ -239,9 +239,16 @@ export interface SalesLead {
   lostReason?: string | null;
   expectedValue?: number | null;
   notes?: string | null;
+  language?: string | null;
+  lessonType?: string | null;
+  packageId?: string | null;
+  package?: { id: string; nameAr: string; price: number; language?: string; category?: string } | null;
+  studentId?: string | null;
+  student?: { id: string; fullName: string; phone?: string | null } | null;
+  nextFollowUp?: string | null;
   salesId?: string | null;
   sales?: { id: string; fullName: string } | null;
-  callLogs?: { id: string; notes: string; outcome: string; calledAt: string; calledBy: { fullName: string } }[];
+  callLogs?: { id: string; notes: string; outcome: string; calledAt: string; nextFollowUp?: string | null; calledBy: { fullName: string } }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -288,6 +295,9 @@ export interface Subscription {
   paymentStatus: string;
   startDate: string;
   endDate?: string | null;
+  sessionsTotal?: number | null;
+  sessionsRemaining?: number | null;
+  expiresAt?: string | null;
   createdById: string;
   createdBy: { fullName: string };
   notes?: string | null;
@@ -298,15 +308,18 @@ export interface SalesStats {
   totalLeads: number;
   newLeads: number;
   contactedLeads: number;
-  interestedLeads: number;
+  followUpLeads: number;
+  pendingPaymentLeads: number;
   convertedLeads: number;
-  lostLeads: number;
+  notInterestedLeads: number;
   conversionRate: number;
   totalCalls: number;
   todayCalls: number;
   totalSubscriptions: number;
   activeSubscriptions: number;
   totalRevenue: number;
+  bySales: { salesId: string; name: string; leads: number; converted: number; paidSubscriptions: number; revenue: number; conversionRate: number }[];
+  bySource: { source: string; inquiries: number; converted: number; paidSubscriptions: number; revenue: number; conversionRate: number }[];
 }
 
 // ─── Support types ──────────────────────────────────────────────────────────
@@ -1109,12 +1122,22 @@ interface PlatformStoreValue {
   refreshStudentDashboard: () => Promise<void>;
   fetchLeaderboard: () => Promise<void>;
   fetchSalesData: () => Promise<void>;
-  addLead: (input: { name: string; email?: string; phone?: string; source?: string; need?: string; notes?: string }) => Promise<void>;
+  addLead: (input: { name: string; email?: string; phone?: string; source?: string; need?: string; notes?: string; expectedValue?: number; language?: string; lessonType?: string; packageId?: string }) => Promise<void>;
+  lookupLeadByPhone: (phone: string) => Promise<SalesLead | null>;
   updateLead: (id: string, input: Partial<SalesLead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
   addCallLog: (input: { leadId: string; notes: string; outcome: string; nextFollowUp?: string }) => Promise<void>;
   addSubscription: (input: { studentId: string; packageId: string; paidAmount?: number; paymentStatus: string; notes?: string }) => Promise<void>;
   updateSubscription: (id: string, input: { paidAmount?: number; paymentStatus?: string; status?: string }) => Promise<void>;
+  searchSalesStudents: (q: string) => Promise<{ id: string; fullName: string; phone: string | null; email: string | null }[]>;
+  convertLead: (leadId: string, input: {
+    studentId?: string;
+    newStudent?: { fullName: string; phone: string; password: string; email?: string };
+    packageId?: string;
+    paidAmount?: number;
+    paymentStatus?: string;
+    notes?: string;
+  }) => Promise<{ lead: SalesLead; studentCreated: boolean; subscription: unknown }>;
   // Support
   fetchSupportData: () => Promise<void>;
   updateStudentStatus: (studentId: string, status: string) => Promise<void>;
@@ -1769,9 +1792,15 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (statsRes.status === "fulfilled" && statsRes.value?.stats) setSalesStats(statsRes.value.stats);
   }
 
-  async function addLead(input: { name: string; email?: string; phone?: string; source?: string; need?: string; notes?: string }) {
+  async function addLead(input: { name: string; email?: string; phone?: string; source?: string; need?: string; notes?: string; expectedValue?: number; language?: string; lessonType?: string; packageId?: string }) {
     await apiFetch("/api/sales/leads", { method: "POST", body: input });
     await fetchSalesData();
+  }
+
+  async function lookupLeadByPhone(phone: string): Promise<SalesLead | null> {
+    if (phone.replace(/\D/g, "").length < 6) return null;
+    const res = await apiFetch<{ lead: SalesLead | null }>(`/api/sales/leads/lookup?phone=${encodeURIComponent(phone)}`);
+    return res?.lead ?? null;
   }
 
   async function updateLead(id: string, input: Partial<SalesLead>) {
@@ -1797,6 +1826,24 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function updateSubscription(id: string, input: { paidAmount?: number; paymentStatus?: string; status?: string }) {
     await apiFetch(`/api/sales/subscriptions/${id}`, { method: "PATCH", body: input });
     await fetchSalesData();
+  }
+
+  async function searchSalesStudents(q: string) {
+    const res = await apiFetch<{ students: { id: string; fullName: string; phone: string | null; email: string | null }[] }>(`/api/sales/students?q=${encodeURIComponent(q)}`);
+    return res?.students ?? [];
+  }
+
+  async function convertLead(leadId: string, input: {
+    studentId?: string;
+    newStudent?: { fullName: string; phone: string; password: string; email?: string };
+    packageId?: string;
+    paidAmount?: number;
+    paymentStatus?: string;
+    notes?: string;
+  }) {
+    const res = await apiFetch<{ lead: SalesLead; studentCreated: boolean; subscription: unknown }>(`/api/sales/leads/${leadId}/convert`, { method: "POST", body: input });
+    await fetchSalesData();
+    return res;
   }
 
   // ─── Support functions ────────────────────────────────────────────────────
@@ -2641,11 +2688,14 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchLeaderboard,
         fetchSalesData,
         addLead,
+        lookupLeadByPhone,
         updateLead,
         deleteLead,
         addCallLog,
         addSubscription,
         updateSubscription,
+        searchSalesStudents,
+        convertLead,
         fetchSupportData,
         updateStudentStatus,
         createTicket,

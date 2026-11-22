@@ -27,6 +27,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  PhoneCall,
   RotateCcw,
   ShieldCheck,
   TicketCheck,
@@ -218,6 +219,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
   ADMIN: adminNav,
   SUPER_ADMIN: adminNav,
   SALES: [
+    { to: "/sales", section: "followups", label: "متابعات اليوم", icon: PhoneCall },
     { to: "/sales", section: "leads", label: "العملاء المحتملون", icon: UsersRound },
     { to: "/sales", section: "calls", label: "سجل المكالمات", icon: Headphones },
     { to: "/sales", section: "subscriptions", label: "الاشتراكات", icon: TicketCheck },

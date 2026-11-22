@@ -6759,7 +6759,10 @@ function AdminLeadsSection({
   );
 
   const STAGE_LABELS: Record<string, string> = {
-    new: "جديد", contacted: "تم التواصل", interested: "مهتم", converted: "مشترك", lost: "مفقود",
+    new: "جديد", contacted: "تم التواصل", follow_up: "متابعة لاحقاً", pending_payment: "بانتظار الدفع",
+    converted: "مشترك", not_interested: "غير مهتم",
+    // legacy stages
+    interested: "مهتم", lost: "مفقود",
   };
 
   return (
@@ -6795,7 +6798,7 @@ function AdminLeadsSection({
                 </small>
               </div>
               <div className="flex items-center gap-2">
-                <Badge tone={lead.stage === "converted" ? "sage" : lead.stage === "lost" ? "danger" : lead.stage === "interested" ? "gold" : "muted"}>
+                <Badge tone={lead.stage === "converted" ? "sage" : lead.stage === "not_interested" || lead.stage === "lost" ? "danger" : lead.stage === "pending_payment" || lead.stage === "follow_up" || lead.stage === "interested" ? "gold" : "muted"}>
                   {t(STAGE_LABELS[lead.stage] ?? lead.stage)}
                 </Badge>
                 <select
@@ -8528,14 +8531,17 @@ function AdminResultsSection({
   );
 }
 
-type SalesSection = "leads" | "calls" | "subscriptions" | "stats";
+type SalesSection = "followups" | "leads" | "calls" | "subscriptions" | "stats";
 
 const LEAD_STAGES: Record<string, string> = {
   new: "جديد",
   contacted: "تم التواصل",
+  follow_up: "متابعة لاحقاً",
+  pending_payment: "بانتظار الدفع",
+  converted: "تم الاشتراك",
+  not_interested: "غير مهتم",
+  // legacy values on old records
   interested: "مهتم",
-  follow_up: "متابعة",
-  converted: "مشترك",
   lost: "خسر",
 };
 
@@ -8548,6 +8554,56 @@ const CALL_OUTCOMES: Record<string, string> = {
   wrong_number: "رقم خطأ",
 };
 
+// ─── WhatsApp helpers for the sales follow-ups screen ────────────────────────
+
+function waDigits(phone?: string | null): string {
+  const d = (phone ?? "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("0020")) return d.slice(2);
+  if (d.startsWith("20") && d.length >= 11) return d;
+  if (d.startsWith("0")) return `2${d.slice(1)}`;
+  return `20${d}`;
+}
+
+type SalesLeadT = import("../hooks/use-platform-store").SalesLead;
+
+const WA_TEMPLATES: { id: string; label: string; text: (l: SalesLeadT, agent: string) => string }[] = [
+  {
+    id: "auto",
+    label: "تلقائي حسب الحالة",
+    text: (l, agent) =>
+      l.stage === "pending_payment"
+        ? WA_TEMPLATES.find((x) => x.id === "payment_reminder")!.text(l, agent)
+        : l.package
+          ? WA_TEMPLATES.find((x) => x.id === "package_details")!.text(l, agent)
+          : WA_TEMPLATES.find((x) => x.id === "follow_up")!.text(l, agent),
+  },
+  {
+    id: "package_details",
+    label: "تفاصيل الباقة",
+    text: (l) =>
+      `أهلاً ${l.name} 👋\nمعاك فريق أكاديمية "עברית שוטפת".\nبخصوص استفسارك عن ${l.package?.nameAr ?? "باقاتنا"}:\n💰 السعر: $${l.package?.price ?? "—"}\nلو حابب نحجزلك موعد أو عندك أي سؤال، رد علينا هنا.`,
+  },
+  {
+    id: "follow_up",
+    label: "متابعة بعد الاستفسار",
+    text: (l, agent) =>
+      `أهلاً ${l.name}، معاك ${agent} من أكاديمية "עברית שוטפת".\nبتابع معاك بخصوص دروس العبرية — هل لسه مهتم؟ لو حابب أبعولك تفاصيل الباقات، قولي.`,
+  },
+  {
+    id: "payment_reminder",
+    label: "تذكير بالدفع",
+    text: (l) =>
+      `أهلاً ${l.name} 🌟\nبنذكّرك إن اشتراكك في ${l.package?.nameAr ?? "الباقة"} بانتظار إتمام الدفع${l.package?.price ? ` (${"$"}${l.package.price})` : ""}.\nأول ما يتم الدفع هيتفعل حسابك على طول — لو محتاج مساعدة في الدفع إحنا معاك.`,
+  },
+  {
+    id: "renewal",
+    label: "تجديد الاشتراك",
+    text: (l) =>
+      `أهلاً ${l.name}، معاك فريق أكاديمية "עברית שוטפת".\nاشتراكك الحالي قرب يخلص — لو حابب تجدده قولي وأنا أجهزلك التفاصيل. 💪`,
+  },
+];
+
 export function SalesScreen() {
   const {
     salesLeads,
@@ -8555,14 +8611,16 @@ export function SalesScreen() {
     packages,
     subscriptions,
     salesStats,
-    users,
     loadingData,
     addLead,
+    lookupLeadByPhone,
     updateLead,
     deleteLead,
     addCallLog,
     addSubscription,
     updateSubscription,
+    searchSalesStudents,
+    convertLead,
     fetchSalesData,
   } = usePlatformStore();
   const { user } = useAuth();
@@ -8583,6 +8641,12 @@ export function SalesScreen() {
   const [leadSource, setLeadSource] = useState("");
   const [leadNeed, setLeadNeed] = useState("");
   const [leadNotes, setLeadNotes] = useState("");
+  const [leadLanguage, setLeadLanguage] = useState("");
+  const [leadLessonType, setLeadLessonType] = useState("");
+  const [leadPackageId, setLeadPackageId] = useState("");
+  const [leadExpectedValue, setLeadExpectedValue] = useState("");
+  const [dupLead, setDupLead] = useState<import("../hooks/use-platform-store").SalesLead | null>(null);
+  const [checkingDup, setCheckingDup] = useState(false);
   const [leadSaving, setLeadSaving] = useState(false);
   const [leadError, setLeadError] = useState("");
 
@@ -8600,7 +8664,85 @@ export function SalesScreen() {
   const [subNotes, setSubNotes] = useState("");
   const [subSaving, setSubSaving] = useState(false);
 
-  const students = users.filter((u) => u.role === "STUDENT");
+  // Follow-ups screen
+  const [fuLang, setFuLang] = useState("");
+  const [fuStage, setFuStage] = useState("");
+  const [waTemplate, setWaTemplate] = useState("auto");
+
+  // Lead → student conversion panel
+  const [convertLeadId, setConvertLeadId] = useState<string | null>(null);
+  const [convMode, setConvMode] = useState<"existing" | "new">("new");
+  const [convStudentQuery, setConvStudentQuery] = useState("");
+  const [convStudentResults, setConvStudentResults] = useState<{ id: string; fullName: string; phone: string | null; email: string | null }[]>([]);
+  const [convStudentId, setConvStudentId] = useState("");
+  const [convName, setConvName] = useState("");
+  const [convPhone, setConvPhone] = useState("");
+  const [convPassword, setConvPassword] = useState("");
+  const [convEmail, setConvEmail] = useState("");
+  const [convPackageId, setConvPackageId] = useState("");
+  const [convPaidAmount, setConvPaidAmount] = useState("");
+  const [convPaymentStatus, setConvPaymentStatus] = useState("PENDING");
+  const [convNotes, setConvNotes] = useState("");
+  const [convSaving, setConvSaving] = useState(false);
+  const [convError, setConvError] = useState("");
+
+  // Student options for the subscription form (sales can't list all users)
+  const [studentOptions, setStudentOptions] = useState<{ id: string; fullName: string; phone: string | null; email: string | null }[]>([]);
+
+  const students = studentOptions;
+
+  // Load recent students once for the subscription dropdown (SALES can't list users)
+  useEffect(() => {
+    searchSalesStudents("").then(setStudentOptions).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function searchConvStudents(q: string) {
+    setConvStudentQuery(q);
+    if (q.trim().length < 2) { setConvStudentResults([]); return; }
+    try {
+      setConvStudentResults(await searchSalesStudents(q));
+    } catch { setConvStudentResults([]); }
+  }
+
+  function openConvertPanel(lead: SalesLeadT) {
+    setConvError("");
+    setConvertLeadId(lead.id);
+    setConvMode(lead.student ? "existing" : "new");
+    setConvStudentQuery("");
+    setConvStudentResults([]);
+    setConvStudentId(lead.student?.id ?? "");
+    setConvName(lead.student?.fullName ?? lead.name);
+    setConvPhone(lead.phone ?? "");
+    setConvPassword("");
+    setConvEmail(lead.email ?? "");
+    setConvPackageId(lead.packageId ?? lead.package?.id ?? "");
+    setConvPaidAmount(lead.expectedValue != null ? String(lead.expectedValue) : "");
+    setConvPaymentStatus("PENDING");
+    setConvNotes("");
+  }
+
+  async function handleConvertLead(e: React.FormEvent) {
+    e.preventDefault();
+    if (!convertLeadId) return;
+    setConvSaving(true);
+    setConvError("");
+    try {
+      await convertLead(convertLeadId, {
+        ...(convMode === "existing" && convStudentId ? { studentId: convStudentId } : {}),
+        ...(convMode === "new" ? { newStudent: { fullName: convName, phone: convPhone, password: convPassword, ...(convEmail ? { email: convEmail } : {}) } } : {}),
+        ...(convPackageId ? { packageId: convPackageId } : {}),
+        ...(convPaidAmount ? { paidAmount: Number(convPaidAmount) } : {}),
+        paymentStatus: convPaymentStatus,
+        ...(convNotes ? { notes: convNotes } : {}),
+      });
+      setConvertLeadId(null);
+    } catch (err) {
+      setConvError(err instanceof Error ? err.message : t("فشل التحويل"));
+    } finally {
+      setConvSaving(false);
+    }
+  }
 
   function resetLeadForm() {
     setLeadName("");
@@ -8609,8 +8751,25 @@ export function SalesScreen() {
     setLeadSource("");
     setLeadNeed("");
     setLeadNotes("");
+    setLeadLanguage("");
+    setLeadLessonType("");
+    setLeadPackageId("");
+    setLeadExpectedValue("");
+    setDupLead(null);
     setEditingLead(null);
     setShowLeadForm(false);
+  }
+
+  async function checkDuplicate() {
+    setDupLead(null);
+    if (leadPhone.replace(/\D/g, "").length < 6) return;
+    setCheckingDup(true);
+    try {
+      const found = await lookupLeadByPhone(leadPhone);
+      if (found && found.id !== editingLead?.id) setDupLead(found);
+    } catch { /* ignore lookup errors */ } finally {
+      setCheckingDup(false);
+    }
   }
 
   async function handleSaveLead(e: React.FormEvent) {
@@ -8625,6 +8784,10 @@ export function SalesScreen() {
         ...(leadSource ? { source: leadSource } : {}),
         ...(leadNeed ? { need: leadNeed } : {}),
         ...(leadNotes ? { notes: leadNotes } : {}),
+        ...(leadLanguage ? { language: leadLanguage } : {}),
+        ...(leadLessonType ? { lessonType: leadLessonType } : {}),
+        ...(leadPackageId ? { packageId: leadPackageId } : {}),
+        ...(leadExpectedValue ? { expectedValue: Number(leadExpectedValue) } : {}),
       };
       if (editingLead) {
         await updateLead(editingLead.id, payload);
@@ -8694,6 +8857,74 @@ export function SalesScreen() {
 
   const stats = salesStats;
 
+  // ─── Follow-ups screen data ───
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+  const fuBase = salesLeads.filter((l) =>
+    (!fuLang || l.language === fuLang) &&
+    (!fuStage || l.stage === fuStage) &&
+    l.stage !== "converted" && l.stage !== "not_interested" && l.stage !== "lost"
+  );
+  const byNextAsc = (a: SalesLeadT, b: SalesLeadT) =>
+    new Date(a.nextFollowUp ?? 0).getTime() - new Date(b.nextFollowUp ?? 0).getTime();
+  const fuOverdue = fuBase.filter((l) => l.nextFollowUp && new Date(l.nextFollowUp) < startOfToday).sort(byNextAsc);
+  const fuToday = fuBase.filter((l) => l.nextFollowUp && new Date(l.nextFollowUp) >= startOfToday && new Date(l.nextFollowUp) <= endOfToday).sort(byNextAsc);
+  const fuPendingPay = fuBase.filter((l) => l.stage === "pending_payment").sort(byNextAsc);
+  // Students whose package is about to expire or has ≤2 sessions left → renewal reminders
+  const weekMs = 7 * 86400000;
+  const fuRenewals = subscriptions.filter((s) =>
+    s.status === "ACTIVE" &&
+    ((s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2) ||
+      (s.expiresAt != null && new Date(s.expiresAt).getTime() - Date.now() <= weekMs))
+  );
+  const agentName = firstNameOf(user?.fullName) || t("فريق المبيعات");
+
+  function waLink(l: SalesLeadT): string {
+    const tpl = WA_TEMPLATES.find((x) => x.id === waTemplate) ?? WA_TEMPLATES[0]!;
+    return `https://wa.me/${waDigits(l.phone)}?text=${encodeURIComponent(tpl.text(l, agentName))}`;
+  }
+
+  function FollowUpRow({ l }: { l: SalesLeadT }) {
+    const lastCall = l.callLogs?.[0];
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2.5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <b className="text-sm">{l.name}</b>
+            <Badge tone={
+              l.stage === "pending_payment" ? "gold"
+              : l.stage === "follow_up" ? "brand"
+              : l.stage === "contacted" ? "muted"
+              : "brand"
+            }>{t(LEAD_STAGES[l.stage] ?? l.stage)}</Badge>
+            {l.package && <Badge tone="muted">{l.package.nameAr}</Badge>}
+            {l.language && <Badge tone="muted">{l.language === "hebrew" ? t("عبرية") : t("إنجليزية")}</Badge>}
+          </div>
+          <p className="mt-0.5 font-lat text-xs text-muted-foreground" dir="ltr">{l.phone ?? "—"}</p>
+          {lastCall && <p className="mt-0.5 truncate text-xs text-muted-foreground">{t("آخر ملاحظة")}: {lastCall.notes}</p>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {l.nextFollowUp && (
+            <span className={`text-xs font-bold ${new Date(l.nextFollowUp) < startOfToday ? "text-danger" : "text-brand"}`}>
+              {new Date(l.nextFollowUp).toLocaleString("ar-EG", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          {l.phone && (
+            <a
+              href={waLink(l)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#25d366] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#1ebd59]"
+            >
+              <PhoneCall className="size-3.5" />
+              {t("واتساب")}
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AppShell role="SALES" activeSection={activeSection} onSelectSection={(s) => setActiveSection(s as SalesSection)}>
       {activeSection === "leads" ? (
@@ -8751,8 +8982,8 @@ export function SalesScreen() {
             <b className="mt-1 block font-lat text-2xl">{stats.newLeads}</b>
           </Card>
           <Card className="p-3 text-center">
-            <small className="text-muted-foreground">{t("مهتم")}</small>
-            <b className="mt-1 block font-lat text-2xl text-amber-600">{stats.interestedLeads}</b>
+            <small className="text-muted-foreground">{t("بانتظار الدفع")}</small>
+            <b className="mt-1 block font-lat text-2xl text-amber-600">{stats.pendingPaymentLeads}</b>
           </Card>
           <Card className="p-3 text-center">
             <small className="text-muted-foreground">{t("مشترك")}</small>
@@ -8790,8 +9021,15 @@ export function SalesScreen() {
                     <Input type="email" value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("رقم الهاتف")}</Label>
-                    <Input dir="ltr" className="text-left" value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} />
+                    <Label>{t("رقم الواتساب")}</Label>
+                    <Input
+                      dir="ltr"
+                      className="text-left"
+                      value={leadPhone}
+                      onChange={(e) => { setLeadPhone(e.target.value); setDupLead(null); }}
+                      onBlur={checkDuplicate}
+                    />
+                    {checkingDup && <small className="text-muted-foreground">{t("جاري التحقق...")}</small>}
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t("مصدر المعرفة بالأكاديمية")}</Label>
@@ -8807,6 +9045,35 @@ export function SalesScreen() {
                       <option value="whatsapp">{t("واتساب")}</option>
                       <option value="other">{t("أخرى")}</option>
                     </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("اللغة")}</Label>
+                    <select value={leadLanguage} onChange={(e) => setLeadLanguage(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— {t("اختر")} —</option>
+                      <option value="hebrew">{t("عبرية")}</option>
+                      <option value="english">{t("إنجليزية")}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("نوع الدروس")}</Label>
+                    <select value={leadLessonType} onChange={(e) => setLeadLessonType(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— {t("اختر")} —</option>
+                      <option value="individual">{t("فردي")}</option>
+                      <option value="group">{t("جروب")}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("الباقة المهتم بها")}</Label>
+                    <select value={leadPackageId} onChange={(e) => setLeadPackageId(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">— {t("اختر")} —</option>
+                      {packages.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nameAr} — ${p.price}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t("القيمة المتوقعة ($)")}</Label>
+                    <Input type="number" min={0} step="0.01" value={leadExpectedValue} onChange={(e) => setLeadExpectedValue(e.target.value)} />
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label>{t("الاحتياج / نوع الكورس")}</Label>
@@ -8833,6 +9100,21 @@ export function SalesScreen() {
                     />
                   </div>
                 </div>
+                {dupLead && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                    <b>{t("يوجد عميل بنفس الرقم:")}</b> {dupLead.name}
+                    {" — "}{t(LEAD_STAGES[dupLead.stage] ?? dupLead.stage)}
+                    {dupLead.sales?.fullName ? ` · ${t("الموظف")}: ${dupLead.sales.fullName}` : ""}
+                    {dupLead.student?.fullName ? ` · ${t("طالب مسجل")}: ${dupLead.student.fullName}` : ""}
+                    <button
+                      type="button"
+                      className="mr-2 font-bold text-brand underline"
+                      onClick={() => { setExpandedLeadId(dupLead.id); setDupLead(null); }}
+                    >
+                      {t("فتح العميل")}
+                    </button>
+                  </div>
+                )}
                 {leadError && <p className="text-xs font-semibold text-danger">{leadError}</p>}
                 <div className="flex gap-2">
                   <Button type="submit" disabled={leadSaving}>
@@ -8890,9 +9172,9 @@ export function SalesScreen() {
                           tone={
                             lead.stage === "converted"
                               ? "sage"
-                              : lead.stage === "lost"
+                              : lead.stage === "not_interested" || lead.stage === "lost"
                                 ? "danger"
-                                : lead.stage === "interested" || lead.stage === "follow_up"
+                                : lead.stage === "pending_payment" || lead.stage === "follow_up" || lead.stage === "interested"
                                   ? "gold"
                                   : "muted"
                           }
@@ -8909,17 +9191,33 @@ export function SalesScreen() {
                           {lead.expectedValue != null && <span>{t("القيمة المتوقعة")}: ${lead.expectedValue}</span>}
                           {lead.sales && <span>{t("الموظف")}: {lead.sales.fullName}</span>}
                         </div>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {lead.language && <Badge tone="muted">{lead.language === "hebrew" ? t("عبرية") : t("إنجليزية")}</Badge>}
+                          {lead.lessonType && <Badge tone="muted">{lead.lessonType === "individual" ? t("فردي") : t("جروب")}</Badge>}
+                          {lead.package && <Badge tone="brand">{lead.package.nameAr} — ${lead.package.price}</Badge>}
+                          {lead.student && <Badge tone="sage">{t("طالب")}: {lead.student.fullName}</Badge>}
+                          {lead.nextFollowUp && (
+                            <Badge tone="gold">{t("متابعة")}: {new Date(lead.nextFollowUp).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</Badge>
+                          )}
+                        </div>
                         {lead.notes && <p className="mt-1 text-xs text-muted-foreground">{t("ملاحظات")}: {lead.notes}</p>}
                         {lead.lostReason && <p className="mt-1 text-xs text-danger">{t("سبب الخسارة")}: {lead.lostReason}</p>}
 
-                        {/* Latest call */}
-                        {lead.callLogs?.[0] && (
-                          <div className="mt-2 rounded-sm bg-muted/60 p-2 text-xs">
-                            <b>{t("آخر مكالمة")}:</b> {lead.callLogs[0].notes} —{" "}
-                            <Badge tone="muted">{t(CALL_OUTCOMES[lead.callLogs[0].outcome] ?? lead.callLogs[0].outcome)}</Badge>
-                            <small className="block text-muted-foreground">
-                              {t("بواسطة")} {lead.callLogs[0].calledBy.fullName} · {new Date(lead.callLogs[0].calledAt).toLocaleString("ar-EG")}
-                            </small>
+                        {/* Call history */}
+                        {(lead.callLogs ?? []).length > 0 && (
+                          <div className="mt-2 space-y-1.5">
+                            {(lead.callLogs ?? []).map((c) => (
+                              <div key={c.id} className="rounded-sm bg-muted/60 p-2 text-xs">
+                                <div className="flex flex-wrap items-center justify-between gap-1">
+                                  <span><b>{c.notes}</b></span>
+                                  <Badge tone="muted">{t(CALL_OUTCOMES[c.outcome] ?? c.outcome)}</Badge>
+                                </div>
+                                <small className="block text-muted-foreground">
+                                  {t("بواسطة")} {c.calledBy.fullName} · {new Date(c.calledAt).toLocaleString("ar-EG")}
+                                  {c.nextFollowUp ? ` · ${t("متابعة")}: ${new Date(c.nextFollowUp).toLocaleString("ar-EG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
+                                </small>
+                              </div>
+                            ))}
                           </div>
                         )}
 
@@ -8936,10 +9234,10 @@ export function SalesScreen() {
                             <option value="">{t("تغيير الحالة...")}</option>
                             <option value="new">{t("جديد")}</option>
                             <option value="contacted">{t("تم التواصل")}</option>
-                            <option value="interested">{t("مهتم")}</option>
-                            <option value="follow_up">{t("متابعة")}</option>
-                            <option value="converted">{t("مشترك")}</option>
-                            <option value="lost">{t("خسر")}</option>
+                            <option value="follow_up">{t("متابعة لاحقاً")}</option>
+                            <option value="pending_payment">{t("بانتظار الدفع")}</option>
+                            <option value="converted">{t("تم الاشتراك")}</option>
+                            <option value="not_interested">{t("غير مهتم")}</option>
                           </select>
                           <Button
                             variant="secondary"
@@ -8960,6 +9258,14 @@ export function SalesScreen() {
                             {t("تسجيل مكالمة")}
                           </Button>
                           <Button
+                            variant="secondary"
+                            className="min-h-8 px-2 text-xs"
+                            onClick={() => (convertLeadId === lead.id ? setConvertLeadId(null) : openConvertPanel(lead))}
+                          >
+                            <UserPlus className="size-3" />
+                            {lead.student ? t("إضافة اشتراك") : t("تحويل لطالب")}
+                          </Button>
+                          <Button
                             variant="ghost"
                             className="min-h-8 px-2 text-xs text-danger"
                             onClick={() => { if (confirm(t("حذف هذا العميل؟"))) deleteLead(lead.id); }}
@@ -8967,6 +9273,119 @@ export function SalesScreen() {
                             <Trash2 className="size-3" />
                           </Button>
                         </div>
+
+                        {/* Convert lead → student + optional subscription */}
+                        {convertLeadId === lead.id && (
+                          <form onSubmit={handleConvertLead} className="mt-3 space-y-3 rounded-md border border-brand/30 bg-brand/5 p-3">
+                            <div className="flex gap-2 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => setConvMode("new")}
+                                className={`rounded-md px-3 py-1.5 font-semibold ${convMode === "new" ? "bg-brand text-white" : "bg-muted text-muted-foreground"}`}
+                              >
+                                {t("طالب جديد")}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConvMode("existing")}
+                                className={`rounded-md px-3 py-1.5 font-semibold ${convMode === "existing" ? "bg-brand text-white" : "bg-muted text-muted-foreground"}`}
+                              >
+                                {t("طالب موجود")}
+                              </button>
+                            </div>
+
+                            {convMode === "existing" ? (
+                              <div className="space-y-1.5">
+                                <Label>{t("ابحث عن الطالب (اسم أو رقم)")}</Label>
+                                <Input
+                                  value={convStudentQuery}
+                                  onChange={(e) => searchConvStudents(e.target.value)}
+                                  placeholder={t("اكتب اسم الطالب أو رقم الهاتف...")}
+                                />
+                                {(convStudentResults.length > 0 || convStudentId) && (
+                                  <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-1">
+                                    {convStudentResults.map((s) => (
+                                      <button
+                                        key={s.id}
+                                        type="button"
+                                        onClick={() => { setConvStudentId(s.id); setConvStudentResults([]); setConvStudentQuery(s.fullName); }}
+                                        className={`flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-right text-xs ${convStudentId === s.id ? "bg-brand/10 font-bold" : "hover:bg-muted"}`}
+                                      >
+                                        <span>{s.fullName}</span>
+                                        <span className="text-muted-foreground">{s.phone ?? s.email ?? "—"}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                {convStudentId && <p className="text-xs text-sage">{t("تم اختيار الطالب")} ✓</p>}
+                              </div>
+                            ) : (
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                  <Label>{t("اسم الطالب")}</Label>
+                                  <Input value={convName} onChange={(e) => setConvName(e.target.value)} required />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label>{t("رقم الواتساب")}</Label>
+                                  <Input value={convPhone} onChange={(e) => setConvPhone(e.target.value)} required dir="ltr" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label>{t("كلمة المرور")}</Label>
+                                  <Input type="text" value={convPassword} onChange={(e) => setConvPassword(e.target.value)} required minLength={6} dir="ltr" />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label>{t("الإيميل (اختياري)")}</Label>
+                                  <Input type="email" value={convEmail} onChange={(e) => setConvEmail(e.target.value)} dir="ltr" />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              <div className="space-y-1">
+                                <Label>{t("الباقة (اختياري)")}</Label>
+                                <select
+                                  value={convPackageId}
+                                  onChange={(e) => setConvPackageId(e.target.value)}
+                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                  <option value="">— {t("بدون اشتراك")} —</option>
+                                  {packages.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.nameAr} — ${p.price}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label>{t("المبلغ المدفوع ($)")}</Label>
+                                <Input type="number" min={0} step="0.01" value={convPaidAmount} onChange={(e) => setConvPaidAmount(e.target.value)} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>{t("حالة الدفع")}</Label>
+                                <select
+                                  value={convPaymentStatus}
+                                  onChange={(e) => setConvPaymentStatus(e.target.value)}
+                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                >
+                                  <option value="PENDING">{t("بانتظار الدفع")}</option>
+                                  <option value="PAID">{t("مدفوع")}</option>
+                                  <option value="PARTIAL">{t("جزئي")}</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label>{t("ملاحظات (اختياري)")}</Label>
+                              <Input value={convNotes} onChange={(e) => setConvNotes(e.target.value)} />
+                            </div>
+                            {convError && <p className="text-xs font-semibold text-danger">{convError}</p>}
+                            <div className="flex gap-2">
+                              <Button type="submit" disabled={convSaving || (convMode === "existing" && !convStudentId)}>
+                                {convSaving ? t("جاري التحويل...") : t("تأكيد التحويل")}
+                              </Button>
+                              <Button type="button" variant="ghost" onClick={() => setConvertLeadId(null)}>
+                                {t("إلغاء")}
+                              </Button>
+                            </div>
+                          </form>
+                        )}
                       </div>
                     )}
                   </div>
@@ -9041,6 +9460,99 @@ export function SalesScreen() {
             </div>
           </form>
         </Card>
+      )}
+
+      {activeSection === "followups" && (
+        <div className="space-y-4">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold">{t("متابعات اليوم")}</h2>
+                <p className="text-xs text-muted-foreground">{t("المتابعات المستحقة والمتأخرة + العملاء بانتظار الدفع")}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select value={fuLang} onChange={(e) => setFuLang(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2.5 text-xs">
+                  <option value="">{t("كل اللغات")}</option>
+                  <option value="hebrew">{t("عبرية")}</option>
+                  <option value="english">{t("إنجليزية")}</option>
+                </select>
+                <select value={fuStage} onChange={(e) => setFuStage(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2.5 text-xs">
+                  <option value="">{t("كل الحالات")}</option>
+                  <option value="new">{t("جديد")}</option>
+                  <option value="contacted">{t("تم التواصل")}</option>
+                  <option value="follow_up">{t("متابعة لاحقاً")}</option>
+                  <option value="pending_payment">{t("بانتظار الدفع")}</option>
+                </select>
+                <select value={waTemplate} onChange={(e) => setWaTemplate(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2.5 text-xs font-semibold text-[#128c4b]">
+                  {WA_TEMPLATES.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>{t("قالب")}: {t(tpl.label)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {fuOverdue.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-danger">{t("متابعات متأخرة")} ({fuOverdue.length})</h3>
+                <div className="mt-2 space-y-1.5">{fuOverdue.map((l) => <FollowUpRow key={l.id} l={l} />)}</div>
+              </div>
+            )}
+            {fuToday.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-brand">{t("متابعات اليوم")} ({fuToday.length})</h3>
+                <div className="mt-2 space-y-1.5">{fuToday.map((l) => <FollowUpRow key={l.id} l={l} />)}</div>
+              </div>
+            )}
+            {fuPendingPay.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-amber-600">{t("بانتظار الدفع")} ({fuPendingPay.length})</h3>
+                <div className="mt-2 space-y-1.5">{fuPendingPay.map((l) => <FollowUpRow key={l.id} l={l} />)}</div>
+              </div>
+            )}
+            {fuRenewals.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-bold text-danger">{t("تجديدات مطلوبة")} ({fuRenewals.length})</h3>
+                <div className="mt-2 space-y-1.5">
+                  {fuRenewals.map((s) => {
+                    const phone = s.student.phone ?? "";
+                    const reason = s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2
+                      ? `${t("متبقي")} ${s.sessionsRemaining}/${s.sessionsTotal} ${t("حصة")}`
+                      : `${t("تنتهي")} ${s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("ar-EG") : "—"}`;
+                    const msg = `أهلاً ${s.student.fullName}، معاك فريق أكاديمية "עברית שוטפת".\nاشتراكك في ${s.package.nameAr} ${reason} — لو حابب تجدده قولي وأنا أجهزلك التفاصيل. 💪`;
+                    return (
+                      <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2.5">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <b className="text-sm">{s.student.fullName}</b>
+                            <Badge tone="muted">{s.package.nameAr}</Badge>
+                            <Badge tone="danger">{reason}</Badge>
+                          </div>
+                          <p className="mt-0.5 font-lat text-xs text-muted-foreground" dir="ltr">{phone || "—"}</p>
+                        </div>
+                        {phone && (
+                          <a
+                            href={`https://wa.me/${waDigits(phone)}?text=${encodeURIComponent(msg)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#25d366] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#1ebd59]"
+                          >
+                            <PhoneCall className="size-3.5" />
+                            {t("واتساب")}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {fuOverdue.length + fuToday.length + fuPendingPay.length + fuRenewals.length === 0 && (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {t("لا توجد متابعات مستحقة — كل حاجة تحت السيطرة ✓")}
+              </div>
+            )}
+          </Card>
+        </div>
       )}
 
       {activeSection === "calls" && (
@@ -9169,9 +9681,23 @@ export function SalesScreen() {
                       <p className="text-xs text-muted-foreground">
                         {s.package.nameAr} · {s.package.durationMonths} {t("شهر")} · ${s.package.price}
                       </p>
-                      <small className="text-muted-foreground">
+                      <small className="block text-muted-foreground">
                         {t("بواسطة")} {s.createdBy.fullName} · {new Date(s.createdAt).toLocaleDateString("ar-EG")}
                       </small>
+                      {(s.sessionsTotal != null || s.expiresAt) && (
+                        <small className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                          {s.sessionsTotal != null && (
+                            <Badge tone={s.sessionsRemaining != null && s.sessionsRemaining <= 2 ? "danger" : "muted"}>
+                              {t("متبقي")}: {s.sessionsRemaining ?? 0}/{s.sessionsTotal} {t("حصة")}
+                            </Badge>
+                          )}
+                          {s.expiresAt && (
+                            <Badge tone={new Date(s.expiresAt).getTime() - Date.now() < 7 * 86400000 ? "gold" : "muted"}>
+                              {t("تنتهي")}: {new Date(s.expiresAt).toLocaleDateString("ar-EG")}
+                            </Badge>
+                          )}
+                        </small>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge
@@ -9185,6 +9711,20 @@ export function SalesScreen() {
                         {s.paymentStatus === "PAID" ? t("مدفوع") : s.paymentStatus === "PENDING" ? t("بانتظار") : s.paymentStatus === "PARTIAL" ? t("جزئي") : t("مسترد")}
                       </Badge>
                       {s.paidAmount != null && <small className="font-lat">${s.paidAmount}</small>}
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) updateSubscription(s.id, { paymentStatus: e.target.value });
+                        }}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                        title={t("حالة الدفع")}
+                      >
+                        <option value="">{t("الدفع")}: {s.paymentStatus === "PAID" ? t("مدفوع") : s.paymentStatus === "PENDING" ? t("بانتظار") : s.paymentStatus === "PARTIAL" ? t("جزئي") : t("مسترد")}</option>
+                        <option value="PENDING">{t("بانتظار الدفع")}</option>
+                        <option value="PAID">{t("مدفوع")}</option>
+                        <option value="PARTIAL">{t("جزئي")}</option>
+                        <option value="REFUNDED">{t("مسترد")}</option>
+                      </select>
                       <select
                         value=""
                         onChange={(e) => {
@@ -9233,9 +9773,10 @@ export function SalesScreen() {
               {[
                 { label: t("جديد"), count: stats.newLeads, color: "bg-slate-300" },
                 { label: t("تم التواصل"), count: stats.contactedLeads, color: "bg-blue-400" },
-                { label: t("مهتم"), count: stats.interestedLeads, color: "bg-amber-400" },
+                { label: t("متابعة لاحقاً"), count: stats.followUpLeads, color: "bg-brand" },
+                { label: t("بانتظار الدفع"), count: stats.pendingPaymentLeads, color: "bg-amber-400" },
                 { label: t("مشترك"), count: stats.convertedLeads, color: "bg-sage" },
-                { label: t("خسر"), count: stats.lostLeads, color: "bg-danger" },
+                { label: t("غير مهتم"), count: stats.notInterestedLeads, color: "bg-danger" },
               ].map((s) => (
                 <div key={s.label} className="flex items-center gap-3">
                   <span className="w-20 text-xs text-muted-foreground">{s.label}</span>
@@ -9250,6 +9791,70 @@ export function SalesScreen() {
               ))}
             </div>
           </Card>
+
+          {stats.bySales.length > 0 && (
+            <Card>
+              <h3 className="font-bold">{t("الأداء حسب الموظف")}</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground">
+                      <th className="px-2 py-1.5 text-right">{t("الموظف")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("الاستفسارات")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("المشتركون")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("المدفوع")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("الإيراد")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("نسبة التحويل")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.bySales.map((r) => (
+                      <tr key={r.salesId} className="border-b border-border/50 last:border-0">
+                        <td className="px-2 py-1.5 font-semibold">{r.name}</td>
+                        <td className="px-2 py-1.5 font-lat">{r.leads}</td>
+                        <td className="px-2 py-1.5 font-lat">{r.converted}</td>
+                        <td className="px-2 py-1.5 font-lat">{r.paidSubscriptions}</td>
+                        <td className="px-2 py-1.5 font-lat">${r.revenue}</td>
+                        <td className="px-2 py-1.5 font-lat font-bold text-brand">{r.conversionRate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {stats.bySource.length > 0 && (
+            <Card>
+              <h3 className="font-bold">{t("الأداء حسب مصدر الاستفسار")}</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground">
+                      <th className="px-2 py-1.5 text-right">{t("المصدر")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("الاستفسارات")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("المشتركون")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("المدفوع")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("الإيراد")}</th>
+                      <th className="px-2 py-1.5 text-right">{t("نسبة التحويل")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.bySource.map((r) => (
+                      <tr key={r.source} className="border-b border-border/50 last:border-0">
+                        <td className="px-2 py-1.5 font-semibold">{r.source}</td>
+                        <td className="px-2 py-1.5 font-lat">{r.inquiries}</td>
+                        <td className="px-2 py-1.5 font-lat">{r.converted}</td>
+                        <td className="px-2 py-1.5 font-lat">{r.paidSubscriptions}</td>
+                        <td className="px-2 py-1.5 font-lat">${r.revenue}</td>
+                        <td className="px-2 py-1.5 font-lat font-bold text-brand">{r.conversionRate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </AppShell>

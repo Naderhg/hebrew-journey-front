@@ -304,6 +304,27 @@ export interface Subscription {
   createdAt: string;
 }
 
+export interface SalesStudent {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  studentStatus?: string | null;
+  createdAt?: string;
+  subscription: {
+    id: string;
+    status: string;
+    paymentStatus: string;
+    paidAmount: number | null;
+    sessionsTotal: number | null;
+    sessionsRemaining: number | null;
+    expiresAt: string | null;
+    endDate: string | null;
+    package: { id: string; nameAr: string; price: number; packageType?: string } | null;
+  } | null;
+  subscriptionsCount?: number;
+}
+
 export interface SalesStats {
   totalLeads: number;
   newLeads: number;
@@ -1129,7 +1150,9 @@ interface PlatformStoreValue {
   addCallLog: (input: { leadId: string; notes: string; outcome: string; nextFollowUp?: string }) => Promise<void>;
   addSubscription: (input: { studentId: string; packageId: string; paidAmount?: number; paymentStatus: string; notes?: string }) => Promise<void>;
   updateSubscription: (id: string, input: { paidAmount?: number; paymentStatus?: string; status?: string }) => Promise<void>;
-  searchSalesStudents: (q: string) => Promise<{ id: string; fullName: string; phone: string | null; email: string | null }[]>;
+  salesStudents: SalesStudent[];
+  fetchSalesStudents: () => Promise<void>;
+  searchSalesStudents: (q: string) => Promise<SalesStudent[]>;
   convertLead: (leadId: string, input: {
     studentId?: string;
     newStudent?: { fullName: string; phone: string; password: string; email?: string };
@@ -1279,6 +1302,7 @@ interface PlatformStoreValue {
   fetchTeacherFreeLectures: () => Promise<void>;
   // teacher lectures lifecycle + per-lecture attendance
   updateTeacherLectureStatus: (id: string, status: "live" | "completed") => Promise<void>;
+  endMyMeetings: () => Promise<{ ended: number; host: string }>;
   startScheduleLecture: (scheduleId: string) => Promise<LectureItem>;
   lectureStudents: LectureStudent[];
   fetchLectureStudents: (lectureId: string) => Promise<void>;
@@ -1317,6 +1341,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [studentDashboard, setStudentDashboard] = useState<StudentDashboard | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [salesLeads, setSalesLeads] = useState<SalesLead[]>([]);
+  const [salesStudents, setSalesStudents] = useState<SalesStudent[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -1524,18 +1549,20 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         if (tkRes.status === "fulfilled" && tkRes.value?.tickets) setStudentTickets(tkRes.value.tickets);
         if (lecRes.status === "fulfilled" && lecRes.value?.lectures) setStudentLectures(lecRes.value.lectures);
       } else if (user?.role === "SALES") {
-        const [leadsRes, callsRes, packsRes, subsRes, statsRes] = await Promise.allSettled([
+        const [leadsRes, callsRes, packsRes, subsRes, statsRes, studsRes] = await Promise.allSettled([
           apiFetch<{ leads: SalesLead[] }>("/api/sales/leads"),
           apiFetch<{ calls: CallLog[] }>("/api/sales/calls"),
           apiFetch<{ packages: Package[] }>("/api/sales/packages"),
           apiFetch<{ subscriptions: Subscription[] }>("/api/sales/subscriptions"),
           apiFetch<{ stats: SalesStats }>("/api/sales/stats"),
+          apiFetch<{ students: SalesStudent[] }>("/api/sales/students"),
         ]);
         if (leadsRes.status === "fulfilled" && leadsRes.value?.leads) setSalesLeads(leadsRes.value.leads);
         if (callsRes.status === "fulfilled" && callsRes.value?.calls) setCallLogs(callsRes.value.calls);
         if (packsRes.status === "fulfilled" && packsRes.value?.packages) setPackages(packsRes.value.packages);
         if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setSubscriptions(subsRes.value.subscriptions);
         if (statsRes.status === "fulfilled" && statsRes.value?.stats) setSalesStats(statsRes.value.stats);
+        if (studsRes.status === "fulfilled" && studsRes.value?.students) setSalesStudents(studsRes.value.students);
       } else if (user?.role === "SUPPORT") {
         const [stRes, tkRes, scRes, atRes, irRes, lnRes] = await Promise.allSettled([
           apiFetch<{ students: SupportStudent[] }>("/api/support/students"),
@@ -1778,18 +1805,25 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   // ─── Sales functions ─────────────────────────────────────────────────────
 
   async function fetchSalesData() {
-    const [leadsRes, callsRes, packsRes, subsRes, statsRes] = await Promise.allSettled([
+    const [leadsRes, callsRes, packsRes, subsRes, statsRes, studsRes] = await Promise.allSettled([
       apiFetch<{ leads: SalesLead[] }>("/api/sales/leads"),
       apiFetch<{ calls: CallLog[] }>("/api/sales/calls"),
       apiFetch<{ packages: Package[] }>("/api/sales/packages"),
       apiFetch<{ subscriptions: Subscription[] }>("/api/sales/subscriptions"),
       apiFetch<{ stats: SalesStats }>("/api/sales/stats"),
+      apiFetch<{ students: SalesStudent[] }>("/api/sales/students"),
     ]);
     if (leadsRes.status === "fulfilled" && leadsRes.value?.leads) setSalesLeads(leadsRes.value.leads);
     if (callsRes.status === "fulfilled" && callsRes.value?.calls) setCallLogs(callsRes.value.calls);
     if (packsRes.status === "fulfilled" && packsRes.value?.packages) setPackages(packsRes.value.packages);
     if (subsRes.status === "fulfilled" && subsRes.value?.subscriptions) setSubscriptions(subsRes.value.subscriptions);
     if (statsRes.status === "fulfilled" && statsRes.value?.stats) setSalesStats(statsRes.value.stats);
+    if (studsRes.status === "fulfilled" && studsRes.value?.students) setSalesStudents(studsRes.value.students);
+  }
+
+  async function fetchSalesStudents() {
+    const res = await apiFetch<{ students: SalesStudent[] }>("/api/sales/students");
+    if (res?.students) setSalesStudents(res.students);
   }
 
   async function addLead(input: { name: string; email?: string; phone?: string; source?: string; need?: string; notes?: string; expectedValue?: number; language?: string; lessonType?: string; packageId?: string }) {
@@ -1829,7 +1863,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function searchSalesStudents(q: string) {
-    const res = await apiFetch<{ students: { id: string; fullName: string; phone: string | null; email: string | null }[] }>(`/api/sales/students?q=${encodeURIComponent(q)}`);
+    const res = await apiFetch<{ students: SalesStudent[] }>(`/api/sales/students?q=${encodeURIComponent(q)}`);
     return res?.students ?? [];
   }
 
@@ -1914,6 +1948,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function updateTeacherLectureStatus(id: string, status: "live" | "completed") {
     await apiFetch(`/api/teacher/lectures/${id}/status`, { method: "PATCH", body: { status } });
     await fetchTeacherLectures();
+  }
+
+  async function endMyMeetings() {
+    const res = await apiFetch<{ ended: number; host: string }>("/api/teacher/end-meetings", { method: "POST" });
+    return res ?? { ended: 0, host: "" };
   }
 
   // Materialize today's lecture from a fixed weekly slot and start it.
@@ -2618,6 +2657,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         studentDashboard,
         leaderboard,
         salesLeads,
+        salesStudents,
         callLogs,
         packages,
         subscriptions,
@@ -2687,6 +2727,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         refreshStudentDashboard,
         fetchLeaderboard,
         fetchSalesData,
+        fetchSalesStudents,
         addLead,
         lookupLeadByPhone,
         updateLead,
@@ -2825,6 +2866,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         teacherAnalytics,
         fetchTeacherAnalytics,
         updateTeacherLectureStatus,
+        endMyMeetings,
         startScheduleLecture,
         lectureStudents,
         fetchLectureStudents,

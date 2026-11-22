@@ -16,6 +16,7 @@ import {
   Clock3,
   Gift,
   PhoneCall,
+  PhoneOff,
   CreditCard,
   PlusCircle,
   ShieldCheck,
@@ -1081,6 +1082,7 @@ export function TeacherScreen() {
     fetchTeacherSchedules,
     fetchTeacherLectures,
     updateTeacherLectureStatus,
+    endMyMeetings,
     startScheduleLecture,
     lectureStudents,
     fetchLectureStudents,
@@ -1115,6 +1117,8 @@ export function TeacherScreen() {
   const [reportOpenFor, setReportOpenFor] = useState<string | null>(null);
   const [attLectureSaving, setAttLectureSaving] = useState(false);
   const [attErr, setAttErr] = useState("");
+  const [endingMeetings, setEndingMeetings] = useState(false);
+  const [meetingsMsg, setMeetingsMsg] = useState("");
   const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Reports
@@ -1579,6 +1583,35 @@ export function TeacherScreen() {
 
       {activeSection === "schedule" && (
         <div className="space-y-4">
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <h2 className="text-sm font-bold">{t("مشكلة في دخول الاجتماع؟")}</h2>
+              <p className="text-xs text-muted-foreground">
+                {t("لو ظهرلك \"للمضيف اجتماع آخر جارٍ\" — دوس الزرار ده يقفل أي اجتماع زووم لسه شغال على حسابك")}
+              </p>
+              {meetingsMsg && <p className="mt-1 text-xs font-semibold text-sage">{meetingsMsg}</p>}
+            </div>
+            <Button
+              variant="secondary"
+              disabled={endingMeetings}
+              onClick={async () => {
+                if (!confirm(t("هيتم إنهاء كل الاجتماعات الجارية على حسابك في زووم — متأكد؟"))) return;
+                setEndingMeetings(true);
+                setMeetingsMsg("");
+                try {
+                  const r = await endMyMeetings();
+                  setMeetingsMsg(r.ended > 0 ? t("تم إنهاء") + ` ${r.ended} ` + t("اجتماع جارٍ — جرب ادخل تاني") : t("مفيش اجتماعات جارية على حسابك"));
+                } catch {
+                  setMeetingsMsg(t("حصل خطأ — جرب تاني"));
+                } finally {
+                  setEndingMeetings(false);
+                }
+              }}
+            >
+              <PhoneOff className="size-4" />
+              {endingMeetings ? t("جاري الإنهاء...") : t("إنهاء الاجتماعات الجارية")}
+            </Button>
+          </Card>
           <TeacherScheduleTimeline
             lectures={teacherLectures}
             bookings={teacherBookings}
@@ -8531,7 +8564,7 @@ function AdminResultsSection({
   );
 }
 
-type SalesSection = "followups" | "leads" | "calls" | "subscriptions" | "stats";
+type SalesSection = "followups" | "leads" | "students" | "calls" | "subscriptions" | "stats";
 
 const LEAD_STAGES: Record<string, string> = {
   new: "جديد",
@@ -8566,6 +8599,7 @@ function waDigits(phone?: string | null): string {
 }
 
 type SalesLeadT = import("../hooks/use-platform-store").SalesLead;
+type SalesStudentT = import("../hooks/use-platform-store").SalesStudent;
 
 const WA_TEMPLATES: { id: string; label: string; text: (l: SalesLeadT, agent: string) => string }[] = [
   {
@@ -8607,6 +8641,7 @@ const WA_TEMPLATES: { id: string; label: string; text: (l: SalesLeadT, agent: st
 export function SalesScreen() {
   const {
     salesLeads,
+    salesStudents,
     callLogs,
     packages,
     subscriptions,
@@ -8668,6 +8703,10 @@ export function SalesScreen() {
   const [fuLang, setFuLang] = useState("");
   const [fuStage, setFuStage] = useState("");
   const [waTemplate, setWaTemplate] = useState("auto");
+
+  // My Students screen
+  const [stuQuery, setStuQuery] = useState("");
+  const [stuFilter, setStuFilter] = useState<"all" | "expiring" | "low" | "none">("all");
 
   // Lead → student conversion panel
   const [convertLeadId, setConvertLeadId] = useState<string | null>(null);
@@ -8872,12 +8911,27 @@ export function SalesScreen() {
   const fuPendingPay = fuBase.filter((l) => l.stage === "pending_payment").sort(byNextAsc);
   // Students whose package is about to expire or has ≤2 sessions left → renewal reminders
   const weekMs = 7 * 86400000;
-  const fuRenewals = subscriptions.filter((s) =>
-    s.status === "ACTIVE" &&
-    ((s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2) ||
-      (s.expiresAt != null && new Date(s.expiresAt).getTime() - Date.now() <= weekMs))
-  );
+  const fuRenewals = salesStudents.filter((st) => {
+    const s = st.subscription;
+    return !!s && s.status === "ACTIVE" && s.paymentStatus === "PAID" &&
+      ((s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2) ||
+        (s.expiresAt != null && new Date(s.expiresAt).getTime() - Date.now() <= weekMs));
+  });
   const agentName = firstNameOf(user?.fullName) || t("فريق المبيعات");
+
+  // My Students list filters
+  const isActivePaid = (st: SalesStudentT) =>
+    !!st.subscription && st.subscription.status === "ACTIVE" && st.subscription.paymentStatus === "PAID";
+  const stuList = salesStudents.filter((st) => {
+    const q = stuQuery.trim().toLowerCase();
+    if (q && !st.fullName.toLowerCase().includes(q) && !(st.phone ?? "").includes(q)) return false;
+    if (stuFilter === "none") return !isActivePaid(st);
+    if (!isActivePaid(st)) return false;
+    const s = st.subscription!;
+    if (stuFilter === "expiring") return s.expiresAt != null && new Date(s.expiresAt).getTime() - Date.now() <= weekMs;
+    if (stuFilter === "low") return s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2;
+    return true;
+  });
 
   function waLink(l: SalesLeadT): string {
     const tpl = WA_TEMPLATES.find((x) => x.id === waTemplate) ?? WA_TEMPLATES[0]!;
@@ -9513,18 +9567,20 @@ export function SalesScreen() {
               <div className="mt-4">
                 <h3 className="text-sm font-bold text-danger">{t("تجديدات مطلوبة")} ({fuRenewals.length})</h3>
                 <div className="mt-2 space-y-1.5">
-                  {fuRenewals.map((s) => {
-                    const phone = s.student.phone ?? "";
+                  {fuRenewals.map((st) => {
+                    const s = st.subscription!;
+                    const phone = st.phone ?? "";
                     const reason = s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2
                       ? `${t("متبقي")} ${s.sessionsRemaining}/${s.sessionsTotal} ${t("حصة")}`
                       : `${t("تنتهي")} ${s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("ar-EG") : "—"}`;
-                    const msg = `أهلاً ${s.student.fullName}، معاك فريق أكاديمية "עברית שוטפת".\nاشتراكك في ${s.package.nameAr} ${reason} — لو حابب تجدده قولي وأنا أجهزلك التفاصيل. 💪`;
+                    const pkgName = s.package?.nameAr ?? "";
+                    const msg = `أهلاً ${st.fullName}، معاك فريق أكاديمية "עברית שוטפת".\nاشتراكك في ${pkgName} ${reason} — لو حابب تجدده قولي وأنا أجهزلك التفاصيل. 💪`;
                     return (
-                      <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2.5">
+                      <div key={st.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-3 py-2.5">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <b className="text-sm">{s.student.fullName}</b>
-                            <Badge tone="muted">{s.package.nameAr}</Badge>
+                            <b className="text-sm">{st.fullName}</b>
+                            <Badge tone="muted">{pkgName}</Badge>
                             <Badge tone="danger">{reason}</Badge>
                           </div>
                           <p className="mt-0.5 font-lat text-xs text-muted-foreground" dir="ltr">{phone || "—"}</p>
@@ -9551,6 +9607,91 @@ export function SalesScreen() {
                 {t("لا توجد متابعات مستحقة — كل حاجة تحت السيطرة ✓")}
               </div>
             )}
+          </Card>
+        </div>
+      )}
+
+      {activeSection === "students" && (
+        <div className="space-y-4">
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold">{t("طلابي")} ({stuList.length})</h2>
+                <p className="text-xs text-muted-foreground">{t("طلاب المنصة — باقاتهم وحصصهم وصلاحيتهم، جاهزين للمتابعة والتجديد")}</p>
+              </div>
+              <Input
+                value={stuQuery}
+                onChange={(e) => setStuQuery(e.target.value)}
+                placeholder={t("ابحث بالاسم أو رقم الهاتف...")}
+                className="h-9 w-56 text-xs"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {([
+                ["all", t("الكل")],
+                ["expiring", t("قارب ينتهي")],
+                ["low", t("حصص قليلة")],
+                ["none", t("بدون اشتراك نشط")],
+              ] as const).map(([f, label]) => (
+                <button
+                  key={f}
+                  onClick={() => setStuFilter(f)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold ${stuFilter === f ? "bg-brand text-white" : "bg-muted/60 text-muted-foreground"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {stuList.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">{t("لا يوجد طلاب في هذا الفلتر.")}</div>
+              ) : (
+                stuList.map((st) => {
+                  const s = st.subscription;
+                  const active = isActivePaid(st);
+                  const low = !!s && s.sessionsRemaining != null && s.sessionsTotal != null && s.sessionsRemaining <= 2;
+                  const expiring = !!s && s.expiresAt != null && new Date(s.expiresAt).getTime() - Date.now() <= weekMs;
+                  const phone = st.phone ?? "";
+                  const pkgName = s?.package?.nameAr ?? "—";
+                  const msg = active
+                    ? `أهلاً ${st.fullName}، معاك فريق أكاديمية "עברית שוטפת".\nبخصوص اشتراكك في ${pkgName}:` +
+                      (low ? ` فاضل ${s!.sessionsRemaining} حصة بس —` : "") +
+                      (expiring && s!.expiresAt ? ` بينتهي يوم ${new Date(s!.expiresAt).toLocaleDateString("ar-EG")} —` : "") +
+                      ` لو حابب تجدده أو عندك أي سؤال رد علينا هنا.`
+                    : `أهلاً ${st.fullName}، معاك فريق أكاديمية "עברית שוטפת".\nلو حابب تشترك في دروس العبرية قولي وأنا أجهزلك التفاصيل. 💪`;
+                  return (
+                    <div key={st.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background/60 p-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <b className="text-sm">{st.fullName}</b>
+                          {active ? (
+                            <Badge tone="sage">{pkgName}</Badge>
+                          ) : (
+                            <Badge tone="muted">{t("بدون اشتراك نشط")}</Badge>
+                          )}
+                          {low && <Badge tone="danger">{t("متبقي")} {s!.sessionsRemaining}/{s!.sessionsTotal} {t("حصة")}</Badge>}
+                          {s?.expiresAt && <Badge tone={expiring ? "gold" : "muted"}>{t("تنتهي")} {new Date(s.expiresAt).toLocaleDateString("ar-EG")}</Badge>}
+                          {s?.endDate && !s.expiresAt && <Badge tone="muted">{t("ينتهي")} {new Date(s.endDate).toLocaleDateString("ar-EG")}</Badge>}
+                        </div>
+                        <p className="mt-0.5 font-lat text-xs text-muted-foreground" dir="ltr">{phone || st.email || "—"}</p>
+                      </div>
+                      {phone && (
+                        <a
+                          href={`https://wa.me/${waDigits(phone)}?text=${encodeURIComponent(msg)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#25d366] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#1ebd59]"
+                        >
+                          <PhoneCall className="size-3.5" />
+                          {t("واتساب")}
+                        </a>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </Card>
         </div>
       )}
@@ -12692,6 +12833,12 @@ function TeacherScheduleTimeline({
 
   const groups = Array.from(new Set(all.map((r) => r.groupName).filter(Boolean))) as string[];
   const now = Date.now();
+  const rowEnd = (r: Row) => (r.endsAt ? Date.parse(r.endsAt) : Date.parse(r.startsAt));
+  // A row is "happening now" while it is live or inside its scheduled window;
+  // once its end time passes it drops back into normal ordering.
+  const isHappeningNow = (r: Row) =>
+    !["completed", "cancelled", "no_show"].includes(r.status) &&
+    (r.status === "live" || (Date.parse(r.startsAt) <= now && rowEnd(r) > now));
 
   const rows = all
     .filter((r) => !typeF || r.kind === typeF)
@@ -12706,7 +12853,13 @@ function TeacherScheduleTimeline({
     .filter((r) => !q.trim() || [r.title, r.sub ?? "", r.groupName ?? ""].some((v) => v.toLowerCase().includes(q.trim().toLowerCase())))
     .filter((r) => !fromD || new Date(r.startsAt) >= new Date(`${fromD}T00:00:00`))
     .filter((r) => !toD || new Date(r.startsAt) <= new Date(`${toD}T23:59:59`))
-    .sort((a, b) => { const aU = Date.parse(a.startsAt) >= now, bU = Date.parse(b.startsAt) >= now; if (aU !== bU) return aU ? -1 : 1; return aU ? Date.parse(a.startsAt) - Date.parse(b.startsAt) : Date.parse(b.startsAt) - Date.parse(a.startsAt); });
+    .sort((a, b) => {
+      const aNow = isHappeningNow(a), bNow = isHappeningNow(b);
+      if (aNow !== bNow) return aNow ? -1 : 1;
+      const aU = Date.parse(a.startsAt) >= now, bU = Date.parse(b.startsAt) >= now;
+      if (aU !== bU) return aU ? -1 : 1;
+      return aU ? Date.parse(a.startsAt) - Date.parse(b.startsAt) : Date.parse(b.startsAt) - Date.parse(a.startsAt);
+    });
 
   const STATUS: Record<string, { label: string; tone: "brand" | "sage" | "muted" | "danger" }> = {
     scheduled: { label: "مجدولة", tone: "brand" },
@@ -12775,9 +12928,10 @@ function TeacherScheduleTimeline({
           rows.map((r) => {
             const k = KIND[r.kind];
             const KIcon = k.icon;
-            const ended = (r.endsAt ? Date.parse(r.endsAt) : Date.parse(r.startsAt)) <= now;
+            const ended = rowEnd(r) <= now;
+            const happeningNow = isHappeningNow(r);
             return (
-              <div key={`${r.kind}-${r.id}`} className="flex flex-col rounded-xl border border-border bg-background/60 p-4">
+              <div key={`${r.kind}-${r.id}`} className={`flex flex-col rounded-xl border bg-background/60 p-4 ${happeningNow ? "border-sage/60 ring-1 ring-sage/30" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand">
@@ -12788,7 +12942,15 @@ function TeacherScheduleTimeline({
                       <Badge tone={k.tone} className="mt-0.5">{t(k.label)}</Badge>
                     </div>
                   </div>
-                  <Badge tone={st(r.status).tone}>{t(st(r.status).label)}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    {happeningNow && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-danger px-1.5 py-0.5 text-[10px] font-black tracking-wide text-white">
+                        <span className="size-1.5 animate-pulse rounded-full bg-white" />
+                        LIVE
+                      </span>
+                    )}
+                    <Badge tone={st(r.status).tone}>{t(st(r.status).label)}</Badge>
+                  </div>
                 </div>
 
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground">

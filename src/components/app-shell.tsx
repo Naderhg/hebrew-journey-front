@@ -221,6 +221,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
   SALES: [
     { to: "/sales", section: "followups", label: "متابعات اليوم", icon: PhoneCall },
     { to: "/sales", section: "leads", label: "العملاء المحتملون", icon: UsersRound },
+    { to: "/sales", section: "students", label: "طلابي", icon: GraduationCap },
     { to: "/sales", section: "calls", label: "سجل المكالمات", icon: Headphones },
     { to: "/sales", section: "subscriptions", label: "الاشتراكات", icon: TicketCheck },
     { to: "/sales", section: "stats", label: "التقارير والإحصائيات", icon: BarChart3 },

@@ -5486,6 +5486,11 @@ function AdminBookingsSection({
                   {r.status === "approved" ? t("مؤكد") : r.status === "rejected" ? t("مرفوض") : t("قيد المراجعة")}
                 </Badge>
                 <Badge tone="muted">{r.method === "wallet" ? t("محفظة إلكترونية") : "انستاباي"}</Badge>
+                <Badge tone={(r.student?._count?.studentSubscriptions ?? 0) > 0 || r.student?.studentStatus === "active" ? "gold" : "brand"}>
+                  {(r.student?._count?.studentSubscriptions ?? 0) > 0 || r.student?.studentStatus === "active"
+                    ? t("تجديد / طالب قديم")
+                    : t("مشترك جديد")}
+                </Badge>
               </div>
             </div>
 
@@ -7764,21 +7769,7 @@ export function SubscribeScreen() {
         subtitle={t("اختر باقتك، حوّل على الرقم، وارفع إثبات التحويل — الإدارة تؤكد وتفتح حسابك")}
       />
 
-      {user?.hasActiveSubscription ? (
-        <Card className="mx-auto max-w-lg py-10 text-center">
-          <Check className="mx-auto size-10 text-sage" />
-          <h2 className="mt-3 text-lg font-bold">{t("اشتراكك نشط")}</h2>
-          {mySubscription?.package && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {mySubscription.package.nameAr} — {t("حتى")}{" "}
-              {mySubscription.endDate ? new Date(mySubscription.endDate).toLocaleDateString("ar-EG") : "—"}
-            </p>
-          )}
-          <Link to="/dashboard">
-            <Button className="mt-5">{t("الانتقال للداشبورد")}</Button>
-          </Link>
-        </Card>
-      ) : pendingReq ? (
+      {pendingReq ? (
         <Card className="mx-auto max-w-lg py-10 text-center">
           <Badge tone="gold" className="mx-auto">{t("قيد المراجعة")}</Badge>
           <h2 className="mt-3 text-lg font-bold">{t("طلب حجزك وصل الإدارة")}</h2>
@@ -7804,6 +7795,25 @@ export function SubscribeScreen() {
         </Card>
       ) : (
         <div className="space-y-4">
+          {user?.hasActiveSubscription && (
+            <Card className="flex flex-wrap items-center justify-between gap-3 border-sage/40 bg-sage/5 p-4">
+              <div className="flex items-center gap-3">
+                <Check className="size-6 text-sage" />
+                <div>
+                  <b className="text-sm">{t("اشتراكك نشط")}</b>
+                  {mySubscription?.package && (
+                    <p className="text-xs text-muted-foreground">
+                      {mySubscription.package.nameAr}
+                      {mySubscription.endDate ? ` — ${t("حتى")} ${new Date(mySubscription.endDate).toLocaleDateString("ar-EG")}` : ""}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("يمكنك إضافة باقة أخرى أو تجديد اشتراكك — اختر باقة من القائمة بالأسفل.")}
+              </p>
+            </Card>
+          )}
           {lastRejected && (
             <Card className="border-danger/40 bg-danger/5">
               <b className="text-sm text-danger">{t("تم رفض طلبك السابق")} ({lastRejected.package?.nameAr})</b>

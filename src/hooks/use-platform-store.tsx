@@ -463,7 +463,7 @@ export interface PaymentRequestItem {
   reviewedAt?: string | null;
   createdAt: string;
   package?: { id: string; nameAr: string; price: number; durationMonths: number };
-  student?: { id: string; fullName: string; email: string | null; phone?: string | null; level?: string | null };
+  student?: { id: string; fullName: string; email: string | null; phone?: string | null; level?: string | null; studentStatus?: string | null; _count?: { studentSubscriptions: number } };
   reviewedBy?: { fullName: string } | null;
 }
 

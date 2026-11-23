@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Banknote, CalendarCheck, CircleCheck, Wallet, XCircle } from "lucide-react";
+import { Banknote, CalendarCheck, CircleCheck, CreditCard, Wallet, XCircle } from "lucide-react";
 import { AppShell, PageHeader } from "../components/app-shell";
-import { Badge, Card, ProgressBar, SectionHeader } from "../components/ui";
+import { Badge, Button, Card, Label, ProgressBar, SectionHeader } from "../components/ui";
 import { usePlatformStore } from "../hooks/use-platform-store";
+import { uploadFile } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 
 export const Route = createFileRoute("/wallet")({
@@ -32,15 +33,38 @@ const SUB_LABELS: Record<string, { label: string; tone: "sage" | "muted" | "gold
   PENDING: { label: "بانتظار الدفع", tone: "gold" },
 };
 
+const PAYMENT_NUMBER = "01270869510";
+const PAYMENT_NUMBER_DISPLAY = "0127 086 9510";
+
 function StudentWalletPage() {
-  const { studentWallet, studentWalletBookings, fetchStudentWallet } = usePlatformStore();
+  const {
+    studentWallet,
+    studentWalletBookings,
+    fetchStudentWallet,
+    publicPackages,
+    fetchPublicPackages,
+    myPaymentRequests,
+    fetchMyBilling,
+    createPaymentRequest,
+  } = usePlatformStore();
   const { t } = useI18n();
+
+  const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+  const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
+  const [shot, setShot] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [pkgError, setPkgError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchStudentWallet().catch(() => {});
+    fetchPublicPackages().catch(() => {});
+    fetchMyBilling().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = studentWallet.find((w) => w.status === "ACTIVE") ?? studentWallet[0];
+  const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
+  const selectedPkg = publicPackages.find((p) => p.id === selectedPkgId) ?? null;
 
   const overview = [
     { label: t("إجمالي الحصص"), value: active?.sessionsTotal ?? 0, icon: CalendarCheck, tone: "text-brand bg-brand/10" },
@@ -48,6 +72,35 @@ function StudentWalletPage() {
     { label: t("خصمت دون حضور"), value: active?.deductedNotAttended ?? 0, icon: XCircle, tone: "text-gold bg-gold/15" },
     { label: t("الحصص المتبقية"), value: active?.sessionsRemaining ?? 0, icon: Wallet, tone: "text-brand2 bg-brand2/10" },
   ];
+
+  async function copyNumber() {
+    try {
+      await navigator.clipboard.writeText(PAYMENT_NUMBER);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard unavailable */ }
+  }
+
+  async function handleBuy() {
+    if (!selectedPkg || !method) return;
+    setPkgError("");
+    if (!shot) {
+      setPkgError(t("ارفع سكرين شوت لإثبات التحويل قبل الإرسال"));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const uploaded = await uploadFile(shot, "payments");
+      await createPaymentRequest({ packageId: selectedPkg.id, method, screenshotUrl: uploaded.url });
+      setSelectedPkgId(null);
+      setMethod(null);
+      setShot(null);
+    } catch (e) {
+      setPkgError(e instanceof Error ? e.message : t("تعذر إرسال طلب الاشتراك — حاول مرة أخرى"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <AppShell role="STUDENT">
@@ -148,6 +201,122 @@ function StudentWalletPage() {
             </Card>
           </>
         )}
+
+        {/* Available packages — subscribe / renew from the wallet */}
+        <Card>
+          <SectionHeader
+            icon={CreditCard}
+            tone="brand"
+            title={t("باقات متاحة — جدّد أو أضف اشتراك")}
+            subtitle={t("اختر باقة، حوّل على الرقم، وارفع إثبات التحويل — الاشتراك يتفعل بعد مراجعة الإدارة")}
+          />
+          {pendingReq && (
+            <p className="mt-3 rounded-md bg-gold/10 p-3 text-xs font-semibold text-gold">
+              {t("لديك طلب اشتراك قيد المراجعة")} ({pendingReq.package?.nameAr}) — {t("هيتم تفعيله فور تأكيد الدفع.")}
+            </p>
+          )}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {publicPackages.map((pkg) => (
+              <div key={pkg.id} className={`flex flex-col rounded-2xl border p-4 ${selectedPkgId === pkg.id ? "border-brand bg-brand/5" : "border-border bg-background/60"}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <b className="text-sm">{pkg.nameAr}</b>
+                  <Badge tone="muted">{pkg.language === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
+                </div>
+                <p className="mt-2 text-xl font-bold text-brand">
+                  {pkg.price} <span className="text-xs font-normal text-muted-foreground">{t("ج.م")}</span>
+                </p>
+                {pkg.sessionsTotal ? (
+                  <small className="mt-1 text-muted-foreground">{pkg.sessionsTotal} {t("حصة")}</small>
+                ) : (
+                  <small className="mt-1 text-muted-foreground">{pkg.durationMonths} {t("شهور")}</small>
+                )}
+                <Button
+                  className="mt-3 w-full text-xs"
+                  variant={selectedPkgId === pkg.id ? "secondary" : "primary"}
+                  disabled={!!pendingReq}
+                  onClick={() => {
+                    setSelectedPkgId(selectedPkgId === pkg.id ? null : pkg.id);
+                    setMethod(null);
+                    setShot(null);
+                    setPkgError("");
+                  }}
+                >
+                  {selectedPkgId === pkg.id ? t("إلغاء الاختيار") : pendingReq ? t("طلب قيد المراجعة") : t("اشترك / جدّد")}
+                </Button>
+              </div>
+            ))}
+            {publicPackages.length === 0 && (
+              <p className="col-span-full py-6 text-center text-sm text-muted-foreground">{t("لا توجد باقات متاحة حالياً.")}</p>
+            )}
+          </div>
+
+          {selectedPkg && (
+            <div className="mx-auto mt-4 max-w-xl space-y-4 rounded-2xl border border-brand/30 bg-brand/5 p-4">
+              <div className="flex items-center justify-between">
+                <b className="text-sm">{t("تفاصيل الاشتراك")} — {selectedPkg.nameAr}</b>
+                <span className="font-lat text-lg font-bold text-brand">{selectedPkg.price} {t("ج.م")}</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t("طريقة التحويل")}</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["instapay", "wallet"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMethod(m)}
+                      className={`rounded-md border p-3 text-sm font-semibold transition ${
+                        method === m ? "border-brand bg-brand/10 text-brand" : "border-border hover:border-brand/50"
+                      }`}
+                    >
+                      {m === "instapay" ? "InstaPay انستاباي" : t("محفظة إلكترونية")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {method && (
+                <>
+                  <div className="rounded-md border border-brand/30 bg-brand/5 p-4 text-center">
+                    <small className="block text-muted-foreground">
+                      {method === "instapay"
+                        ? t("حوّل على رقم انستاباي التالي:")
+                        : t("حوّل على رقم المحفظة الإلكترونية التالي:")}
+                    </small>
+                    <div className="mt-2 flex items-center justify-center gap-3">
+                      <b dir="ltr" className="font-lat text-xl tracking-widest">{PAYMENT_NUMBER_DISPLAY}</b>
+                      <Button variant="secondary" className="min-h-8 px-3 text-xs" onClick={copyNumber}>
+                        {copied ? t("تم النسخ") : t("نسخ الرقم")}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <ol className="space-y-1.5 text-sm">
+                    <li className="flex items-center gap-2"><Badge tone="brand">1</Badge>{t("حوّل المبلغ على الرقم أعلاه")}</li>
+                    <li className="flex items-center gap-2"><Badge tone="brand">2</Badge>{t("ارفع سكرين شوت إثبات التحويل واضغط إرسال")}</li>
+                  </ol>
+
+                  <div className="space-y-1.5">
+                    <Label>{t("سكرين شوت إثبات التحويل")}</Label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,application/pdf"
+                      onChange={(e) => setShot(e.target.files?.[0] ?? null)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:ml-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs"
+                    />
+                    {shot && <small className="block text-sage">{shot.name}</small>}
+                  </div>
+
+                  {pkgError && <p className="rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">{pkgError}</p>}
+
+                  <Button className="w-full" onClick={handleBuy} disabled={submitting || !shot || !!pendingReq}>
+                    {submitting ? t("جاري الإرسال...") : t("إرسال طلب الاشتراك")}
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </Card>
       </div>
     </AppShell>
   );

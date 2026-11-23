@@ -117,8 +117,6 @@ const studentNav: readonly SidebarItem[] = [
   { to: "/plan", label: "خطة التعلم", icon: BookOpen },
   { to: "/conversation", label: "المحادثة الذكية", icon: MessageCircle },
   { to: "/chats", label: "المحادثات", icon: Headphones },
-  { to: "/scenarios", label: "مكتبة السيناريوهات", icon: Library },
-  { to: "/mistakes", label: "سجل الأخطاء", icon: Bot },
   { to: "/progress", label: "التقدم والمهارات", icon: BarChart3 },
 ];
 
@@ -258,7 +256,6 @@ export function AppShell({
     notifications,
     unreadCount,
     fetchNotifications,
-    markNotificationRead,
     markAllNotificationsRead,
     hasCallsPackage,
     hasBasicPackage,
@@ -377,14 +374,19 @@ export function AppShell({
     <button
       type="button"
       onClick={() => {
+        const opening = !notifOpen;
         setNotifOpen((o) => !o);
-        if (!notifOpen) fetchNotifications().catch(() => {});
+        if (opening) {
+          fetchNotifications()
+            .then(() => markAllNotificationsRead())
+            .catch(() => {});
+        }
       }}
       className="icon-button notification-button"
       aria-label={t("الإشعارات")}
     >
       <Bell size={19} />
-      {unreadCount > 0 && <i />}
+      {unreadCount > 0 && <i>{unreadCount > 9 ? "9+" : unreadCount}</i>}
     </button>
   ) : null;
 
@@ -520,13 +522,9 @@ export function AppShell({
                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
                   <b className="text-sm">{t("الإشعارات")}</b>
                   {unreadCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => markAllNotificationsRead().catch(() => {})}
-                      className="text-[11px] font-semibold text-brand"
-                    >
-                      {t("تعليم الكل كمقروء")}
-                    </button>
+                    <small className="text-[10px] text-muted-foreground">
+                      {unreadCount} {t("جديدة")}
+                    </small>
                   )}
                 </div>
                 <div className="max-h-72 overflow-y-auto">
@@ -540,7 +538,6 @@ export function AppShell({
                         key={n.id}
                         type="button"
                         onClick={() => {
-                          if (!n.readAt) markNotificationRead(n.id).catch(() => {});
                           if (n.link) {
                             setNotifOpen(false);
                             navigate({ to: n.link });

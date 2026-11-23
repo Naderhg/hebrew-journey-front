@@ -6,7 +6,9 @@ import {
   Award,
   Banknote,
   BarChart3,
+  BookOpen,
   Camera,
+  ClipboardList,
   Rocket,
   RefreshCw,
   CalendarDays,
@@ -31,6 +33,7 @@ import {
   Link2,
   MessageCircle,
   Mic,
+  Paperclip,
   Plus,
   Search,
   Send,
@@ -79,10 +82,13 @@ import {
   type WeeklyScheduleItem,
   type CreateScheduleInput,
   type GroupItem,
+  type ChatMsg,
+  type ChatMediaInput,
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, updateProfile, type UserRole } from "../lib/auth";
 import { SERVER_CONFIG, mediaSrc } from "../lib/api";
+import { onChatEvent } from "../lib/realtime";
 import { exportToExcel, excelStamp } from "../lib/excel";
 
 // WhatsApp deep link — normalizes local numbers (e.g. 01x → 201x for Egypt)
@@ -366,8 +372,60 @@ export function LeaderboardCard({ entries }: { entries: LeaderboardEntry[] }) {
 export function DashboardScreen() {
   const { user } = useAuth();
   const { t } = useI18n();
-  const { studentDashboard, leaderboard } = usePlatformStore();
+  const {
+    studentDashboard,
+    leaderboard,
+    studentSchedules,
+    studentLectures,
+    studentHomework,
+    studentWallet,
+    studentLectureReports,
+    myPaymentRequests,
+    myBookings,
+    studentFreeLectures,
+    fetchMySessions,
+    fetchStudentFreeLectures,
+    fetchStudentWallet,
+    fetchStudentLectureReports,
+    fetchMyBilling,
+  } = usePlatformStore();
   const dash = studentDashboard;
+
+  useEffect(() => {
+    fetchStudentWallet().catch(() => {});
+    fetchStudentLectureReports().catch(() => {});
+    fetchMyBilling().catch(() => {});
+    fetchMySessions().catch(() => {});
+    fetchStudentFreeLectures().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── "Your day" hub data ──
+  const now = new Date();
+  const todayDow = now.getDay();
+  const isSameDay = (iso?: string | null) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  };
+  const todaySlots = studentSchedules.filter((s) => s.isActive && s.dayOfWeek === todayDow);
+  const todayBookings = myBookings
+    .filter((b) => isSameDay(b.startsAt) && b.status === "booked")
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const todayFreeLectures = studentFreeLectures
+    .filter((l) => isSameDay(l.startsAt) && l.status !== "cancelled" && l.status !== "completed")
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const todayLectures = studentLectures
+    .filter((l) => isSameDay(l.startsAt) && l.status !== "cancelled" && l.status !== "completed")
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const liveLecture = todayLectures.find((l) => l.status === "live") ?? null;
+  const activeWallet = studentWallet.find((w) => w.status === "ACTIVE") ?? studentWallet[0] ?? null;
+  const walletExpiring = !!activeWallet?.expiresAt && new Date(activeWallet.expiresAt).getTime() - Date.now() < 14 * 86400000;
+  const walletLow = activeWallet?.sessionsRemaining != null && activeWallet.sessionsRemaining <= 2;
+  const pendingHomework = studentHomework.filter((h) => !h.mySubmission && h.status !== "cancelled");
+  const overdueHomework = pendingHomework.filter((h) => h.dueDate && new Date(h.dueDate) < now);
+  const latestReport = studentLectureReports.find((r) => r.report && r.report.trim().length > 0) ?? null;
+  const pendingPay = myPaymentRequests.find((r) => r.status === "pending") ?? null;
 
   return (
     <AppShell role="STUDENT">
@@ -428,6 +486,176 @@ export function DashboardScreen() {
           sub={t("إجمالي النتائج المعتمدة")}
         />
       </div>
+
+      {/* ── Your day hub ── */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Today's schedule / live lecture */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <small className="text-muted-foreground">{t("محاضرات اليوم")}</small>
+            {liveLecture && <Badge tone="danger">LIVE</Badge>}
+          </div>
+          {todayLectures.length === 0 && todaySlots.length === 0 && todayBookings.length === 0 && todayFreeLectures.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">{t("مفيش محاضرات أو حصص مجدولة النهاردة")}</p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {[...todayFreeLectures.map((l) => ({ kind: "free" as const, l })), ...todayBookings.map((b) => ({ kind: "booking" as const, b }))].map((item) =>
+                item.kind === "free" ? (
+                  <div key={item.l.id} className="rounded-md bg-muted/50 p-2.5">
+                    <b className="block truncate text-xs">{item.l.title}</b>
+                    <small className="block text-muted-foreground">
+                      {new Date(item.l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                      {item.l.teacher?.fullName ? ` · ${item.l.teacher.fullName}` : ""}
+                      {" · "}{t("محاضرة مجانية")}
+                    </small>
+                    {item.l.meetingUrl && item.l.status === "live" && (
+                      <a
+                        href={item.l.meetingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-danger px-2.5 py-1 text-[11px] font-bold text-white"
+                      >
+                        {t("ادخل الآن")}
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <div key={item.b.id} className="rounded-md bg-muted/50 p-2.5">
+                    <b className="block truncate text-xs">{t("حصة خاصة")}</b>
+                    <small className="block text-muted-foreground">
+                      {new Date(item.b.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                      {item.b.teacher?.fullName ? ` · ${item.b.teacher.fullName}` : ""}
+                    </small>
+                    {item.b.meetingUrl && (
+                      <a
+                        href={item.b.meetingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-brand px-2.5 py-1 text-[11px] font-bold text-primary-foreground"
+                      >
+                        {t("رابط الاجتماع")}
+                      </a>
+                    )}
+                  </div>
+                ),
+              )}
+              {todayLectures.map((l) => (
+                <div key={l.id} className="rounded-md bg-muted/50 p-2.5">
+                  <b className="block truncate text-xs">{l.title}</b>
+                  <small className="block text-muted-foreground">
+                    {new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                    {l.teacher?.fullName ? ` · ${l.teacher.fullName}` : ""}
+                  </small>
+                  {l.meetingUrl && l.status !== "completed" && (
+                    <a
+                      href={l.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-brand px-2.5 py-1 text-[11px] font-bold text-primary-foreground"
+                    >
+                      {l.status === "live" ? t("ادخل الآن") : t("رابط الاجتماع")}
+                    </a>
+                  )}
+                </div>
+              ))}
+              {todaySlots.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-md bg-muted/50 p-2.5">
+                  <div className="min-w-0">
+                    <b className="block truncate text-xs">{s.title}</b>
+                    <small className="text-muted-foreground">
+                      {s.startTime}–{s.endTime} · {s.teacher.fullName}
+                    </small>
+                  </div>
+                  {s.todayLecture?.status === "live" && s.todayLecture.meetingUrl && (
+                    <a
+                      href={s.todayLecture.meetingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 rounded-md bg-danger px-2 py-1 text-[11px] font-bold text-white"
+                    >
+                      LIVE
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Wallet / sessions remaining */}
+        <Card className="p-4">
+          <small className="text-muted-foreground">{t("رصيد حصصك")}</small>
+          {activeWallet ? (
+            <>
+              <b className="mt-1 block font-lat text-2xl text-brand">
+                {activeWallet.sessionsRemaining ?? "—"}
+                <span className="text-sm font-normal text-muted-foreground"> / {activeWallet.sessionsTotal}</span>
+              </b>
+              <small className="block text-muted-foreground">{activeWallet.packageName}</small>
+              {walletLow && <Badge tone="danger">{t("فاضل حصتين بس — جدّد قريباً")}</Badge>}
+              {walletExpiring && !walletLow && (
+                <Badge tone="gold">
+                  {t("تنتهي")} {new Date(activeWallet.expiresAt!).toLocaleDateString("ar-EG")}
+                </Badge>
+              )}
+              <Link to="/wallet" className="mt-2 inline-block text-xs font-semibold text-brand hover:underline">
+                {t("محفظتي ←")}
+              </Link>
+            </>
+          ) : (
+            <>
+              <b className="mt-1 block text-sm text-muted-foreground">{t("لا توجد باقة حصص نشطة")}</b>
+              <Link to="/wallet" className="mt-2 inline-block text-xs font-semibold text-brand hover:underline">
+                {t("اشترك في باقة ←")}
+              </Link>
+            </>
+          )}
+        </Card>
+
+        {/* Pending homework */}
+        <Card className="p-4">
+          <small className="text-muted-foreground">{t("واجبات معلقة")}</small>
+          <b className="mt-1 block font-lat text-2xl text-amber-600">{pendingHomework.length}</b>
+          {pendingHomework.length > 0 && (
+            <>
+              {overdueHomework.length > 0 && (
+                <Badge tone="danger">{overdueHomework.length} {t("متأخرة")}</Badge>
+              )}
+              <p className="mt-1 truncate text-xs text-muted-foreground" title={pendingHomework[0]!.title}>
+                {pendingHomework[0]!.title}
+              </p>
+              <Link to="/homework" className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
+                {t("الواجبات ←")}
+              </Link>
+            </>
+          )}
+        </Card>
+
+        {/* Latest teacher report */}
+        <Card className="p-4">
+          <small className="text-muted-foreground">{t("آخر ملاحظة من المدرس")}</small>
+          {latestReport ? (
+            <>
+              <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">{latestReport.report}</p>
+              <small className="mt-1 block text-muted-foreground">
+                {latestReport.lecture.title} · {latestReport.lecture.teacher?.fullName ?? ""}
+              </small>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">{t("لسه مفيش تقارير — هتظهر هنا بعد أول محاضرة")}</p>
+          )}
+        </Card>
+      </div>
+
+      {pendingPay && (
+        <Card className="mb-4 flex items-center justify-between gap-3 border-gold/40 bg-gold/5 p-4">
+          <p className="text-sm">
+            <b>{t("طلب اشتراكك قيد المراجعة")}</b>
+            <span className="text-muted-foreground"> — {pendingPay.package?.nameAr} · {t("هنفعّله فور تأكيد الدفع")}</span>
+          </p>
+          <Badge tone="gold">{t("قيد المراجعة")}</Badge>
+        </Card>
+      )}
 
       {!user?.placementCompletedAt && (
         <Card className="mb-4 flex flex-wrap items-center justify-between gap-4 bg-ink text-primary-foreground">
@@ -816,64 +1044,199 @@ function PlacementResult({
 
 export function PlanScreen() {
   const { t } = useI18n();
+  const { studentSkills, studentHomework, studentLectures, studentSchedules, studentDashboard } = usePlatformStore();
+
+  // Weakest skills → suggested focus areas
+  const weakSkills = [...studentSkills]
+    .filter((s) => s.score != null)
+    .sort((a, b) => (a.score ?? 0) - (b.score ?? 0))
+    .slice(0, 2);
+
+  // Pending homework (not yet submitted)
+  const pendingHw = studentHomework.filter((h) => !h.mySubmission && h.status !== "cancelled");
+  const overdueHw = pendingHw.filter((h) => h.dueDate && new Date(h.dueDate) < new Date());
+
+  // Next 7 days of lectures + today's fixed slots
+  const now = new Date();
+  const weekAhead = new Date(now.getTime() + 7 * 86400000);
+  const upcoming = studentLectures
+    .filter((l) => l.status !== "cancelled" && l.status !== "completed" && new Date(l.startsAt) >= now && new Date(l.startsAt) <= weekAhead)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+    .slice(0, 5);
+  const todayDow = now.getDay();
+  const todaySlots = studentSchedules.filter((s) => s.isActive && s.dayOfWeek === todayDow);
+
+  const tasks: { icon: typeof BookOpen; title: string; hint: string; to: string; urgent?: boolean }[] = [];
+  for (const h of pendingHw.slice(0, 3)) {
+    tasks.push({
+      icon: ClipboardList,
+      title: h.title,
+      hint: h.dueDate ? `${t("آخر موعد")}: ${new Date(h.dueDate).toLocaleDateString("ar-EG")}` : t("واجب معلق"),
+      to: "/homework",
+      urgent: !!h.dueDate && new Date(h.dueDate) < now,
+    });
+  }
+  for (const l of upcoming.slice(0, 3)) {
+    tasks.push({
+      icon: CalendarDays,
+      title: l.title,
+      hint: `${new Date(l.startsAt).toLocaleDateString("ar-EG", { weekday: "short", day: "numeric", month: "short" })} · ${new Date(l.startsAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}`,
+      to: "/lectures",
+    });
+  }
+  if (weakSkills.length > 0) {
+    for (const s of weakSkills) {
+      tasks.push({
+        icon: TrendingUp,
+        title: `${t("ركّز على")}: ${t(SKILL_LABELS[s.skill] ?? s.skill)}`,
+        hint: `${t("مستواك الحالي")} ${s.score}% — ${t("تمرين يومي 15 دقيقة بيحسّنها")}`,
+        to: "/progress",
+      });
+    }
+  }
+  if (studentDashboard?.myAvgScore == null && tasks.length === 0) {
+    tasks.push({ icon: FileCheck, title: t("سلّم أول امتحان"), hint: t("امتحاناتك هتبني خطتك وتظهر مستواك"), to: "/exams" });
+  }
+
   return (
     <AppShell role="STUDENT">
-      <PageHeader title={t("خطة التعلم الشخصية")} subtitle={t("المسار اليومي المخصص لك")} />
-      <Card className="py-12 text-center text-sm text-muted-foreground">
-        {t("لا توجد خطة تعلم مسجلة حالياً.")}
-      </Card>
+      <PageHeader title={t("خطة التعلم الشخصية")} subtitle={t("مهام اليوم مبنية على مستواك الفعلي وواجباتك ومحاضراتك القادمة")} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Today's tasks */}
+        <Card className="lg:col-span-2">
+          <h2 className="text-lg font-bold">{t("مهام اليوم")} ({tasks.length})</h2>
+          {tasks.length === 0 ? (
+            <p className="mt-4 py-8 text-center text-sm text-muted-foreground">
+              {t("مفيش مهام معلقة — اشتغل على مهاراتك أو راجع كورساتك 💪")}
+            </p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {tasks.map((task, i) => (
+                <Link key={i} to={task.to} className="flex items-center gap-3 rounded-md border border-border bg-background/60 p-3 transition hover:border-brand/50">
+                  <span className={`grid size-9 shrink-0 place-items-center rounded-lg ${task.urgent ? "bg-danger/10 text-danger" : "bg-brand/10 text-brand"}`}>
+                    <task.icon className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <b className="block truncate text-sm">{task.title}</b>
+                    <small className="text-muted-foreground">{task.hint}</small>
+                  </div>
+                  {task.urgent && <Badge tone="danger">{t("متأخر")}</Badge>}
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Focus areas + today's slots */}
+        <div className="space-y-4">
+          <Card>
+            <h3 className="font-bold">{t("أضعف مهاراتك — ركّز عليها")}</h3>
+            {weakSkills.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">{t("لسه مفيش تقييم مهارات — مدرسك هيقيّمك بعد محاضراتك.")}</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {weakSkills.map((s) => (
+                  <div key={s.id}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span>{t(SKILL_LABELS[s.skill] ?? s.skill)}</span>
+                      <b className="font-lat">{s.score}%</b>
+                    </div>
+                    <ProgressBar value={s.score ?? 0} tone={(s.score ?? 0) >= 70 ? "sage" : (s.score ?? 0) >= 50 ? "gold" : "brand"} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <h3 className="font-bold">{t("مواعيدك اليوم")}</h3>
+            {todaySlots.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">{t("مفيش حصص ثابتة النهاردة.")}</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {todaySlots.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between rounded-md bg-muted/50 p-2.5 text-xs">
+                    <div className="min-w-0">
+                      <b className="block truncate">{s.title}</b>
+                      <small className="text-muted-foreground">{s.teacher.fullName}</small>
+                    </div>
+                    <span className="shrink-0 font-lat font-bold text-brand">{s.startTime}–{s.endTime}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
     </AppShell>
   );
 }
 
 export function ConversationScreen() {
   const { t } = useI18n();
+  const { sendAiMessage } = usePlatformStore();
   const [recording, setRecording] = useState(false);
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: t("أهلاً! أنا مساعدك في العبرية 🇮🇱\nاكتبلي بالعبرية أو بالعربي — هرد عليك بجمل مفيدة وتمارين.\nمثلاً: מה שלומך؟ (كيف حالك؟)") },
+  ]);
   const [text, setText] = useState("");
-  const send = () => {
-    if (text.trim()) {
-      setMessages([...messages, text]);
-      setText("");
+  const [sending, setSending] = useState(false);
+
+  async function send() {
+    const msg = text.trim();
+    if (!msg || sending) return;
+    setText("");
+    const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
+    setMessages((prev) => [...prev, { role: "user", content: msg }]);
+    setSending(true);
+    try {
+      const reply = await sendAiMessage(msg, history);
+      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: t("حصل خطأ في الاتصال — جرب تاني.") }]);
+    } finally {
+      setSending(false);
     }
-  };
+  }
+
   return (
     <AppShell role="STUDENT">
-      <PageHeader title={t("محادثة عبرية")} subtitle={t("محادثة تفاعلية")} />
+      <PageHeader title={t("محادثة عبرية")} subtitle={t("تدرّب على العبرية مع المساعد — اكتب أو سجّل صوتك")} />
       <Card className="flex min-h-[520px] flex-col p-0">
-        <div className="flex flex-1 flex-col gap-4 p-5">
-          {messages.length === 0 ? (
-            <div className="m-auto text-center text-sm text-muted-foreground">
-              {t("ابدأ المحادثة بكتابة رسالة بالعبرية...")}
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              dir={m.role === "user" ? "rtl" : "ltr"}
+              className={`max-w-[78%] rounded-lg px-4 py-3 text-sm whitespace-pre-line ${
+                m.role === "user"
+                  ? "me-auto bg-brand text-primary-foreground"
+                  : "ms-auto bg-muted text-foreground"
+              }`}
+            >
+              {m.content}
             </div>
-          ) : (
-            messages.map((m, i) => (
-              <div
-                key={i}
-                dir="rtl"
-                className="me-auto max-w-[78%] rounded-lg bg-brand px-4 py-3 font-he text-primary-foreground"
-              >
-                {m}
-              </div>
-            ))
-          )}
+          ))}
+          {sending && <div className="ms-auto text-xs text-muted-foreground">{t("يكتب...")}</div>}
         </div>
         <div className="flex items-end gap-2 border-t border-border p-4">
           <Button
             onClick={() => setRecording(!recording)}
             variant={recording ? "primary" : "secondary"}
             className="size-11 shrink-0 rounded-full p-0"
+            title={t("التسجيل الصوتي قريباً")}
           >
             <Mic className={recording ? "animate-pulse" : ""} />
           </Button>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
             dir="rtl"
             className="max-h-28 min-h-11 flex-1 resize-none rounded-md border border-input bg-background/70 px-3 py-2 font-he outline-none focus:ring-2 focus:ring-ring"
             placeholder="כתבי הודעה בעברית..."
           />
-          <Button onClick={send} className="size-11 p-0">
+          <Button onClick={send} className="size-11 p-0" disabled={sending || !text.trim()}>
             <Send className="size-4" />
           </Button>
         </div>
@@ -1181,6 +1544,26 @@ export function TeacherScreen() {
     }
   }, [activeSection, anFrom, anTo, anStudentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live chat updates via websocket
+  useEffect(() => {
+    return onChatEvent((e) => {
+      if (e.channel !== "teacher") return;
+      fetchTeacherChatThreads().catch(() => {});
+      if (chatStudentId && e.studentId === chatStudentId) {
+        fetchTeacherChatThread(chatStudentId).then(setChatMsgs).catch(() => {});
+      }
+    });
+  }, [chatStudentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback polling for the open thread
+  useEffect(() => {
+    if (!chatStudentId) return;
+    const iv = setInterval(() => {
+      fetchTeacherChatThread(chatStudentId).then(setChatMsgs).catch(() => {});
+    }, 8000);
+    return () => clearInterval(iv);
+  }, [chatStudentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleAddAvailability(e: React.FormEvent) {
     e.preventDefault();
     setAvMsg("");
@@ -1309,6 +1692,22 @@ export function TeacherScreen() {
       setChatReply("");
       setChatMsgs(await fetchTeacherChatThread(chatStudentId));
       await fetchTeacherChatThreads();
+    } finally {
+      setChatSending(false);
+    }
+  }
+
+  async function handleTeacherChatAttachment(file: File | Blob, overrideName?: string) {
+    if (!chatStudentId || chatSending) return;
+    setChatSending(true);
+    try {
+      const { kind, fileName } = chatFileToMedia(file, overrideName);
+      const media = await uploadChatAttachment(file, kind, fileName);
+      await sendTeacherChatReply(chatStudentId, "", media);
+      setChatMsgs(await fetchTeacherChatThread(chatStudentId));
+      await fetchTeacherChatThreads();
+    } catch {
+      alert(t("فشل رفع الملف — حاول مرة أخرى"));
     } finally {
       setChatSending(false);
     }
@@ -1725,7 +2124,7 @@ export function TeacherScreen() {
                   >
                     <b className="block text-sm">{th.student.fullName}</b>
                     <small className="block truncate text-muted-foreground">
-                      {th.lastMessage ? `${th.lastMessage.content}` : t("بدون رسائل")}
+                      <ChatLastMessagePreview m={th.lastMessage} />
                     </small>
                   </button>
                 ))
@@ -1752,11 +2151,13 @@ export function TeacherScreen() {
                         {m.fromRole === "STUDENT" ? t("الطالب") : t("أنت")} ·{" "}
                         {new Date(m.createdAt).toLocaleString("ar-EG")}
                       </small>
-                      <p className="mt-0.5">{m.content}</p>
+                      <ChatMsgContent m={m} />
                     </div>
                   ))}
                 </div>
                 <form onSubmit={handleTeacherChatSend} className="mt-3 flex gap-2">
+                  <ChatAttachButton onFile={(f) => handleTeacherChatAttachment(f)} disabled={chatSending} />
+                  <ChatVoiceButton onRecorded={(blob, mime) => handleTeacherChatAttachment(blob, `voice-${Date.now()}.${mime.includes("ogg") ? "ogg" : "webm"}`)} disabled={chatSending} />
                   <Input
                     value={chatReply}
                     onChange={(e) => setChatReply(e.target.value)}
@@ -7245,6 +7646,136 @@ export function LecturesScreen() {
   );
 }
 
+// ─── Shared chat widgets (WhatsApp-style media messages) ────────────────────
+
+function chatMediaKind(m: ChatMsg): "image" | "voice" | "file" | "text" {
+  if (!m.mediaUrl) return "text";
+  if (m.type === "image" || (m.mimeType ?? "").startsWith("image/")) return "image";
+  if (m.type === "voice" || (m.mimeType ?? "").startsWith("audio/")) return "voice";
+  return "file";
+}
+
+export function ChatMsgContent({ m }: { m: ChatMsg }) {
+  const { t } = useI18n();
+  const kind = chatMediaKind(m);
+  return (
+    <>
+      {kind === "image" && m.mediaUrl && (
+        <a href={mediaSrc(m.mediaUrl)} target="_blank" rel="noreferrer" className="mt-1 block">
+          <img src={mediaSrc(m.mediaUrl)} alt={m.fileName ?? t("صورة")} className="max-h-64 rounded-md" />
+        </a>
+      )}
+      {kind === "voice" && m.mediaUrl && (
+        <audio controls preload="metadata" src={mediaSrc(m.mediaUrl)} className="mt-1 w-60 max-w-full" />
+      )}
+      {kind === "file" && m.mediaUrl && (
+        <a
+          href={mediaSrc(m.mediaUrl)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 flex items-center gap-2 rounded-md bg-background/70 px-2.5 py-2 text-xs font-semibold hover:underline"
+        >
+          <FileText size={16} className="shrink-0 text-brand" />
+          <span className="truncate">{m.fileName || t("مرفق")}</span>
+        </a>
+      )}
+      {m.content.trim().length > 0 && <p className="mt-0.5 whitespace-pre-wrap">{m.content}</p>}
+      {kind === "text" && m.content.trim().length === 0 && <p className="mt-0.5 text-muted-foreground">{t("مرفق")}</p>}
+    </>
+  );
+}
+
+export function ChatLastMessagePreview({ m }: { m: { content: string; type?: string; fileName?: string | null; mimeType?: string | null } | null }) {
+  const { t } = useI18n();
+  if (!m) return <>{t("بدون رسائل")}</>;
+  if (m.content.trim()) return <>{m.content}</>;
+  if (m.type === "voice" || (m.mimeType ?? "").startsWith("audio/")) return <>{t("🎤 رسالة صوتية")}</>;
+  if (m.type === "image" || (m.mimeType ?? "").startsWith("image/")) return <>{t("🖼️ صورة")}</>;
+  return <>{m.fileName || t("📎 مرفق")}</>;
+}
+
+function useChatRecorder(onRecorded: (blob: Blob, mime: string) => void) {
+  const { t } = useI18n();
+  const [recording, setRecording] = useState(false);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  async function toggle() {
+    if (recording) {
+      recRef.current?.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+        if (blob.size > 1000) onRecorded(blob, blob.type);
+        setRecording(false);
+      };
+      rec.start();
+      recRef.current = rec;
+      setRecording(true);
+    } catch {
+      alert(t("تعذر الوصول للميكروفون — تأكد من إذن الميكروفون"));
+    }
+  }
+
+  return { recording, toggle };
+}
+
+export function ChatVoiceButton({ onRecorded, disabled }: { onRecorded: (blob: Blob, mime: string) => void; disabled?: boolean }) {
+  const { t } = useI18n();
+  const { recording, toggle } = useChatRecorder(onRecorded);
+  return (
+    <Button type="button" variant={recording ? "secondary" : "ghost"} className="shrink-0" onClick={toggle} disabled={disabled} title={t("رسالة صوتية")}>
+      {recording ? <Square size={16} /> : <Mic size={16} />}
+    </Button>
+  );
+}
+
+export function ChatAttachButton({ onFile, disabled }: { onFile: (file: File) => void; disabled?: boolean }) {
+  const { t } = useI18n();
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        accept="image/*,audio/*,video/mp4,video/webm,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFile(f);
+          e.target.value = "";
+        }}
+      />
+      <Button type="button" variant="ghost" className="shrink-0" onClick={() => inputRef.current?.click()} disabled={disabled} title={t("إرفاق ملف أو صورة")}>
+        <Paperclip size={16} />
+      </Button>
+    </>
+  );
+}
+
+export function chatFileToMedia(file: File | Blob, overrideName?: string): { file: File | Blob; kind: "image" | "voice" | "file"; fileName: string } {
+  const mime = file.type || "";
+  const name = overrideName ?? (file instanceof File ? file.name : "voice-message.webm");
+  if (mime.startsWith("image/")) return { file, kind: "image", fileName: name };
+  if (mime.startsWith("audio/")) return { file, kind: "voice", fileName: name };
+  return { file, kind: "file", fileName: name };
+}
+
+export async function uploadChatAttachment(file: File | Blob, kind: "image" | "voice" | "file", fileName: string): Promise<ChatMediaInput> {
+  const up = await uploadFile(file, "chat");
+  return { type: kind, mediaUrl: up.url, fileName, mimeType: file.type || undefined };
+}
+
 export function ChatsScreen() {
   const {
     myChatTeachers,
@@ -7272,6 +7803,16 @@ export function ChatsScreen() {
     fetchTeacherChat().catch(() => {});
     fetchSupportChat().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback polling — keeps chat fresh even if the websocket is unreachable
+  useEffect(() => {
+    if (tab === "ai") return;
+    const iv = setInterval(() => {
+      fetchTeacherChat().catch(() => {});
+      fetchSupportChat().catch(() => {});
+    }, 8000);
+    return () => clearInterval(iv);
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -7321,6 +7862,24 @@ export function ChatsScreen() {
         setAiMsgs([...next, { role: "assistant", content: reply }]);
         speak(reply);
       }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleAttachment(file: File | Blob, overrideName?: string) {
+    if (tab === "ai" || sending) return;
+    setSending(true);
+    try {
+      const { kind, fileName } = chatFileToMedia(file, overrideName);
+      const media = await uploadChatAttachment(file, kind, fileName);
+      if (tab === "teacher") {
+        await sendTeacherChatMsg("", teacherId || undefined, media);
+      } else {
+        await sendSupportChatMsg("", media);
+      }
+    } catch {
+      alert(t("فشل رفع الملف — حاول مرة أخرى"));
     } finally {
       setSending(false);
     }
@@ -7425,7 +7984,7 @@ export function ChatsScreen() {
                   {m.fromRole === "STUDENT" ? t("أنت") : m.fromRole === "TEACHER" ? t("المدرس") : t("خدمة العملاء")} ·{" "}
                   {new Date(m.createdAt).toLocaleString("ar-EG")}
                 </small>
-                <p className="mt-0.5 whitespace-pre-wrap">{m.content}</p>
+                <ChatMsgContent m={m} />
               </div>
             ))
           )}
@@ -7433,6 +7992,12 @@ export function ChatsScreen() {
         </div>
 
         <form onSubmit={handleSend} className="mt-3 flex gap-2">
+          {tab !== "ai" && (
+            <>
+              <ChatAttachButton onFile={(f) => handleAttachment(f)} disabled={sending} />
+              <ChatVoiceButton onRecorded={(blob, mime) => handleAttachment(blob, `voice-${Date.now()}.${mime.includes("ogg") ? "ogg" : "webm"}`)} disabled={sending} />
+            </>
+          )}
           {tab === "ai" && (
             <Button
               type="button"
@@ -10179,6 +10744,26 @@ export function SupportScreen() {
     }
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Live chat updates via websocket
+  useEffect(() => {
+    return onChatEvent((e) => {
+      if (e.channel !== "support") return;
+      fetchSupportChatThreads().catch(() => {});
+      if (chatStudentId && e.studentId === chatStudentId) {
+        fetchSupportChatThread(chatStudentId).then(setChatMsgs).catch(() => {});
+      }
+    });
+  }, [chatStudentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback polling for the open thread
+  useEffect(() => {
+    if (!chatStudentId) return;
+    const iv = setInterval(() => {
+      fetchSupportChatThread(chatStudentId).then(setChatMsgs).catch(() => {});
+    }, 8000);
+    return () => clearInterval(iv);
+  }, [chatStudentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function openChat(studentId: string) {
     setChatStudentId(studentId);
     setChatMsgs(await fetchSupportChatThread(studentId));
@@ -10193,6 +10778,22 @@ export function SupportScreen() {
       setChatReply("");
       setChatMsgs(await fetchSupportChatThread(chatStudentId));
       await fetchSupportChatThreads();
+    } finally {
+      setChatSending(false);
+    }
+  }
+
+  async function handleSupportChatAttachment(file: File | Blob, overrideName?: string) {
+    if (!chatStudentId || chatSending) return;
+    setChatSending(true);
+    try {
+      const { kind, fileName } = chatFileToMedia(file, overrideName);
+      const media = await uploadChatAttachment(file, kind, fileName);
+      await sendSupportChatReply(chatStudentId, "", media);
+      setChatMsgs(await fetchSupportChatThread(chatStudentId));
+      await fetchSupportChatThreads();
+    } catch {
+      alert(t("فشل رفع الملف — حاول مرة أخرى"));
     } finally {
       setChatSending(false);
     }
@@ -10583,7 +11184,7 @@ export function SupportScreen() {
                   >
                     <b className="block text-sm">{th.student.fullName}</b>
                     <small className="block truncate text-muted-foreground">
-                      {th.lastMessage.content} · {new Date(th.lastMessage.createdAt).toLocaleDateString("ar-EG")}
+                      <ChatLastMessagePreview m={th.lastMessage} /> · {new Date(th.lastMessage.createdAt).toLocaleDateString("ar-EG")}
                     </small>
                   </button>
                 ))
@@ -10612,11 +11213,13 @@ export function SupportScreen() {
                         {m.fromRole === "STUDENT" ? t("الطالب") : t("خدمة العملاء")} ·{" "}
                         {new Date(m.createdAt).toLocaleString("ar-EG")}
                       </small>
-                      <p className="mt-0.5">{m.content}</p>
+                      <ChatMsgContent m={m} />
                     </div>
                   ))}
                 </div>
                 <form onSubmit={handleChatSend} className="mt-3 flex gap-2">
+                  <ChatAttachButton onFile={(f) => handleSupportChatAttachment(f)} disabled={chatSending} />
+                  <ChatVoiceButton onRecorded={(blob, mime) => handleSupportChatAttachment(blob, `voice-${Date.now()}.${mime.includes("ogg") ? "ogg" : "webm"}`)} disabled={chatSending} />
                   <Input
                     value={chatReply}
                     onChange={(e) => setChatReply(e.target.value)}

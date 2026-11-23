@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { apiFetch, uploadFile } from "../lib/api";
+import { subscribeRealtime } from "../lib/realtime";
 import type { UserRole } from "../lib/auth";
 import { useAuth } from "./use-auth";
 
@@ -979,7 +980,18 @@ export interface ChatMsg {
   channel: string;
   fromRole: string;
   content: string;
+  type?: string;
+  mediaUrl?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
   createdAt: string;
+}
+
+export interface ChatMediaInput {
+  type: "text" | "image" | "voice" | "file";
+  mediaUrl?: string;
+  fileName?: string;
+  mimeType?: string;
 }
 
 export interface MyTeacher {
@@ -989,15 +1001,24 @@ export interface MyTeacher {
   groupName?: string | null;
 }
 
+export interface ChatLastMsg {
+  content: string;
+  createdAt: string;
+  fromRole: string;
+  type?: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+}
+
 export interface TeacherChatThread {
   student: { id: string; fullName: string; email: string | null; phone?: string | null };
   groupName?: string | null;
-  lastMessage: { content: string; createdAt: string; fromRole: string } | null;
+  lastMessage: ChatLastMsg | null;
 }
 
 export interface SupportChatThread {
   student: { id: string; fullName: string; email: string | null; phone?: string | null };
-  lastMessage: { content: string; createdAt: string; fromRole: string };
+  lastMessage: ChatLastMsg;
 }
 
 export interface PublicPackage {
@@ -1196,16 +1217,16 @@ interface PlatformStoreValue {
   submitPublicLead: (input: { name: string; phone: string; email?: string; packageName?: string }) => Promise<void>;
   fetchMyChatTeachers: () => Promise<void>;
   fetchTeacherChat: (teacherId?: string) => Promise<void>;
-  sendTeacherChatMsg: (content: string, teacherId?: string) => Promise<void>;
+  sendTeacherChatMsg: (content: string, teacherId?: string, media?: ChatMediaInput) => Promise<void>;
   fetchSupportChat: () => Promise<void>;
-  sendSupportChatMsg: (content: string) => Promise<void>;
+  sendSupportChatMsg: (content: string, media?: ChatMediaInput) => Promise<void>;
   sendAiMessage: (message: string, history: { role: "user" | "assistant"; content: string }[]) => Promise<string>;
   fetchTeacherChatThreads: () => Promise<void>;
   fetchTeacherChatThread: (studentId: string) => Promise<ChatMsg[]>;
-  sendTeacherChatReply: (studentId: string, content: string) => Promise<void>;
+  sendTeacherChatReply: (studentId: string, content: string, media?: ChatMediaInput) => Promise<void>;
   fetchSupportChatThreads: () => Promise<void>;
   fetchSupportChatThread: (studentId: string) => Promise<ChatMsg[]>;
-  sendSupportChatReply: (studentId: string, content: string) => Promise<void>;
+  sendSupportChatReply: (studentId: string, content: string, media?: ChatMediaInput) => Promise<void>;
   // Notifications & misc
   fetchNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
@@ -1588,6 +1609,28 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.role, user?.hasActiveSubscription, user?.placementCompletedAt]);
+
+  // Realtime socket — instant notification badge updates + chat events
+  useEffect(() => {
+    if (!user) return;
+    return subscribeRealtime((event, data) => {
+      if (event === "notification:new") {
+        fetchNotifications().catch(() => {});
+        return;
+      }
+      if (event !== "chat:message") return;
+      const role = user.role?.toUpperCase();
+      if (role === "STUDENT") {
+        fetchTeacherChat().catch(() => {});
+        fetchSupportChat().catch(() => {});
+      } else if (role === "TEACHER") {
+        fetchTeacherChatThreads().catch(() => {});
+      } else if (role === "SUPPORT" || role === "ADMIN" || role === "SUPER_ADMIN") {
+        fetchSupportChatThreads().catch(() => {});
+      }
+      void data;
+    });
+  }, [user?.id, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll notifications every 60s while logged in
   useEffect(() => {
@@ -2163,8 +2206,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
-  async function sendTeacherChatMsg(content: string, teacherId?: string) {
-    await apiFetch("/api/student/chat/teacher", { method: "POST", body: { content, ...(teacherId ? { teacherId } : {}) } });
+  async function sendTeacherChatMsg(content: string, teacherId?: string, media?: ChatMediaInput) {
+    await apiFetch("/api/student/chat/teacher", {
+      method: "POST",
+      body: { content, ...(teacherId ? { teacherId } : {}), ...(media ?? {}) },
+    });
     await fetchTeacherChat(teacherId);
   }
 
@@ -2175,8 +2221,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }
 
-  async function sendSupportChatMsg(content: string) {
-    await apiFetch("/api/student/chat/support", { method: "POST", body: { content } });
+  async function sendSupportChatMsg(content: string, media?: ChatMediaInput) {
+    await apiFetch("/api/student/chat/support", { method: "POST", body: { content, ...(media ?? {}) } });
     await fetchSupportChat();
   }
 
@@ -2200,8 +2246,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     return res?.messages ?? [];
   }
 
-  async function sendTeacherChatReply(studentId: string, content: string) {
-    await apiFetch(`/api/teacher/chat/${studentId}`, { method: "POST", body: { content } });
+  async function sendTeacherChatReply(studentId: string, content: string, media?: ChatMediaInput) {
+    await apiFetch(`/api/teacher/chat/${studentId}`, { method: "POST", body: { content, ...(media ?? {}) } });
   }
 
   async function fetchSupportChatThreads() {
@@ -2216,8 +2262,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     return res?.messages ?? [];
   }
 
-  async function sendSupportChatReply(studentId: string, content: string) {
-    await apiFetch(`/api/support/chat/${studentId}`, { method: "POST", body: { content } });
+  async function sendSupportChatReply(studentId: string, content: string, media?: ChatMediaInput) {
+    await apiFetch(`/api/support/chat/${studentId}`, { method: "POST", body: { content, ...(media ?? {}) } });
   }
 
   // ─── Notifications & misc ────────────────────────────────────────────────

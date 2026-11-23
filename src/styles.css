@@ -166,7 +166,7 @@
 .search-box input { width: 100%; padding: 0; color: var(--ink); background: transparent; border: 0; outline: 0; font-size: 11px; font-family: inherit; }
 .search-box input::placeholder { color: #a3afab; }
 .notification-button { position: relative; border: 1px solid #e3e9e5; background: #fff; }
-.notification-button i { position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--danger); border: 1px solid #fff; }
+.notification-button i { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger); color: #fff; border: 1px solid #fff; font-style: normal; font-size: 10px; font-weight: 700; line-height: 14px; text-align: center; }
 .topbar-profile { display: flex; align-items: center; gap: 8px; color: #7d8b86; }
 .topbar-profile > div { display: flex; flex-direction: column; gap: 2px; }
 .topbar-profile strong { color: #2a423d; font-size: 11px; }

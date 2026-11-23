@@ -7,6 +7,10 @@
     {
       "source": "/storage/:path*",
       "destination": "http://209.159.159.106/:path*"
+    },
+    {
+      "source": "/ws",
+      "destination": "http://162.35.184.86/ws"
     }
   ]
 }

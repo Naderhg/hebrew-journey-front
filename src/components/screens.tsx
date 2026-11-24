@@ -3154,7 +3154,7 @@ export function AdminScreen() {
     updateStudentStatus: rawUpdateStudentStatus,
   } = usePlatformStore();
   const { t } = useI18n();
-  const { user: authUser } = useAuth();
+  const { user: authUser, refreshUser } = useAuth();
   const isSuperAdmin = authUser?.role === "SUPER_ADMIN";
   const adminPerms = authUser?.adminPermissions ?? [];
   const canCreate = isSuperAdmin || adminPerms.includes("CREATE");
@@ -3713,6 +3713,15 @@ export function AdminScreen() {
                         title={t("عرض الملف الكامل")}
                       >
                         {t("الملف")}
+                      </button>
+                    )}
+                    {isSuperAdmin && u.id === authUser?.id && (
+                      <button
+                        onClick={() => setEditingUser(u)}
+                        className="rounded-md px-2 py-1.5 text-[11px] font-bold text-muted-foreground hover:bg-brand/10 hover:text-brand"
+                        title={t("تعديل بياناتك")}
+                      >
+                        {t("تعديل")}
                       </button>
                     )}
                     {isSuperAdmin && u.role !== "SUPER_ADMIN" && u.id !== authUser?.id && (
@@ -5694,7 +5703,10 @@ export function AdminScreen() {
       {editingUser && (
         <AdminEditUserModal
           user={editingUser}
-          onSave={updateAdminUser}
+          onSave={async (id, input) => {
+            await updateAdminUser(id, input);
+            if (id === authUser?.id) await refreshUser().catch(() => {});
+          }}
           onClose={() => setEditingUser(null)}
         />
       )}

@@ -27,6 +27,8 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  MessagesSquare,
+  Pencil,
   PhoneCall,
   RotateCcw,
   ShieldCheck,
@@ -40,13 +42,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type * as React from "react";
 import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/use-auth";
 import { usePlatformStore } from "../hooks/use-platform-store";
-import { getHomeRouteForRole, ROLE_LABELS, type UserRole } from "../lib/auth";
+import { getHomeRouteForRole, ROLE_LABELS, type AuthUser, type UserRole } from "../lib/auth";
 import { apiFetch } from "../lib/api";
+import { communityApi } from "../lib/community";
 import { useI18n, type Lang } from "../lib/i18n";
-import { Badge, Button, Card } from "./ui";
+import { Badge, Button, Card, Input } from "./ui";
 
 // Language switcher shown in the top bar — ar / en / he.
 export function LanguageSwitcher({ className = "" }: { className?: string }) {
@@ -257,7 +261,7 @@ export function AppShell({
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, refreshUser } = useAuth();
   const { t, dir } = useI18n();
   const {
     notifications,
@@ -267,11 +271,14 @@ export function AppShell({
     hasCallsPackage,
     hasBasicPackage,
     fetchHasCallsPackage,
+    updateAdminUser,
   } = usePlatformStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navQuery, setNavQuery] = useState("");
+  const [communityVisible, setCommunityVisible] = useState(false);
+  const [editSelfOpen, setEditSelfOpen] = useState(false);
 
   const currentUserRole = (user?.role?.toUpperCase() as UserRole | undefined) ?? role;
   const isRoleMismatch = Boolean(user && currentUserRole !== role);
@@ -309,6 +316,12 @@ export function AppShell({
     setSidebarOpen(false);
   }, [path]);
 
+  // Community is shown only when an admin allowed this role to see it
+  useEffect(() => {
+    if (!user || needsPlacement || isLocked) { setCommunityVisible(false); return; }
+    communityApi.access().then((a) => setCommunityVisible(a.visible)).catch(() => setCommunityVisible(false));
+  }, [user?.id, needsPlacement, isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch whether the student has a calls package (controls /sessions visibility)
   useEffect(() => {
     if (isStudent) fetchHasCallsPackage().catch(() => {});
@@ -331,6 +344,9 @@ export function AppShell({
       if (callsOnly && item.to === "/lectures") return false;
       return true;
     });
+  }
+  if (communityVisible && !needsPlacement && !isLocked) {
+    navItems = [...navItems, { to: "/community", label: "المجتمع", icon: MessagesSquare, badge: "جديد" }];
   }
   const displayName = user ? user.fullName : t("غير مسجل الدخول");
   const displaySubtitle = user ? `${t(ROLE_LABELS[currentUserRole])} · ${user.phone ?? user.email ?? ""}` : t(ROLE_LABELS[role]);
@@ -476,6 +492,11 @@ export function AppShell({
               {user?.email && <p className="truncate font-lat">{user.email}</p>}
               {user?.phone && <p className="font-lat">{user.phone}</p>}
             </div>
+            {currentUserRole === "SUPER_ADMIN" && (
+              <Button variant="secondary" className="mt-3 w-full" onClick={() => { setProfileOpen(false); setEditSelfOpen(true); }}>
+                <Pencil size={14} /> {t("تعديل بياناتي")}
+              </Button>
+            )}
             <Button variant="secondary" className="mt-3 w-full" onClick={handleChangeMyPassword}>
               {t("تغيير كلمة المرور")}
             </Button>
@@ -547,7 +568,8 @@ export function AppShell({
                         onClick={() => {
                           if (n.link) {
                             setNotifOpen(false);
-                            navigate({ to: n.link });
+                            if (n.link.includes("?")) window.location.assign(n.link);
+                            else navigate({ to: n.link });
                           }
                         }}
                         className={`block w-full border-b border-border/50 px-4 py-2.5 text-right last:border-0 hover:bg-muted/60 ${
@@ -704,7 +726,103 @@ export function AppShell({
           </div>
         </div>
       </div>
+      {editSelfOpen && user && (
+        <SelfEditModal
+          user={user}
+          onSave={async (input) => {
+            await updateAdminUser(user.id, input);
+            await refreshUser().catch(() => {});
+          }}
+          onClose={() => setEditSelfOpen(false)}
+        />
+      )}
     </>
+  );
+}
+
+function SelfEditModal({
+  user,
+  onSave,
+  onClose,
+}: {
+  user: AuthUser;
+  onSave: (input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string }) => Promise<void>;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [form, setForm] = useState({
+    fullName: user.fullName ?? "",
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    specialty: user.specialty ?? "",
+    password: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string } = {
+        email: form.email.trim() || null,
+        specialty: form.specialty.trim() || null,
+      };
+      if (form.fullName.trim()) input.fullName = form.fullName.trim();
+      if (form.phone.trim()) input.phone = form.phone.trim();
+      if (form.password) input.password = form.password;
+      await onSave(input);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("تعذر حفظ البيانات"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <div className="glass w-full max-w-md rounded-[1.25rem] bg-card p-5" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <h3 className="mb-4 flex items-center gap-2 text-base font-extrabold">
+          <Pencil size={16} className="text-brand" /> {t("تعديل بياناتي")}
+        </h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <label className="block text-xs font-bold text-muted-foreground">
+            {t("الاسم الكامل")}
+            <Input className="mt-1" value={form.fullName} onChange={set("fullName")} required />
+          </label>
+          <label className="block text-xs font-bold text-muted-foreground">
+            {t("البريد الإلكتروني")}
+            <Input className="mt-1 font-lat" dir="ltr" type="email" value={form.email} onChange={set("email")} />
+          </label>
+          <label className="block text-xs font-bold text-muted-foreground">
+            {t("رقم الهاتف")}
+            <Input className="mt-1 font-lat" dir="ltr" value={form.phone} onChange={set("phone")} />
+          </label>
+          <label className="block text-xs font-bold text-muted-foreground">
+            {t("التخصص")}
+            <Input className="mt-1" value={form.specialty} onChange={set("specialty")} />
+          </label>
+          <label className="block text-xs font-bold text-muted-foreground">
+            {t("كلمة مرور جديدة (اختياري — اتركها فاضية لو مش عايز تغيّرها)")}
+            <Input className="mt-1 font-lat" dir="ltr" type="password" minLength={6} value={form.password} onChange={set("password")} />
+          </label>
+          {error && <p className="text-xs font-bold text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+              {t("إلغاء")}
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? t("جاري الحفظ…") : t("حفظ التعديلات")}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 

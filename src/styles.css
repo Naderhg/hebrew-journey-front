@@ -145,6 +145,9 @@
 .nav-item:hover { color: var(--brand); background: #f0f6f3; transform: translateX(-2px); }
 .nav-item.active { color: var(--brand); background: #e7f3ef; font-weight: 700; }
 .nav-item.active::before { content: ""; position: absolute; top: 8px; bottom: 8px; right: -3px; width: 3px; border-radius: 3px; background: var(--brand); }
+.nav-item[href="/community"] { background: linear-gradient(90deg, rgb(131 113 188 / 12%), rgb(15 118 110 / 10%)); color: #0f766e; font-weight: 600; }
+.nav-item[href="/community"] em { padding: 0 7px; color: #fff; background: linear-gradient(135deg, #8371bc, #0f766e); font-weight: 700; animation: community-pulse 2s ease-in-out infinite; }
+@keyframes community-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(131 113 188 / 45%); } 50% { box-shadow: 0 0 0 5px rgb(131 113 188 / 0%); } }
 .nav-item em { min-width: 20px; height: 18px; display: inline-grid; place-items: center; margin-right: auto; border-radius: 6px; color: #b36f3a; background: #fff0dc; font-size: 9px; font-style: normal; }
 .nav-lock { margin-right: auto; color: #a8b2ae; }
 .sidebar-footer { margin-top: 10px; }

@@ -137,7 +137,7 @@ export function mediaSrc(url: string): string {
 
 export async function uploadFile(
   file: Blob,
-  uploadType: "audio" | "courses" | "avatars" | "reports" | "videos" | "payments" | "chat" | "workspace",
+  uploadType: "audio" | "courses" | "avatars" | "reports" | "videos" | "payments" | "chat" | "workspace" | "community",
 ): Promise<{ url: string; filename: string; size: number }> {
   const doUpload = () =>
     fetch(`${API_URL}/api/storage/upload?type=${uploadType}`, {

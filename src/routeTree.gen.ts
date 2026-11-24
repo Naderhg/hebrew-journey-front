@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CertificatesRouteImport } from './routes/certificates'
 import { Route as ChatsRouteImport } from './routes/chats'
+import { Route as CommunityRouteImport } from './routes/community'
 import { Route as ConversationRouteImport } from './routes/conversation'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -56,6 +57,11 @@ const CertificatesRoute = CertificatesRouteImport.update({
 const ChatsRoute = ChatsRouteImport.update({
   id: '/chats',
   path: '/chats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConversationRoute = ConversationRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/certificates': typeof CertificatesRoute
   '/chats': typeof ChatsRoute
+  '/community': typeof CommunityRoute
   '/conversation': typeof ConversationRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/certificates': typeof CertificatesRoute
   '/chats': typeof ChatsRoute
+  '/community': typeof CommunityRoute
   '/conversation': typeof ConversationRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
@@ -245,6 +253,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/certificates': typeof CertificatesRoute
   '/chats': typeof ChatsRoute
+  '/community': typeof CommunityRoute
   '/conversation': typeof ConversationRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
@@ -277,6 +286,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/certificates'
     | '/chats'
+    | '/community'
     | '/conversation'
     | '/courses'
     | '/dashboard'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/certificates'
     | '/chats'
+    | '/community'
     | '/conversation'
     | '/courses'
     | '/dashboard'
@@ -337,6 +348,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/certificates'
     | '/chats'
+    | '/community'
     | '/conversation'
     | '/courses'
     | '/dashboard'
@@ -368,6 +380,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CertificatesRoute: typeof CertificatesRoute
   ChatsRoute: typeof ChatsRoute
+  CommunityRoute: typeof CommunityRoute
   ConversationRoute: typeof ConversationRoute
   CoursesRoute: typeof CoursesRoute
   DashboardRoute: typeof DashboardRoute
@@ -422,6 +435,13 @@ declare module '@tanstack/react-router' {
       path: '/chats'
       fullPath: '/chats'
       preLoaderRoute: typeof ChatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/conversation': {
@@ -600,6 +620,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CertificatesRoute: CertificatesRoute,
   ChatsRoute: ChatsRoute,
+  CommunityRoute: CommunityRoute,
   ConversationRoute: ConversationRoute,
   CoursesRoute: CoursesRoute,
   DashboardRoute: DashboardRoute,

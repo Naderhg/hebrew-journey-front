@@ -43,15 +43,38 @@ function Bubble({
 }) {
   const { t } = useI18n();
   const [picker, setPicker] = useState(false);
+  const [actions, setActions] = useState(false);
+  const lpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const time = new Date(m.createdAt).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
   const myEmoji = m.myReaction;
+
+  const lpStart = () => {
+    lpTimer.current = setTimeout(() => {
+      setActions(true);
+      setPicker(true);
+    }, 450);
+  };
+  const lpEnd = () => {
+    if (lpTimer.current) {
+      clearTimeout(lpTimer.current);
+      lpTimer.current = null;
+    }
+  };
+  const closeAll = () => { setPicker(false); setActions(false); };
 
   return (
     <div className={`group relative flex max-w-[85%] items-end gap-2 ${mine ? "me-auto" : "ms-auto flex-row-reverse"}`}>
       {!mine && <Avatar user={m.author} size={30} />}
       <div className="relative min-w-0">
         {m.isPinned && <Pin className="absolute -top-1.5 end-2 size-3 rotate-45 text-gold" />}
-        <div className={`min-w-0 rounded-2xl px-3 py-2 ${mine ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm bg-muted"}`}>
+        <div
+          onTouchStart={lpStart}
+          onTouchEnd={lpEnd}
+          onTouchMove={lpEnd}
+          onTouchCancel={lpEnd}
+          onContextMenu={(e) => { e.preventDefault(); setActions(true); setPicker(true); }}
+          className={`min-w-0 select-none rounded-2xl px-3 py-2 ${mine ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm bg-muted"}`}
+        >
           {!mine && (
             <p className="mb-0.5 flex flex-wrap items-center gap-1.5 text-xs font-bold">
               {m.author.fullName} <RoleBadge role={m.author.role} />
@@ -91,33 +114,33 @@ function Bubble({
         )}
       </div>
 
-      {/* hover actions */}
-      <div className={`mb-1 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100 ${mine ? "" : "flex-row-reverse"}`}>
+      {/* hover / long-press actions */}
+      <div className={`relative z-30 mb-1 flex items-center gap-0.5 transition ${actions ? "opacity-100" : "opacity-0 group-hover:opacity-100"} ${mine ? "" : "flex-row-reverse"}`}>
         <button onClick={() => setPicker((v) => !v)} title={t("تفاعل")} className="grid size-7 place-items-center rounded-full bg-background text-muted-foreground shadow-sm transition hover:text-brand"><Smile className="size-4" /></button>
-        <button onClick={onReply} title={t("رد")} className="grid size-7 place-items-center rounded-full bg-background text-muted-foreground shadow-sm transition hover:text-brand"><Reply className="size-4" /></button>
+        <button onClick={() => { closeAll(); onReply(); }} title={t("رد")} className="grid size-7 place-items-center rounded-full bg-background text-muted-foreground shadow-sm transition hover:text-brand"><Reply className="size-4" /></button>
         {canModerate && (
-          <button onClick={onPin} title={m.isPinned ? t("إلغاء التثبيت") : t("تثبيت")} className="grid size-7 place-items-center rounded-full bg-background text-muted-foreground shadow-sm transition hover:text-gold">
+          <button onClick={() => { closeAll(); onPin(); }} title={m.isPinned ? t("إلغاء التثبيت") : t("تثبيت")} className="grid size-7 place-items-center rounded-full bg-background text-muted-foreground shadow-sm transition hover:text-gold">
             {m.isPinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
           </button>
         )}
         {canDelete && (
-          <button onClick={onDelete} title={t("حذف")} className="grid size-7 place-items-center rounded-full bg-background text-danger shadow-sm transition hover:bg-danger/10"><Trash2 className="size-3.5" /></button>
+          <button onClick={() => { closeAll(); onDelete(); }} title={t("حذف")} className="grid size-7 place-items-center rounded-full bg-background text-danger shadow-sm transition hover:bg-danger/10"><Trash2 className="size-3.5" /></button>
         )}
       </div>
 
-      {/* emoji picker */}
+      {/* backdrop + emoji picker */}
+      {(picker || actions) && (
+        <button className="fixed inset-0 z-20 cursor-default" onClick={closeAll} aria-label="close" />
+      )}
       {picker && (
-        <>
-          <button className="fixed inset-0 z-20 cursor-default" onClick={() => setPicker(false)} aria-label="close" />
-          <div className={`absolute -top-10 z-30 flex gap-1 rounded-full border border-border bg-background px-2 py-1 shadow-xl ${mine ? "start-0" : "end-0"}`}>
-            {REACT_EMOJIS.map((e) => (
-              <button key={e} onClick={() => { onReact(e); setPicker(false); }}
-                className={`text-xl transition hover:-translate-y-1 hover:scale-125 ${myEmoji === e ? "grayscale-0" : ""}`}>
-                {e}
-              </button>
-            ))}
-          </div>
-        </>
+        <div className={`absolute -top-10 z-30 flex gap-1 rounded-full border border-border bg-background px-2 py-1 shadow-xl ${mine ? "start-0" : "end-0"}`}>
+          {REACT_EMOJIS.map((e) => (
+            <button key={e} onClick={() => { onReact(e); closeAll(); }}
+              className={`text-xl transition hover:-translate-y-1 hover:scale-125 ${myEmoji === e ? "grayscale-0" : ""}`}>
+              {e}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

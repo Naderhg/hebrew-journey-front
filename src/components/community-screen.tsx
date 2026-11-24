@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bookmark, Flame, Hash, Home, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
+import { Bell, Bookmark, Flame, Hash, Home, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
 import { AppShell, PageHeader } from "./app-shell";
 import { useI18n } from "../lib/i18n";
 import { useAuth } from "../hooks/use-auth";
+import { usePlatformStore } from "../hooks/use-platform-store";
 import type { UserRole } from "../lib/auth";
-import { communityApi, type CommunityAccess, type CommunitySidebar } from "../lib/community";
+import { communityApi, timeAgo, type CommunityAccess, type CommunitySidebar } from "../lib/community";
 import { subscribeRealtime } from "../lib/realtime";
 import { Card } from "./ui";
-import { Avatar, RoleBadge } from "./community-common";
+import { Avatar, OpenProfileContext, RoleBadge } from "./community-common";
+import { MemberProfileModal } from "./community-profile";
 import { FeedView, type Me } from "./community-feed";
 import { CommunityChat } from "./community-chat";
 import { CommunityAdmin } from "./community-admin";
 
-type Tab = "feed" | "saved" | "mine" | "chat" | "admin";
+type Tab = "feed" | "saved" | "mine" | "chat" | "notifs" | "admin";
 
 const ROLE_FILTERS: { key: string; label: string; roles: string[] }[] = [
   { key: "all", label: "الكل", roles: [] },
@@ -36,6 +38,10 @@ export function CommunityScreen() {
   const [denied, setDenied] = useState(false);
   const [side, setSide] = useState<CommunitySidebar | null>(null);
   const [feedDot, setFeedDot] = useState(false);
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const { notifications, fetchNotifications, markNotificationRead } = usePlatformStore();
+  const communityNotifs = notifications.filter((n) => n.type.startsWith("community"));
+  const notifDot = communityNotifs.filter((n) => !n.readAt).length;
 
   const loadAccess = useCallback(() => {
     communityApi.access().then((a) => { setAccess(a); setDenied(!a.visible); }).catch(() => setDenied(true));
@@ -56,6 +62,7 @@ export function CommunityScreen() {
     if (event === "community:post" && data?.authorId !== user?.id) setFeedDot(true);
   }), [user?.id]);
   useEffect(() => { if (tab === "feed") setFeedDot(false); }, [tab]);
+  useEffect(() => { if (tab === "notifs") fetchNotifications().catch(() => {}); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const role = ((user?.role ?? "STUDENT") as UserRole);
   const me: Me | null = user ? { id: user.id, fullName: user.fullName, role: user.role, avatarUrl: (user as { avatarUrl?: string | null }).avatarUrl ?? null } : null;
@@ -67,6 +74,7 @@ export function CommunityScreen() {
     { key: "saved", label: "المحفوظات", icon: Bookmark },
     { key: "mine", label: "منشوراتي", icon: UserRound },
     { key: "chat", label: "شات المجتمع", icon: MessageCircle },
+    { key: "notifs", label: "الإشعارات", icon: Bell },
     ...(access?.canModerate ? [{ key: "admin" as Tab, label: "الإدارة", icon: ShieldCheck }] : []),
   ];
 
@@ -82,6 +90,7 @@ export function CommunityScreen() {
       ) : !access || !me ? (
         <p className="py-12 text-center text-sm text-muted-foreground">{t("جاري التحميل...")}</p>
       ) : (
+        <OpenProfileContext.Provider value={setProfileId}>
         <div className="grid gap-4 pb-24 lg:grid-cols-[200px_minmax(0,1fr)] lg:pb-0 xl:grid-cols-[200px_minmax(0,1fr)_290px]">
           {/* ── Left nav (desktop) ── */}
           <aside className="hidden lg:block">
@@ -90,6 +99,9 @@ export function CommunityScreen() {
                 <button key={n.key} onClick={() => { setTab(n.key); setTag(""); }}
                   className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${tab === n.key ? "bg-brand text-white shadow" : "text-muted-foreground hover:bg-muted"}`}>
                   <n.icon className="size-[18px]" /> {t(n.label)}
+                  {n.key === "notifs" && notifDot > 0 && (
+                    <span className="ms-auto rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{notifDot}</span>
+                  )}
                 </button>
               ))}
               {tab === "feed" && (
@@ -130,6 +142,31 @@ export function CommunityScreen() {
               />
             )}
             {tab === "chat" && <CommunityChat me={me} access={access} />}
+            {tab === "notifs" && (
+              <Card className="p-0">
+                <p className="border-b border-border px-4 py-3 text-sm font-bold">{t("إشعارات المجتمع")}</p>
+                {communityNotifs.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{t("لا إشعارات بعد")}</p>}
+                <div className="divide-y divide-border">
+                  {communityNotifs.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => {
+                        markNotificationRead(n.id).catch(() => {});
+                        if (n.link) window.location.href = n.link;
+                      }}
+                      className="flex w-full items-start gap-3 px-4 py-3 text-start transition hover:bg-muted/40"
+                    >
+                      <span className={`mt-1 size-2 shrink-0 rounded-full ${n.readAt ? "bg-transparent" : "bg-brand"}`} />
+                      <span className="min-w-0 flex-1">
+                        <b className="block truncate text-sm">{n.title}</b>
+                        {n.body && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</p>}
+                        <small className="mt-0.5 block text-[10px] text-muted-foreground">{timeAgo(n.createdAt)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
             {tab === "admin" && access.canModerate && <CommunityAdmin onAccessChange={loadAccess} />}
           </main>
 
@@ -181,7 +218,10 @@ export function CommunityScreen() {
             </Card>
           </aside>
         </div>
+        </OpenProfileContext.Provider>
       )}
+
+      {profileId && createPortal(<MemberProfileModal userId={profileId} onClose={() => setProfileId(null)} />, document.body)}
 
       {/* ── Mobile bottom nav: icons only, active tab inside a circle ──
           Rendered via portal: the <main> ancestor has an enter animation with
@@ -214,6 +254,11 @@ export function CommunityScreen() {
                   {active && <span className="absolute -top-0.5 size-1.5 rounded-full bg-brand" />}
                   {n.key === "feed" && feedDot && (
                     <span className="absolute -end-0.5 top-0.5 size-2.5 animate-pulse rounded-full bg-danger shadow ring-2 ring-card" />
+                  )}
+                  {n.key === "notifs" && notifDot > 0 && (
+                    <span className="absolute -end-0.5 top-0 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white shadow">
+                      {notifDot}
+                    </span>
                   )}
                   {n.key === "chat" && (side?.onlineCount ?? 0) > 0 && (
                     <span className="absolute -end-0.5 top-0 grid min-w-5 place-items-center rounded-full bg-sage px-1 text-[10px] font-bold text-white shadow">

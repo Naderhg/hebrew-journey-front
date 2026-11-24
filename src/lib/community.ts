@@ -90,7 +90,22 @@ export interface CommunityMessage {
   mediaUrl: string | null;
   fileName: string | null;
   mimeType: string | null;
+  replyTo: { id: string; content: string; type: string; fileName: string | null; author: CommunityAuthor } | null;
+  isPinned: boolean;
   createdAt: string;
+  reactions: { byEmoji: Record<string, number>; total: number };
+  myReaction: string | null;
+}
+
+export interface CommunityMember {
+  id: string;
+  fullName: string;
+  role: string;
+  avatarUrl: string | null;
+  learningLanguage: string | null;
+  level: string | null;
+  createdAt: string;
+  stats: { posts: number; comments: number; reactions: number };
 }
 
 export interface CommunitySidebar {
@@ -161,6 +176,9 @@ export const communityApi = {
   addStory: (mediaUrl: string, caption?: string) =>
     apiFetch<{ story: CommunityStory }>(`${B}/stories`, { method: "POST", body: { mediaUrl, ...(caption ? { caption } : {}) } }),
   deleteStory: (id: string) => apiFetch<void>(`${B}/stories/${id}`, { method: "DELETE" }),
+  memberProfile: (id: string) => apiFetch<{ member: CommunityMember; posts: CommunityPost[] }>(`${B}/members/${id}`),
+  translate: (text: string, target = "ar") =>
+    apiFetch<{ translated: string; source: string }>(`${B}/translate?text=${encodeURIComponent(text)}&target=${target}`),
   comments: (postId: string, cursor?: string | null) =>
     apiFetch<{ comments: CommunityComment[]; total: number; nextCursor: string | null }>(
       `${B}/posts/${postId}/comments${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`
@@ -179,10 +197,14 @@ export const communityApi = {
   sidebar: () => apiFetch<CommunitySidebar>(`${B}/sidebar`),
   mentions: (q: string) => apiFetch<{ users: { id: string; fullName: string; role: string; avatarUrl?: string | null }[] }>(`${B}/mentions?q=${encodeURIComponent(q)}`),
   chatMessages: (before?: string | null) =>
-    apiFetch<{ messages: CommunityMessage[]; hasMore: boolean }>(`${B}/chat/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`),
-  sendChat: (body: { content: string; type: CommunityMessage["type"]; mediaUrl?: string; fileName?: string; mimeType?: string }) =>
+    apiFetch<{ messages: CommunityMessage[]; hasMore: boolean; pinned: CommunityMessage | null }>(`${B}/chat/messages${before ? `?before=${encodeURIComponent(before)}` : ""}`),
+  sendChat: (body: { content: string; type: CommunityMessage["type"]; mediaUrl?: string; fileName?: string; mimeType?: string; replyToId?: string }) =>
     apiFetch<{ message: CommunityMessage }>(`${B}/chat/messages`, { method: "POST", body }),
   deleteChat: (id: string) => apiFetch<void>(`${B}/chat/messages/${id}`, { method: "DELETE" }),
+  reactChat: (id: string, emoji: string | null) =>
+    apiFetch<{ reactions: { byEmoji: Record<string, number>; total: number }; myReaction: string | null }>(`${B}/chat/messages/${id}/react`, { method: "POST", body: { emoji } }),
+  pinChat: (id: string) => apiFetch<{ pinned: CommunityMessage | null }>(`${B}/chat/messages/${id}/pin`, { method: "POST" }),
+  sendTyping: () => apiFetch<void>(`${B}/chat/typing`, { method: "POST" }),
   // admin
   getSettings: () => apiFetch<{ settings: CommunitySettingsView }>(`${B}/admin/settings`),
   saveSettings: (body: Partial<CommunitySettingsView>) =>

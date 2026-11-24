@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { mediaSrc } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { Badge } from "./ui";
@@ -15,15 +15,32 @@ export const ROLE_META: Record<string, { label: string; tone: "brand" | "sage" |
 
 const AVATAR_TONES = ["bg-brand/15 text-brand", "bg-sage/20 text-sage", "bg-gold/20 text-gold", "bg-brand2/15 text-brand2", "bg-blue-100 text-blue-700", "bg-rose-100 text-rose-700"];
 
-export function Avatar({ user, size = 40 }: { user: { id: string; fullName: string; avatarUrl?: string | null }; size?: number }) {
+// Set by CommunityScreen — lets any avatar/name open the member profile modal.
+export const OpenProfileContext = createContext<((userId: string) => void) | null>(null);
+export const useOpenProfile = () => useContext(OpenProfileContext);
+
+export function Avatar({ user, size = 40, clickable = true }: { user: { id: string; fullName: string; avatarUrl?: string | null }; size?: number; clickable?: boolean }) {
+  const open = useOpenProfile();
   const tone = AVATAR_TONES[[...user.id].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_TONES.length]!;
   const style = { width: size, height: size, fontSize: size * 0.4 };
-  if (user.avatarUrl) {
-    return <img src={mediaSrc(user.avatarUrl)} alt={user.fullName} style={style} className="shrink-0 rounded-full object-cover" />;
-  }
-  return (
-    <span style={style} className={`grid shrink-0 place-items-center rounded-full font-bold ${tone}`}>
+  const inner = user.avatarUrl ? (
+    <img src={mediaSrc(user.avatarUrl)} alt={user.fullName} style={style} className="rounded-full object-cover" />
+  ) : (
+    <span style={style} className={`grid place-items-center rounded-full font-bold ${tone}`}>
       {user.fullName.trim().charAt(0) || "?"}
+    </span>
+  );
+  if (!clickable || !open) return <span className="shrink-0">{inner}</span>;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      title={user.fullName}
+      onClick={(e) => { e.stopPropagation(); open(user.id); }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); open(user.id); } }}
+      className="shrink-0 cursor-pointer transition hover:opacity-80"
+    >
+      {inner}
     </span>
   );
 }
@@ -41,9 +58,15 @@ export function LangChip({ lang }: { lang?: string | null | undefined }) {
 }
 
 export function AuthorLine({ author }: { author: CommunityAuthor }) {
+  const open = useOpenProfile();
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      <b className="text-sm">{author.fullName}</b>
+      <b
+        className={`text-sm ${open ? "cursor-pointer hover:underline" : ""}`}
+        onClick={open ? (e) => { e.stopPropagation(); open(author.id); } : undefined}
+      >
+        {author.fullName}
+      </b>
       <RoleBadge role={author.role} />
       {author.role === "STUDENT" && <LangChip lang={author.learningLanguage} />}
     </span>
@@ -54,6 +77,7 @@ export function AuthorLine({ author }: { author: CommunityAuthor }) {
 const TOKEN_RE = /(@\[[^\]]+\]\([0-9a-fA-F-]{36}\))|(#[\p{L}\p{N}_]{2,40})|(https?:\/\/[^\s]+)/gu;
 
 export function RichText({ text, onTag }: { text: string; onTag?: (tag: string) => void }) {
+  const open = useOpenProfile();
   const out: ReactNode[] = [];
   let last = 0;
   let i = 0;
@@ -63,7 +87,16 @@ export function RichText({ text, onTag }: { text: string; onTag?: (tag: string) 
     const [full, mention, tag, url] = m;
     if (mention) {
       const name = mention.slice(2, mention.indexOf("]"));
-      out.push(<span key={i++} className="rounded bg-brand/10 px-1 font-semibold text-brand">@{name}</span>);
+      const id = mention.slice(mention.indexOf("(") + 1, -1);
+      out.push(
+        <span
+          key={i++}
+          className={`rounded bg-brand/10 px-1 font-semibold text-brand ${open ? "cursor-pointer hover:bg-brand/20" : ""}`}
+          onClick={open ? (e) => { e.stopPropagation(); open(id); } : undefined}
+        >
+          @{name}
+        </span>
+      );
     } else if (tag) {
       out.push(
         <button key={i++} type="button" onClick={() => onTag?.(tag)} className="font-semibold text-brand hover:underline">{tag}</button>

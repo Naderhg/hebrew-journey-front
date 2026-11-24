@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Flag,
   ImagePlus,
+  Languages,
   Link2,
   MessageCircle,
   MoreHorizontal,
@@ -50,6 +51,8 @@ export interface Me {
 }
 
 const EMOJIS = ["😊", "😂", "❤️", "👍", "🙏", "🔥", "🎉", "💡", "👏", "😍", "🤔", "😢"];
+const EMOJI_ONLY_RE = /^[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D\s]{1,16}$/u;
+const isEmojiOnly = (s: string) => EMOJI_ONLY_RE.test(s.trim());
 
 // ─── @mention aware textarea ─────────────────────────────────────────────────
 // The visible text keeps "@Name"; names are mapped to ids and converted to
@@ -327,7 +330,7 @@ function CommentItem({
               </div>
             </div>
           ) : (
-            <p className="mt-0.5 text-sm"><RichText text={c.content} /></p>
+            <p className={`mt-0.5 ${isEmojiOnly(c.content) ? "text-3xl leading-tight" : "text-sm"}`}><RichText text={c.content} /></p>
           )}
           {c.reactions.total > 0 && (
             <span className="absolute -bottom-2 end-2 flex items-center gap-1 rounded-full border border-border bg-background px-1.5 py-0.5 text-[11px] shadow-sm">
@@ -372,6 +375,7 @@ function CommentsSection({ post, me, canModerate, onCount }: { post: CommunityPo
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Record<string, string>>({});
   const [replyTo, setReplyTo] = useState<CommunityComment | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const countRef = useRef(post.commentsCount);
@@ -458,12 +462,20 @@ function CommentsSection({ post, me, canModerate, onCount }: { post: CommunityPo
               <button onClick={() => { setReplyTo(null); setText(""); }}><X className="size-3.5" /></button>
             </div>
           )}
-          <div className="flex items-end gap-1 rounded-2xl bg-muted px-3 py-1.5">
+          <div className="relative flex items-end gap-1 rounded-2xl bg-muted px-3 py-1.5">
             <div className="min-w-0 flex-1">
               <MentionTextarea value={text} onChange={setText} mentions={mentions} setMentions={setMentions}
                 placeholder={t("اكتب تعليقاً...")} rows={1} onEnter={send} className="text-sm" />
             </div>
+            <button onClick={() => setEmojiOpen((v) => !v)} title={t("إيموجي")} className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-background active:scale-90"><Smile className="size-4" /></button>
             <button onClick={send} disabled={!text.trim() || sending} className="grid size-8 shrink-0 place-items-center rounded-full bg-brand text-white transition active:scale-90 disabled:opacity-40"><Send className="size-4" /></button>
+            {emojiOpen && (
+              <div className="absolute bottom-full end-0 z-30 mb-1 grid w-52 grid-cols-6 gap-1 rounded-xl border border-border bg-background p-2 shadow-xl">
+                {EMOJIS.map((e) => (
+                  <button key={e} onClick={() => { setText((v) => v + e); setEmojiOpen(false); }} className="grid size-7 place-items-center rounded text-xl hover:bg-muted">{e}</button>
+                ))}
+              </div>
+            )}
           </div>
           {error && <p className="mt-1 text-[11px] font-semibold text-danger">{error}</p>}
         </div>
@@ -498,6 +510,8 @@ export function PostCard({
   const [shareOpen, setShareOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
   const mine = post.author.id === me.id;
   const long = post.content.length > 420 && !expanded;
 
@@ -628,6 +642,32 @@ export function PostCard({
               )}
             </div>
           )
+        )}
+
+        {!editing && post.content && (
+          <div className="mt-1.5">
+            {translated ? (
+              <div className="rounded-xl bg-brand/5 px-3 py-2 text-sm leading-6 text-ink">
+                <p className="text-[10px] font-bold text-brand">{t("الترجمة العربية")}</p>
+                <p className="mt-0.5 whitespace-pre-wrap" dir="auto">{translated}</p>
+                <button onClick={() => setTranslated(null)} className="mt-1 text-[10px] font-semibold text-muted-foreground hover:underline">{t("إخفاء الترجمة")}</button>
+              </div>
+            ) : (
+              <button
+                onClick={async () => {
+                  setTranslating(true);
+                  try {
+                    const r = await communityApi.translate(post.content.slice(0, 1500));
+                    setTranslated(r.translated);
+                  } catch { setTranslated(t("تعذرت الترجمة")); } finally { setTranslating(false); }
+                }}
+                disabled={translating}
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition hover:text-brand"
+              >
+                <Languages className="size-3.5" /> {translating ? t("جاري الترجمة...") : t("عرض الترجمة")}
+              </button>
+            )}
+          </div>
         )}
 
         {imgs.length > 0 && (

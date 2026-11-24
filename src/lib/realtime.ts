@@ -40,10 +40,16 @@ function wsUrl(): string | null {
   const token = getAccessToken();
   if (!token || typeof window === "undefined") return null;
   let base: string;
-  if (API_URL) {
+  const explicitWs = import.meta.env["VITE_WS_URL"] as string | undefined;
+  if (explicitWs) {
+    base = explicitWs.replace(/^http/, "ws");
+  } else if (API_URL) {
     base = API_URL.replace(/^http/, "ws");
+  } else if (window.location.protocol === "https:") {
+    // Same-origin WS doesn't work behind Vercel rewrites — hit the VPS SSL host directly.
+    base = "wss://162.35.184.86.sslip.io";
   } else {
-    base = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+    base = `ws://${window.location.host}`;
   }
   return `${base}/ws?token=${encodeURIComponent(token)}`;
 }

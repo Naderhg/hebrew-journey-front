@@ -51,7 +51,14 @@ function StudentWalletPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const studentLang = user?.learningLanguage === "english" ? "english" : "hebrew";
+  const [pkgCategory, setPkgCategory] = useState<"all" | "basic" | "calls">("all");
   const visiblePackages = publicPackages.filter((p) => (p.language ?? "hebrew") === studentLang);
+  const categoryTabs: { key: "all" | "basic" | "calls"; label: string }[] = [
+    { key: "all", label: t("الكل") },
+    ...(visiblePackages.some((p) => (p.category ?? "basic") === "basic") ? [{ key: "basic" as const, label: t("باقات أساسية") }] : []),
+    ...(visiblePackages.some((p) => p.category === "calls") ? [{ key: "calls" as const, label: t("باقات مكالمات")} ] : []),
+  ];
+  const filteredPackages = pkgCategory === "all" ? visiblePackages : visiblePackages.filter((p) => (p.category ?? "basic") === pkgCategory);
 
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
@@ -68,7 +75,7 @@ function StudentWalletPage() {
 
   const active = studentWallet.find((w) => w.status === "ACTIVE") ?? studentWallet[0];
   const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
-  const selectedPkg = visiblePackages.find((p) => p.id === selectedPkgId) ?? null;
+  const selectedPkg = filteredPackages.find((p) => p.id === selectedPkgId) ?? null;
 
   const overview = [
     { label: t("إجمالي الحصص"), value: active?.sessionsTotal ?? 0, icon: CalendarCheck, tone: "text-brand bg-brand/10" },
@@ -219,12 +226,29 @@ function StudentWalletPage() {
               {t("لديك طلب اشتراك قيد المراجعة")} ({pendingReq.package?.nameAr}) — {t("هيتم تفعيله فور تأكيد الدفع.")}
             </p>
           )}
+          {categoryTabs.length > 2 && (
+            <div className="mt-3 flex gap-1">
+              {categoryTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => { setPkgCategory(tab.key); setSelectedPkgId(null); setMethod(null); setShot(null); setPkgError(""); }}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${pkgCategory === tab.key ? "bg-brand text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visiblePackages.map((pkg) => (
+            {filteredPackages.map((pkg) => (
               <div key={pkg.id} className={`flex flex-col rounded-2xl border p-4 ${selectedPkgId === pkg.id ? "border-brand bg-brand/5" : "border-border bg-background/60"}`}>
                 <div className="flex items-start justify-between gap-2">
                   <b className="text-sm">{pkg.nameAr}</b>
-                  <Badge tone="muted">{pkg.language === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge tone="muted">{pkg.language === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
+                    <Badge tone={pkg.category === "calls" ? "gold" : "brand"}>{pkg.category === "calls" ? t("مكالمات") : t("أساسية")}</Badge>
+                  </div>
                 </div>
                 <p className="mt-2 text-xl font-bold text-brand">
                   {pkg.price} <span className="text-xs font-normal text-muted-foreground">{t("ج.م")}</span>
@@ -249,8 +273,10 @@ function StudentWalletPage() {
                 </Button>
               </div>
             ))}
-            {visiblePackages.length === 0 && (
-              <p className="col-span-full py-6 text-center text-sm text-muted-foreground">{t("لا توجد باقات متاحة حالياً.")}</p>
+            {filteredPackages.length === 0 && (
+              <p className="col-span-full py-6 text-center text-sm text-muted-foreground">
+                {pkgCategory !== "all" ? t("لا توجد باقات في هذه الفئة حالياً.") : t("لا توجد باقات متاحة حالياً.")}
+              </p>
             )}
           </div>
 

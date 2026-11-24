@@ -8307,7 +8307,14 @@ export function SubscribeScreen() {
   } = usePlatformStore();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const studentLang = user?.learningLanguage === "english" ? "english" : "hebrew";
+  const [pkgCategory, setPkgCategory] = useState<"all" | "basic" | "calls">("all");
   const visiblePackages = publicPackages.filter((pkg) => (pkg.language ?? "hebrew") === studentLang);
+  const categoryTabs: { key: "all" | "basic" | "calls"; label: string }[] = [
+    { key: "all", label: t("الكل") },
+    ...(visiblePackages.some((p) => (p.category ?? "basic") === "basic") ? [{ key: "basic" as const, label: t("باقات أساسية") }] : []),
+    ...(visiblePackages.some((p) => p.category === "calls") ? [{ key: "calls" as const, label: t("باقات مكالمات")} ] : []),
+  ];
+  const filteredPackages = pkgCategory === "all" ? visiblePackages : visiblePackages.filter((p) => (p.category ?? "basic") === pkgCategory);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
   const [shot, setShot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -8316,7 +8323,7 @@ export function SubscribeScreen() {
 
   const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
   const lastRejected = myPaymentRequests.find((r) => r.status === "rejected");
-  const selectedPkg = visiblePackages.find((p) => p.id === selectedPkgId) ?? null;
+  const selectedPkg = filteredPackages.find((p) => p.id === selectedPkgId) ?? null;
 
   useEffect(() => {
     fetchPublicPackages().catch(() => {});
@@ -8431,17 +8438,32 @@ export function SubscribeScreen() {
             </Card>
           )}
 
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-muted-foreground">{t("الباقات المتاحه")}:</span>
             <Badge tone="brand">{studentLang === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
+            {categoryTabs.length > 2 && (
+              <div className="ms-2 flex gap-1">
+                {categoryTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => { setPkgCategory(tab.key); setSelectedPkgId(null); setMethod(null); setShot(null); }}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${pkgCategory === tab.key ? "bg-brand text-white" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visiblePackages.map((pkg) => (
+            {filteredPackages.map((pkg) => (
               <Card key={pkg.id} className="flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <b>{pkg.nameAr}</b>
                   <div className="flex items-center gap-1">
                     <Badge tone="muted">{pkg.language === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
+                    <Badge tone={pkg.category === "calls" ? "gold" : "brand"}>{pkg.category === "calls" ? t("مكالمات") : t("أساسية")}</Badge>
                   <Badge tone="brand">{pkg.durationMonths === 1 ? t("شهرياً") : `${pkg.durationMonths} ${t("شهور")}`}</Badge>
                   </div>
                 </div>
@@ -8486,11 +8508,13 @@ export function SubscribeScreen() {
                 </Button>
               </Card>
             ))}
-            {visiblePackages.length === 0 && (
+            {filteredPackages.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                {studentLang === "english"
-                  ? t("لا توجد باقات إنجليزية متاحة حالياً — تواصل مع الدعم لاختيار باقة.")
-                  : t("لا توجد باقات عبرية متاحة حالياً.")}
+                {pkgCategory !== "all"
+                  ? t("لا توجد باقات في هذه الفئة حالياً.")
+                  : studentLang === "english"
+                    ? t("لا توجد باقات إنجليزية متاحة حالياً — تواصل مع الدعم لاختيار باقة.")
+                    : t("لا توجد باقات عبرية متاحة حالياً.")}
               </p>
             )}
           </div>

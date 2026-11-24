@@ -87,7 +87,7 @@ import {
 } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 import { ROLE_LABELS, updateProfile, type UserRole } from "../lib/auth";
-import { SERVER_CONFIG, mediaSrc } from "../lib/api";
+import { SERVER_CONFIG, apiFetch, mediaSrc } from "../lib/api";
 import { onChatEvent } from "../lib/realtime";
 import { exportToExcel, excelStamp } from "../lib/excel";
 
@@ -3048,6 +3048,7 @@ export type AdminSection =
   | "certificates"
   | "schedules"
   | "analytics"
+  | "health"
   | "guide";
 
 export function AdminScreen() {
@@ -5681,6 +5682,8 @@ export function AdminScreen() {
         />
       )}
 
+      {activeSection === "health" && <AdminMeetingsHealthSection />}
+
       {activeSection === "guide" && <AdminGuideSection />}
 
       {profileView?.type === "teacher" && (
@@ -5733,6 +5736,180 @@ function GuideBlock({ icon: Icon, title, children, tone = "brand" }: {
       </div>
       <div className="mt-3 space-y-2 text-sm leading-7 text-foreground/90">{children}</div>
     </Card>
+  );
+}
+
+// ─── Meetings health: Zoom status + non-Zoom lecture links ──────────────────
+interface ZoomHealth {
+  configured: boolean;
+  missingVars: string[];
+  tokenOk: boolean;
+  apiOk: boolean;
+  accountUser?: string;
+  error: string | null;
+}
+interface MeetingIssue {
+  kind: "lecture" | "free_lecture" | "schedule" | "booking";
+  id: string;
+  title: string;
+  when: string | null;
+  scheduleLabel?: string;
+  teacher: string;
+  url: string | null;
+  issue: "missing" | "jitsi" | "other";
+}
+
+function AdminMeetingsHealthSection() {
+  const { t } = useI18n();
+  const [health, setHealth] = useState<ZoomHealth | null>(null);
+  const [issues, setIssues] = useState<MeetingIssue[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [bulk, setBulk] = useState(false);
+  const [results, setResults] = useState<Record<string, { ok?: boolean; error?: string }>>({});
+
+  const load = () => {
+    apiFetch<{ health: ZoomHealth }>("/api/ops/meetings/health")
+      .then((r) => setHealth(r.health))
+      .catch((e) => setHealth({ configured: false, missingVars: [], tokenOk: false, apiOk: false, error: e instanceof Error ? e.message : "تعذر الاتصال" }));
+    apiFetch<{ issues: MeetingIssue[] }>("/api/ops/meetings/issues")
+      .then((r) => setIssues(r.issues))
+      .catch(() => setIssues([]));
+  };
+  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const KIND_LABEL: Record<MeetingIssue["kind"], string> = {
+    lecture: t("محاضرة"),
+    free_lecture: t("محاضرة مجانية"),
+    schedule: t("موعد أسبوعي"),
+    booking: t("حصة فردية"),
+  };
+  const ISSUE_LABEL: Record<MeetingIssue["issue"], { label: string; tone: string }> = {
+    missing: { label: t("بدون رابط"), tone: "bg-danger/10 text-danger" },
+    jitsi: { label: t("رابط Jitsi"), tone: "bg-amber-100 text-amber-700" },
+    other: { label: t("رابط خارجي"), tone: "bg-blue-100 text-blue-700" },
+  };
+  const rowKey = (x: MeetingIssue) => `${x.kind}:${x.id}`;
+
+  async function regen(x: MeetingIssue): Promise<boolean> {
+    setBusy(rowKey(x));
+    try {
+      await apiFetch<{ url: string }>("/api/ops/meetings/regenerate", { method: "POST", body: { kind: x.kind, id: x.id } });
+      setResults((m) => ({ ...m, [rowKey(x)]: { ok: true } }));
+      setIssues((p) => (p ? p.filter((i) => rowKey(i) !== rowKey(x)) : p));
+      return true;
+    } catch (e) {
+      setResults((m) => ({ ...m, [rowKey(x)]: { error: e instanceof Error ? e.message : t("فشل") } }));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function regenAll() {
+    if (!issues?.length) return;
+    setBulk(true);
+    for (const x of issues) {
+      // eslint-disable-next-line no-await-in-loop
+      await regen(x);
+    }
+    setBulk(false);
+  }
+
+  const check = (ok: boolean, label: string, extra?: string) => (
+    <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
+      <span className={`grid size-6 place-items-center rounded-full text-xs ${ok ? "bg-sage/20 text-sage" : "bg-danger/15 text-danger"}`}>{ok ? "✓" : "✕"}</span>
+      <span className="text-sm font-semibold">{label}</span>
+      {extra && <span className="ms-auto text-xs text-muted-foreground">{extra}</span>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Zoom diagnostics */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 font-bold">
+            <Video className="size-5 text-brand" /> {t("حالة اتصال Zoom")}
+          </h3>
+          <Button variant="secondary" className="min-h-9 gap-1.5 px-3 text-xs" onClick={load}>
+            <RefreshCw className="size-3.5" /> {t("تحديث")}
+          </Button>
+        </div>
+        {!health ? (
+          <p className="mt-3 text-sm text-muted-foreground">{t("جاري الفحص...")}</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {check(health.configured, t("بيانات اعتماد Zoom في الخادم"), health.missingVars.length ? `${t("ناقص")}: ${health.missingVars.join(", ")}` : t("موجودة"))}
+            {check(health.tokenOk, t("الحصول على Access Token"))}
+            {check(health.apiOk, t("Zoom API يستجيب"), health.accountUser)}
+            {health.error && (
+              <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm">
+                <p className="font-bold text-danger">{t("المشكلة")}: {health.error}</p>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {t("الحل:")} {!health.configured
+                    ? t("أضف ZOOM_ACCOUNT_ID و ZOOM_CLIENT_ID و ZOOM_CLIENT_SECRET في ملف .env على السيرفر ثم أعد تشغيل الباك (pm2 restart).")
+                    : !health.tokenOk
+                      ? t("بيانات الاعتماد غير صالحة — راجع Client ID/Secret/Account ID من Zoom Marketplace (Server-to-Server OAuth app) وحدّثها في .env.")
+                      : t("التوكن شغال لكن Zoom API رافض — راجع صلاحيات التطبيق (meeting:write) في Zoom Marketplace.")}
+                </p>
+              </div>
+            )}
+            {health.configured && health.tokenOk && health.apiOk && (
+              <p className="rounded-lg bg-sage/10 p-3 text-sm font-semibold text-sage">✓ {t("Zoom يعمل بشكل سليم — أي محاضرة جديدة ستأخذ رابط زووم تلقائياً")}</p>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Non-Zoom links */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold">{t("محاضرات قادمة بدون رابط Zoom")} {issues && `(${issues.length})`}</h3>
+          {(issues?.length ?? 0) > 1 && (
+            <Button variant="secondary" className="min-h-9 gap-1.5 px-3 text-xs" disabled={bulk || !health?.apiOk} onClick={regenAll}>
+              {bulk ? t("جاري التوليد...") : t("توليد رابط زووم للكل")}
+            </Button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("المحاضرات والمواعيد القادمة اللي رابطها مش زووم (Jitsi أو فارغ). لو زووم شغال هيتبدّل الرابط فوراً ويوصل للطالب.")}
+        </p>
+
+        {!issues ? (
+          <p className="mt-4 text-sm text-muted-foreground">{t("جاري التحميل...")}</p>
+        ) : issues.length === 0 ? (
+          <p className="mt-4 rounded-lg bg-sage/10 p-4 text-center text-sm font-semibold text-sage">✓ {t("ممتاز — كل المحاضرات القادمة عندها رابط زووم")}</p>
+        ) : (
+          <div className="mt-3 divide-y divide-border">
+            {issues.map((x) => {
+              const key = rowKey(x);
+              const res = results[key];
+              return (
+                <div key={key} className="flex flex-wrap items-center gap-3 py-3">
+                  <span className="rounded-lg bg-muted px-2 py-1 text-[10px] font-bold text-muted-foreground">{KIND_LABEL[x.kind]}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold">{x.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {x.teacher} · {x.when ? new Date(x.when).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }) : x.scheduleLabel}
+                    </p>
+                    {x.url && (
+                      <a href={x.url} target="_blank" rel="noreferrer" className="mt-0.5 flex items-center gap-1 text-[11px] text-brand hover:underline">
+                        <ExternalLink className="size-3" /> <span className="max-w-72 truncate">{x.url}</span>
+                      </a>
+                    )}
+                    {res?.error && <p className="mt-1 text-[11px] font-semibold text-danger">{res.error}</p>}
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${ISSUE_LABEL[x.issue].tone}`}>{ISSUE_LABEL[x.issue].label}</span>
+                  <Button className="min-h-9 px-3 text-xs" disabled={busy === key || bulk} onClick={() => void regen(x)}>
+                    {busy === key ? t("...") : t("توليد زووم")}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 

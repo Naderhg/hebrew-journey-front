@@ -126,11 +126,18 @@ export async function apiFetch<T = unknown>(path: string, options: FetchOptions 
 export { API_URL };
 
 const STORAGE_HOST_PREFIX = "http://209.159.159.106";
+const API_IP_PREFIX = "http://162.35.184.86";
+const API_IP_SECURE_HOST = "https://api.162.35.184.86.sslip.io";
 
 export function mediaSrc(url: string): string {
   if (!url) return url;
   if (isBrowserOnHttps && url.startsWith(STORAGE_HOST_PREFIX)) {
     return `/storage${url.slice(STORAGE_HOST_PREFIX.length)}`;
+  }
+  // Files stored on the API VPS itself (local-disk fallback) must load over
+  // HTTPS — the raw http://IP URL gets blocked as mixed content.
+  if (isBrowserOnHttps && url.startsWith(API_IP_PREFIX)) {
+    return `${API_IP_SECURE_HOST}${url.slice(API_IP_PREFIX.length)}`;
   }
   return url;
 }

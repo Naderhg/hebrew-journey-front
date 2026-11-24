@@ -22,6 +22,7 @@ import {
   GraduationCap,
   Gift,
   Headphones,
+  HeartPulse,
   LayoutDashboard,
   Library,
   LogOut,
@@ -209,6 +210,7 @@ const adminNav: readonly NavEntry[] = [
 
 // SUPER_ADMIN only — private workspace (notes/pages)
 const superAdminNav: readonly NavEntry[] = [
+  { to: "/admin", section: "health", label: "صحة الروابط والنظام", icon: HeartPulse },
   ...adminNav,
   { to: "/workspace", label: "مساحتي", icon: StickyNote },
 ];

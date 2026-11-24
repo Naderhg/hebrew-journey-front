@@ -30,6 +30,7 @@ import {
   PhoneCall,
   RotateCcw,
   ShieldCheck,
+  StickyNote,
   TicketCheck,
   Upload,
   UserPlus,
@@ -202,6 +203,12 @@ const adminNav: readonly NavEntry[] = [
   { to: "/admin", section: "guide", label: "دليل المنصة", icon: BookOpen },
 ];
 
+// SUPER_ADMIN only — private workspace (notes/pages)
+const superAdminNav: readonly NavEntry[] = [
+  ...adminNav,
+  { to: "/workspace", label: "مساحتي", icon: StickyNote },
+];
+
 const placementOnlyNav: readonly SidebarItem[] = [
   { to: "/placement", label: "اختبار المستوى", icon: ClipboardCheck },
 ];
@@ -215,7 +222,7 @@ const roleNavigationMap: Record<UserRole, readonly NavEntry[]> = {
   STUDENT: studentNav,
   TEACHER: teacherNav,
   ADMIN: adminNav,
-  SUPER_ADMIN: adminNav,
+  SUPER_ADMIN: superAdminNav,
   SALES: [
     { to: "/sales", section: "followups", label: "متابعات اليوم", icon: PhoneCall },
     { to: "/sales", section: "leads", label: "العملاء المحتملون", icon: UsersRound },

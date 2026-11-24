@@ -1047,6 +1047,30 @@ export interface PublicPackage {
   sessionDurationMinutes?: number | null;
 }
 
+export interface WorkspacePageItem {
+  id: string;
+  title: string;
+  icon: string;
+  parentId: string | null;
+  position: number;
+  isPinned: boolean;
+  updatedAt: string;
+  _count?: { blocks: number };
+}
+
+export type WorkspaceBlockType = "text" | "heading" | "todo" | "link" | "image" | "file" | "divider";
+
+export interface WorkspaceBlock {
+  id: string;
+  pageId: string;
+  type: WorkspaceBlockType;
+  content: string;
+  checked: boolean;
+  mediaUrl: string | null;
+  fileName: string | null;
+  position: number;
+}
+
 export interface PublicTeacher {
   id: string;
   fullName: string;
@@ -1238,6 +1262,18 @@ interface PlatformStoreValue {
   fetchNotifications: () => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
+  // Workspace (super admin notes)
+  workspacePages: WorkspacePageItem[];
+  workspaceBlocks: WorkspaceBlock[];
+  fetchWorkspacePages: () => Promise<void>;
+  createWorkspacePage: (input: { title: string; icon?: string; parentId?: string | null }) => Promise<WorkspacePageItem | null>;
+  updateWorkspacePage: (id: string, input: { title?: string; icon?: string; parentId?: string | null; isPinned?: boolean }) => Promise<void>;
+  deleteWorkspacePage: (id: string) => Promise<void>;
+  fetchWorkspaceBlocks: (pageId: string) => Promise<void>;
+  createWorkspaceBlock: (input: { pageId: string; type: WorkspaceBlockType; content?: string; checked?: boolean; mediaUrl?: string; fileName?: string }) => Promise<WorkspaceBlock | null>;
+  updateWorkspaceBlock: (id: string, input: { type?: WorkspaceBlockType; content?: string; checked?: boolean; mediaUrl?: string | null; fileName?: string | null }) => Promise<void>;
+  deleteWorkspaceBlock: (id: string) => Promise<void>;
+  reorderWorkspaceBlocks: (pageId: string, blockIds: string[]) => Promise<void>;
   gradeHomeworkSubmission: (submissionId: string, input: { grade?: number; feedback?: string }) => Promise<void>;
   submitPlacementResult: (scorePercent: number, level: string, answers?: PlacementAnswerEntry[]) => Promise<void>;
   // Billing / bookings
@@ -1404,6 +1440,8 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   const [supportChatThreads, setSupportChatThreads] = useState<SupportChatThread[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [workspacePages, setWorkspacePages] = useState<WorkspacePageItem[]>([]);
+  const [workspaceBlocks, setWorkspaceBlocks] = useState<WorkspaceBlock[]>([]);
   const [myPaymentRequests, setMyPaymentRequests] = useState<PaymentRequestItem[]>([]);
   const [mySubscription, setMySubscription] = useState<MySubscription | null>(null);
   const [adminPaymentRequests, setAdminPaymentRequests] = useState<PaymentRequestItem[]>([]);
@@ -2299,6 +2337,89 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
   }
 
+  // ─── Workspace (super admin notes) ──────────────────────────────────────
+
+  async function fetchWorkspacePages() {
+    const res = await apiFetch<{ pages: WorkspacePageItem[] }>("/api/workspace/pages");
+    if (res?.pages) setWorkspacePages(res.pages);
+  }
+
+  async function createWorkspacePage(input: { title: string; icon?: string; parentId?: string | null }) {
+    const res = await apiFetch<{ page: WorkspacePageItem }>("/api/workspace/pages", { method: "POST", body: input });
+    if (res?.page) {
+      setWorkspacePages((prev) => [...prev, res.page]);
+      return res.page;
+    }
+    return null;
+  }
+
+  async function updateWorkspacePage(id: string, input: { title?: string; icon?: string; parentId?: string | null; isPinned?: boolean }) {
+    const res = await apiFetch<{ page: WorkspacePageItem }>(`/api/workspace/pages/${id}`, { method: "PATCH", body: input });
+    if (res?.page) {
+      setWorkspacePages((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? { ...p, ...res.page, ...(p._count ? { _count: p._count } : {}) }
+            : p
+        )
+      );
+    }
+  }
+
+  async function deleteWorkspacePage(id: string) {
+    await apiFetch(`/api/workspace/pages/${id}`, { method: "DELETE" });
+    setWorkspacePages((prev) => {
+      const doomed = new Set<string>([id]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const p of prev) {
+          if (p.parentId && doomed.has(p.parentId) && !doomed.has(p.id)) {
+            doomed.add(p.id);
+            grew = true;
+          }
+        }
+      }
+      return prev.filter((p) => !doomed.has(p.id));
+    });
+    setWorkspaceBlocks([]);
+  }
+
+  async function fetchWorkspaceBlocks(pageId: string) {
+    const res = await apiFetch<{ blocks: WorkspaceBlock[] }>(`/api/workspace/pages/${pageId}/blocks`);
+    if (res?.blocks) setWorkspaceBlocks(res.blocks);
+  }
+
+  async function createWorkspaceBlock(input: { pageId: string; type: WorkspaceBlockType; content?: string; checked?: boolean; mediaUrl?: string; fileName?: string }) {
+    const res = await apiFetch<{ block: WorkspaceBlock }>("/api/workspace/blocks", { method: "POST", body: input });
+    if (res?.block) {
+      setWorkspaceBlocks((prev) => [...prev, res.block]);
+      return res.block;
+    }
+    return null;
+  }
+
+  async function updateWorkspaceBlock(id: string, input: { type?: WorkspaceBlockType; content?: string; checked?: boolean; mediaUrl?: string | null; fileName?: string | null }) {
+    const res = await apiFetch<{ block: WorkspaceBlock }>(`/api/workspace/blocks/${id}`, { method: "PATCH", body: input });
+    if (res?.block) setWorkspaceBlocks((prev) => prev.map((b) => (b.id === id ? res.block : b)));
+  }
+
+  async function deleteWorkspaceBlock(id: string) {
+    await apiFetch(`/api/workspace/blocks/${id}`, { method: "DELETE" });
+    setWorkspaceBlocks((prev) => prev.filter((b) => b.id !== id));
+  }
+
+  async function reorderWorkspaceBlocks(pageId: string, blockIds: string[]) {
+    await apiFetch("/api/workspace/blocks/reorder", { method: "POST", body: { pageId, blockIds } });
+    setWorkspaceBlocks((prev) =>
+      [...prev].sort((a, b) => {
+        const ia = blockIds.indexOf(a.id);
+        const ib = blockIds.indexOf(b.id);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      })
+    );
+  }
+
   async function gradeHomeworkSubmission(submissionId: string, input: { grade?: number; feedback?: string }) {
     await apiFetch(`/api/teacher/homework/submissions/${submissionId}`, { method: "PATCH", body: input });
     const res = await apiFetch<{ homework: Homework[] }>("/api/teacher/homework");
@@ -2832,6 +2953,17 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchNotifications,
         markNotificationRead,
         markAllNotificationsRead,
+        workspacePages,
+        workspaceBlocks,
+        fetchWorkspacePages,
+        createWorkspacePage,
+        updateWorkspacePage,
+        deleteWorkspacePage,
+        fetchWorkspaceBlocks,
+        createWorkspaceBlock,
+        updateWorkspaceBlock,
+        deleteWorkspaceBlock,
+        reorderWorkspaceBlocks,
         gradeHomeworkSubmission,
         submitPlacementResult,
         fetchMyBilling,

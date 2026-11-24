@@ -35,6 +35,7 @@ import { Route as SubscribeRouteImport } from './routes/subscribe'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as WalletRouteImport } from './routes/wallet'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as PackagesTypeRouteImport } from './routes/packages.$type'
 
 const IndexRoute = IndexRouteImport.update({
@@ -167,6 +168,11 @@ const WalletRoute = WalletRouteImport.update({
   path: '/wallet',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PackagesTypeRoute = PackagesTypeRouteImport.update({
   id: '/packages/$type',
   path: '/packages/$type',
@@ -200,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
   '/wallet': typeof WalletRoute
+  '/workspace': typeof WorkspaceRoute
   '/packages/$type': typeof PackagesTypeRoute
 }
 export interface FileRoutesByTo {
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
   '/wallet': typeof WalletRoute
+  '/workspace': typeof WorkspaceRoute
   '/packages/$type': typeof PackagesTypeRoute
 }
 export interface FileRoutesById {
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/support': typeof SupportRoute
   '/teacher': typeof TeacherRoute
   '/wallet': typeof WalletRoute
+  '/workspace': typeof WorkspaceRoute
   '/packages/$type': typeof PackagesTypeRoute
 }
 export interface FileRouteTypes {
@@ -290,6 +299,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/teacher'
     | '/wallet'
+    | '/workspace'
     | '/packages/$type'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -319,6 +329,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/teacher'
     | '/wallet'
+    | '/workspace'
     | '/packages/$type'
   id:
     | '__root__'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/teacher'
     | '/wallet'
+    | '/workspace'
     | '/packages/$type'
   fileRoutesById: FileRoutesById
 }
@@ -378,6 +390,7 @@ export interface RootRouteChildren {
   SupportRoute: typeof SupportRoute
   TeacherRoute: typeof TeacherRoute
   WalletRoute: typeof WalletRoute
+  WorkspaceRoute: typeof WorkspaceRoute
   PackagesTypeRoute: typeof PackagesTypeRoute
 }
 
@@ -565,6 +578,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WalletRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/packages/$type': {
       id: '/packages/$type'
       path: '/packages/$type'
@@ -602,6 +622,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportRoute: SupportRoute,
   TeacherRoute: TeacherRoute,
   WalletRoute: WalletRoute,
+  WorkspaceRoute: WorkspaceRoute,
   PackagesTypeRoute: PackagesTypeRoute,
 }
 export const routeTree = rootRouteImport

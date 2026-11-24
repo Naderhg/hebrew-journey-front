@@ -47,7 +47,7 @@ function wsUrl(): string | null {
     base = API_URL.replace(/^http/, "ws");
   } else if (window.location.protocol === "https:") {
     // Same-origin WS doesn't work behind Vercel rewrites — hit the VPS SSL host directly.
-    base = "wss://162.35.184.86.sslip.io";
+    base = "wss://api.162.35.184.86.sslip.io";
   } else {
     base = `ws://${window.location.host}`;
   }

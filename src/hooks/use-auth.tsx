@@ -12,6 +12,7 @@ interface AuthContextValue {
     fullName: string;
     email?: string;
     locale?: string;
+    learningLanguage?: "hebrew" | "english";
   }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fullName: string;
     email?: string;
     locale?: string;
+    learningLanguage?: "hebrew" | "english";
   }) {
     const { user } = await registerFn(input);
     return user;

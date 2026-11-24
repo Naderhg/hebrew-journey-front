@@ -18,6 +18,7 @@ export interface PlatformUser {
   phone?: string | null;
   role: UserRole;
   level?: string;
+  learningLanguage?: string;
   specialty?: string;
   avatarUrl?: string | null;
   bio?: string | null;
@@ -70,6 +71,7 @@ export interface PlacementQuestion {
   paragraph?: string | null;
   audioUrl?: string | null;
   levelTag: PlatformLevel | string;
+  language?: "hebrew" | "english" | string;
   isActive: boolean;
 }
 
@@ -164,6 +166,7 @@ export interface TeacherStudent {
   email: string | null;
   phone?: string;
   level?: string;
+  learningLanguage?: string | null;
   createdAt: string;
 }
 
@@ -202,6 +205,7 @@ interface CreatePlacementQuestionInput {
   paragraph?: string;
   audioUrl?: string;
   levelTag: PlatformLevel | string;
+  language?: "hebrew" | "english";
 }
 
 interface CreateExamInput {
@@ -311,6 +315,7 @@ export interface SalesStudent {
   phone: string | null;
   email: string | null;
   studentStatus?: string | null;
+  learningLanguage?: string | null;
   createdAt?: string;
   subscription: {
     id: string;
@@ -352,6 +357,7 @@ export interface SupportStudent {
   email: string | null;
   phone?: string | null;
   level?: string | null;
+  learningLanguage?: string | null;
   placementScore?: number | null;
   placementCompletedAt?: string | null;
   studentStatus: string;
@@ -636,6 +642,7 @@ export interface OpsStudentItem {
   phone?: string | null;
   boundIp?: string | null;
   level?: string | null;
+  learningLanguage?: string | null;
   studentStatus: string;
   placementScore?: number | null;
   placementCompletedAt?: string | null;

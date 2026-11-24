@@ -772,8 +772,12 @@ function SkillsCard() {
 
 export function PlacementScreen() {
   const { placementQuestions } = usePlatformStore();
+  const { user } = useAuth();
   const { t } = useI18n();
-  const activeQuestions = placementQuestions.filter((q) => q.isActive);
+  const studentLang = user?.learningLanguage === "english" ? "english" : "hebrew";
+  const activeQuestions = placementQuestions.filter(
+    (q) => q.isActive && (q.language ?? "hebrew") === studentLang,
+  );
   const [step, setStep] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number | string>>({});
   const [audioAnswers, setAudioAnswers] = useState<Record<string, string>>({});
@@ -846,7 +850,9 @@ export function PlacementScreen() {
       <Card className="mx-auto max-w-4xl">
         {!currentQ ? (
           <div className="py-12 text-center text-muted-foreground">
-            {t("لا توجد أسئلة مفعلة حالياً في قاعدة البيانات.")}
+            {studentLang === "english"
+              ? t("لا يوجد اختبار مستوى متاح باللغة الإنجليزية حالياً — تواصل مع الإدارة.")
+              : t("لا توجد أسئلة مفعلة حالياً في قاعدة البيانات.")}
           </div>
         ) : (
           <>
@@ -876,7 +882,12 @@ export function PlacementScreen() {
                 <Badge tone="muted">{t("مستوى")} {currentQ.levelTag}</Badge>
               </div>
               <h2 className="mt-4 text-2xl font-bold">{currentQ.promptAr}</h2>
-              <p className="mt-3 font-he text-xl leading-9">{currentQ.hebrewText}</p>
+              <p
+                dir={currentQ.language === "english" ? "ltr" : "rtl"}
+                className={`mt-3 text-xl leading-9 ${currentQ.language === "english" ? "" : "font-he"}`}
+              >
+                {currentQ.hebrewText}
+              </p>
 
               {currentQ.paragraph && (
                 <div className="mt-4 rounded-md border border-border bg-muted/40 p-4">
@@ -918,7 +929,10 @@ export function PlacementScreen() {
                 </div>
               ) : (
                 <div className={`mt-6 grid gap-3 ${currentQ.questionType === "truefalse" ? "" : "sm:grid-cols-2"}`}>
-                  {(currentQ.questionType === "truefalse" ? [t("صح"), t("خطأ")] : currentQ.options).map((x, idx) => (
+                  {(currentQ.questionType === "truefalse"
+                    ? (currentQ.options.length >= 2 ? currentQ.options : [t("صح"), t("خطأ")])
+                    : currentQ.options
+                  ).map((x, idx) => (
                     <button
                       key={idx}
                       onClick={() => setSelectedAnswers((p) => ({ ...p, [currentQ.id]: idx }))}
@@ -1791,8 +1805,9 @@ export function TeacherScreen() {
                     </span>
                     <span className="flex-1">
                       <b className="text-sm">{s.fullName}</b>
-                      <small className="block text-muted-foreground">
+                      <small className="flex items-center gap-1.5 text-muted-foreground">
                         {s.phone ?? s.email ?? "—"} · {t("المستوى")}: {s.level ?? t("غير محدد")}
+                        <LangBadge lang={s.learningLanguage} />
                       </small>
                     </span>
                   </button>
@@ -3313,6 +3328,7 @@ export function AdminScreen() {
   const [assignError, setAssignError] = useState("");
 
   const [qSection, setQSection] = useState<PlacementSection>("قراءة");
+  const [qLang, setQLang] = useState<"hebrew" | "english">("hebrew");
   const [qLevel, setQLevel] = useState<PlatformLevel>("A1");
   const [qType, setQType] = useState<PlacementQuestionType>("mcq");
   const [qPromptAr, setQPromptAr] = useState("");
@@ -3563,7 +3579,7 @@ export function AdminScreen() {
       }
       correctOptionIndex = Math.min(correctIdx, options.length - 1);
     } else if (qType === "truefalse") {
-      options = ["صح", "خطأ"];
+      options = qLang === "english" ? ["True", "False"] : ["صح", "خطأ"];
       correctOptionIndex = qTrueFalse ? 0 : 1;
     } else if (qType === "text") {
       expectedAnswer = qExpected.trim();
@@ -3591,6 +3607,7 @@ export function AdminScreen() {
         ...(qParagraph.trim() ? { paragraph: qParagraph.trim() } : {}),
         ...(audioUrl ? { audioUrl } : {}),
         levelTag: qLevel,
+        language: qLang,
       });
 
       setQPromptAr("");
@@ -3673,7 +3690,10 @@ export function AdminScreen() {
                 </td>
                 <td className="px-3 py-3.5 text-xs text-muted-foreground">
                   {u.role === "STUDENT" ? (
-                    `${t("المستوى")}: ${u.level ?? t("غير محدد")}`
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {`${t("المستوى")}: ${u.level ?? t("غير محدد")}`}
+                      <LangBadge lang={u.learningLanguage} />
+                    </span>
                   ) : (
                     <>
                       {u.specialty ?? "—"}
@@ -5110,6 +5130,7 @@ export function AdminScreen() {
                           {idx + 1}
                         </span>
                         <Badge tone="gold">{t(q.section)}</Badge>
+                        <Badge tone="muted">{q.language === "english" ? "English" : "עברית"}</Badge>
                         <Badge tone="brand">{t("مستوى")} {q.levelTag}</Badge>
                         <Badge tone="muted">
                           {q.questionType === "truefalse" ? t("صح/خطأ") : q.questionType === "text" ? t("إجابة نصية") : t("اختيار متعدد")}
@@ -5204,7 +5225,7 @@ export function AdminScreen() {
             )}
 
             <form onSubmit={handleCreateQuestion} className="mt-4 space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label>{t("المهارة / القسم")}</Label>
                   <select
@@ -5217,6 +5238,17 @@ export function AdminScreen() {
                     <option value="استماع">{t("استماع")}</option>
                     <option value="كتابة">{t("كتابة")}</option>
                     <option value="محادثة">{t("محادثة")}</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("لغة الاختبار")}</Label>
+                  <select
+                    value={qLang}
+                    onChange={(e) => setQLang(e.target.value as "hebrew" | "english")}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="hebrew">{t("العبرية")}</option>
+                    <option value="english">{t("الإنجليزية")}</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -5244,14 +5276,14 @@ export function AdminScreen() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>{t("الجملة أو النص بالعبرية")}</Label>
+                <Label>{qLang === "english" ? t("الجملة أو النص بالإنجليزية") : t("الجملة أو النص بالعبرية")}</Label>
                 <Input
-                  dir="rtl"
-                  className="font-he"
+                  dir={qLang === "english" ? "ltr" : "rtl"}
+                  className={qLang === "hebrew" ? "font-he" : ""}
                   value={qHebrewText}
                   onChange={(e) => setQHebrewText(e.target.value)}
                   required
-                  placeholder="שלום..."
+                  placeholder={qLang === "english" ? "Hello..." : "שלום..."}
                 />
               </div>
 
@@ -5262,7 +5294,7 @@ export function AdminScreen() {
                     value={qParagraph}
                     onChange={(e) => setQParagraph(e.target.value)}
                     className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
-                    dir="rtl"
+                    dir={qLang === "english" ? "ltr" : "rtl"}
                     placeholder={t("اكتب فقرة الفهم هنا...")}
                   />
                 </div>
@@ -5356,7 +5388,7 @@ export function AdminScreen() {
                 <div className="space-y-1.5">
                   <Label>{t("الإجابة المتوقعة (النص الصحيح)")}</Label>
                   <Input
-                    dir="rtl"
+                    dir={qLang === "english" ? "ltr" : "rtl"}
                     value={qExpected}
                     onChange={(e) => setQExpected(e.target.value)}
                     placeholder={t("الإجابة الصحيحة — يُقارن بها نص الطالب بعد تجاهل المسافات")}
@@ -6258,7 +6290,10 @@ function StudentsDirectorySection({
                       <small className="block text-[11px] text-muted-foreground/70">{t("انضم")} {s.createdAt}</small>
                     </td>
                     <td className="p-3">
-                      {s.level ? <Badge tone="muted">{s.level}{s.placementScore != null ? ` · ${s.placementScore}%` : ""}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        {s.level ? <Badge tone="muted">{s.level}{s.placementScore != null ? ` · ${s.placementScore}%` : ""}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
+                        <LangBadge lang={s.learningLanguage} />
+                      </span>
                     </td>
                     <td className="p-3">
                       <Badge tone={DIR_STATUS_TONES[s.studentStatus] ?? "muted"}>
@@ -7646,6 +7681,13 @@ export function LecturesScreen() {
   );
 }
 
+// ─── Shared bits ─────────────────────────────────────────────────────────────
+
+export function LangBadge({ lang }: { lang?: string | null | undefined }) {
+  if (!lang) return null;
+  return <Badge tone="muted">{lang === "english" ? "English" : "עברית"}</Badge>;
+}
+
 // ─── Shared chat widgets (WhatsApp-style media messages) ────────────────────
 
 function chatMediaKind(m: ChatMsg): "image" | "voice" | "file" | "text" {
@@ -8264,7 +8306,8 @@ export function SubscribeScreen() {
     createPaymentRequest,
   } = usePlatformStore();
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
-  const [subLang, setSubLang] = useState<"hebrew" | "english" | null>(null);
+  const studentLang = user?.learningLanguage === "english" ? "english" : "hebrew";
+  const visiblePackages = publicPackages.filter((pkg) => (pkg.language ?? "hebrew") === studentLang);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
   const [shot, setShot] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -8273,7 +8316,7 @@ export function SubscribeScreen() {
 
   const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
   const lastRejected = myPaymentRequests.find((r) => r.status === "rejected");
-  const selectedPkg = publicPackages.find((p) => p.id === selectedPkgId) ?? null;
+  const selectedPkg = visiblePackages.find((p) => p.id === selectedPkgId) ?? null;
 
   useEffect(() => {
     fetchPublicPackages().catch(() => {});
@@ -8389,19 +8432,11 @@ export function SubscribeScreen() {
           )}
 
           <div className="mb-3 flex items-center gap-2">
-            <span className="text-xs font-semibold text-muted-foreground">{t("لغة الباقة")}:</span>
-            {([null, "hebrew", "english"] as const).map((l) => (
-              <button
-                key={l ?? "all"}
-                onClick={() => setSubLang(l)}
-                className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${subLang === l ? "border-transparent bg-brand text-white" : "border-input bg-background text-muted-foreground hover:border-brand/50"}`}
-              >
-                {l === null ? t("الكل") : l === "hebrew" ? t("العبرية") : t("الإنجليزية")}
-              </button>
-            ))}
+            <span className="text-xs font-semibold text-muted-foreground">{t("الباقات المتاحه")}:</span>
+            <Badge tone="brand">{studentLang === "english" ? t("الإنجليزية") : t("العبرية")}</Badge>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {publicPackages.filter((pkg) => !subLang || (pkg.language ?? "hebrew") === subLang).map((pkg) => (
+            {visiblePackages.map((pkg) => (
               <Card key={pkg.id} className="flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <b>{pkg.nameAr}</b>
@@ -8451,6 +8486,13 @@ export function SubscribeScreen() {
                 </Button>
               </Card>
             ))}
+            {visiblePackages.length === 0 && (
+              <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
+                {studentLang === "english"
+                  ? t("لا توجد باقات إنجليزية متاحة حالياً — تواصل مع الدعم لاختيار باقة.")
+                  : t("لا توجد باقات عبرية متاحة حالياً.")}
+              </p>
+            )}
           </div>
 
           {selectedPkg && (
@@ -10240,6 +10282,7 @@ export function SalesScreen() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <b className="text-sm">{st.fullName}</b>
+                          <Badge tone="muted">{st.learningLanguage === "english" ? "English" : "עברית"}</Badge>
                           {active ? (
                             <Badge tone="sage">{pkgName}</Badge>
                           ) : (
@@ -12306,7 +12349,7 @@ function OpsFreeLecturesSection({
                       <tr key={s.id} className="border-b">
                         <td className="p-2 font-semibold">{s.name}</td>
                         <td className="p-2">{s.phone}</td>
-                        <td className="p-2">{s.level ?? "—"}</td>
+                        <td className="p-2">{s.level ?? "—"} <LangBadge lang={(s as { learningLanguage?: string }).learningLanguage} /></td>
                         <td className="p-2">{s.group?.name ?? "—"}</td>
                         <td className="p-2">
                           <button onClick={() => { if (confirm(`${t("حذف")} "${s.name}"؟`)) onDeleteStudent(s.id); }} className="text-xs text-danger hover:underline">{t("حذف")}</button>
@@ -12753,7 +12796,7 @@ function FreeLectureStudentsPanel({
                   </td>
                   <td className="p-2 font-semibold">{s.fullName}</td>
                   <td className="p-2 font-lat text-xs">{s.phone ?? s.email ?? "—"}</td>
-                  <td className="p-2">{s.level ?? "—"}</td>
+                  <td className="p-2">{s.level ?? "—"} <LangBadge lang={(s as { learningLanguage?: string }).learningLanguage} /></td>
                   <td className="p-2 text-xs">{s.groups.map((g) => g.name).join("، ") || "—"}</td>
                   <td className="p-2 text-xs">{s.studentStatus === "active" ? t("نشط") : s.studentStatus === "paused" ? t("موقوف") : s.studentStatus === "completed" ? t("مكتمل") : t("جديد")}</td>
                 </tr>
@@ -13318,7 +13361,7 @@ function TeacherFreeLecturesSection({
                           <tr key={`grp-${s.id}`} className="border-b">
                             <td className="p-2 font-semibold">{s.fullName}</td>
                             <td className="p-2 font-lat text-xs">{s.phone ?? "—"}</td>
-                            <td className="p-2">{s.level ?? "—"}</td>
+                            <td className="p-2">{s.level ?? "—"} <LangBadge lang={(s as { learningLanguage?: string }).learningLanguage} /></td>
                             <td className="p-2"><Badge tone="brand">{l.group?.name ?? t("مجموعة")}</Badge></td>
                           </tr>
                         ))}
@@ -13945,7 +13988,7 @@ function AdminTeacherProfileModal({ teacherId, fetchProfile, onClose }: { teache
                 <tr key={s.id} className="border-b">
                   <td className="p-2 font-semibold">{s.fullName}</td>
                   <td className="p-2 font-lat text-xs">{s.phone ?? "—"}</td>
-                  <td className="p-2 text-xs">{s.level ?? "—"}</td>
+                  <td className="p-2 text-xs">{s.level ?? "—"} <LangBadge lang={(s as { learningLanguage?: string }).learningLanguage} /></td>
                   <td className="p-2"><Badge tone={DIR_STATUS_TONES[s.studentStatus ?? ""] ?? "muted"}>{tr(DIR_STATUS_LABELS[s.studentStatus ?? ""] ?? s.studentStatus ?? "—")}</Badge></td>
                 </tr>
               ))}

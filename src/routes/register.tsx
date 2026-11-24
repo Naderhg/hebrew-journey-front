@@ -19,6 +19,7 @@ function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [learningLanguage, setLearningLanguage] = useState<"hebrew" | "english">("hebrew");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +28,7 @@ function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      await register({ phone, password, fullName });
+      await register({ phone, password, fullName, learningLanguage });
       navigate({ to: "/login" });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("تعذر إنشاء الحساب، تأكد من اتصال السيرفر"));
@@ -88,6 +89,30 @@ function RegisterPage() {
                 placeholder="01xxxxxxxxx"
                 className="ps-10 text-start"
               />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="learningLanguage">{t("اللغة اللي عايز تتعلمها")}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: "hebrew", label: "עברית — العبرية" },
+                  { value: "english", label: "English — الإنجليزية" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setLearningLanguage(opt.value)}
+                  className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition ${
+                    learningLanguage === opt.value
+                      ? "border-brand bg-brand/10 text-brand"
+                      : "border-border hover:border-brand/50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
           <div className="space-y-2">

@@ -4,6 +4,7 @@ import { Banknote, CalendarCheck, CircleCheck, CreditCard, Wallet, XCircle } fro
 import { AppShell, PageHeader } from "../components/app-shell";
 import { Badge, Button, Card, Label, ProgressBar, SectionHeader } from "../components/ui";
 import { usePlatformStore } from "../hooks/use-platform-store";
+import { useAuth } from "../hooks/use-auth";
 import { uploadFile } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 
@@ -48,6 +49,9 @@ function StudentWalletPage() {
     createPaymentRequest,
   } = usePlatformStore();
   const { t } = useI18n();
+  const { user } = useAuth();
+  const studentLang = user?.learningLanguage === "english" ? "english" : "hebrew";
+  const visiblePackages = publicPackages.filter((p) => (p.language ?? "hebrew") === studentLang);
 
   const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const [method, setMethod] = useState<"wallet" | "instapay" | null>(null);
@@ -64,7 +68,7 @@ function StudentWalletPage() {
 
   const active = studentWallet.find((w) => w.status === "ACTIVE") ?? studentWallet[0];
   const pendingReq = myPaymentRequests.find((r) => r.status === "pending");
-  const selectedPkg = publicPackages.find((p) => p.id === selectedPkgId) ?? null;
+  const selectedPkg = visiblePackages.find((p) => p.id === selectedPkgId) ?? null;
 
   const overview = [
     { label: t("إجمالي الحصص"), value: active?.sessionsTotal ?? 0, icon: CalendarCheck, tone: "text-brand bg-brand/10" },
@@ -216,7 +220,7 @@ function StudentWalletPage() {
             </p>
           )}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {publicPackages.map((pkg) => (
+            {visiblePackages.map((pkg) => (
               <div key={pkg.id} className={`flex flex-col rounded-2xl border p-4 ${selectedPkgId === pkg.id ? "border-brand bg-brand/5" : "border-border bg-background/60"}`}>
                 <div className="flex items-start justify-between gap-2">
                   <b className="text-sm">{pkg.nameAr}</b>
@@ -245,7 +249,7 @@ function StudentWalletPage() {
                 </Button>
               </div>
             ))}
-            {publicPackages.length === 0 && (
+            {visiblePackages.length === 0 && (
               <p className="col-span-full py-6 text-center text-sm text-muted-foreground">{t("لا توجد باقات متاحة حالياً.")}</p>
             )}
           </div>

@@ -9,6 +9,7 @@ export interface AuthUser {
   phone?: string;
   role: UserRole;
   locale: string;
+  learningLanguage?: "hebrew" | "english" | string;
   avatarUrl?: string;
   bio?: string | null;
   specialty?: string | null;
@@ -78,6 +79,7 @@ export async function register(input: {
   fullName: string;
   email?: string;
   locale?: string;
+  learningLanguage?: "hebrew" | "english";
 }): Promise<{ user: AuthUser }> {
   const result = await apiFetch<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",

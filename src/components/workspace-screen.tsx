@@ -243,7 +243,6 @@ export function WorkspaceScreen() {
     <AppShell role="SUPER_ADMIN">
       <PageHeader
         title={t("مساحتي")}
-        subtitle={t("مفكرة السوبر أدمن — صفحات وملاحظات وملفات في مكان واحد")}
       />
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         {/* ─── Sidebar: page tree ─── */}

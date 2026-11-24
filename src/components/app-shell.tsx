@@ -728,6 +728,18 @@ export function AppShell({
           </div>
         </div>
       </div>
+      {isStudent && (
+        <a
+          href={`https://wa.me/201044465802?text=${encodeURIComponent("السلام عليكم، عندي مشكلة أثناء المحاضرة")}`}
+          target="_blank"
+          rel="noreferrer"
+          title={t("تواصل مع الدعم على واتساب")}
+          className="fixed bottom-5 left-5 z-50 inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-[#25D366]/40 transition hover:scale-105 hover:bg-[#1fb959]"
+        >
+          <MessageCircle className="size-5" />
+          {t("دعم واتساب")}
+        </a>
+      )}
       {editSelfOpen && user && (
         <SelfEditModal
           user={user}

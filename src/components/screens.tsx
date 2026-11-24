@@ -1460,6 +1460,7 @@ export function TeacherScreen() {
     fetchTeacherLectures,
     updateTeacherLectureStatus,
     endMyMeetings,
+    regenerateMyMeetingLink,
     startScheduleLecture,
     lectureStudents,
     fetchLectureStudents,
@@ -1496,6 +1497,7 @@ export function TeacherScreen() {
   const [attErr, setAttErr] = useState("");
   const [endingMeetings, setEndingMeetings] = useState(false);
   const [meetingsMsg, setMeetingsMsg] = useState("");
+  const [regenSchedId, setRegenSchedId] = useState<string | null>(null);
   const [attDate, setAttDate] = useState(new Date().toISOString().slice(0, 10));
 
   // Reports
@@ -2030,6 +2032,7 @@ export function TeacherScreen() {
             lectures={teacherLectures}
             bookings={teacherBookings}
             freeLectures={teacherFreeLectures}
+            onRegenerate={(kind, id) => regenerateMyMeetingLink(kind, id)}
             onLectureStatus={(id, s) => updateTeacherLectureStatus(id, s).then(() => fetchTeacherAnalytics({})).catch(() => {})}
             onBookingStatus={(id, s) => setBookingStatus(id, s).catch(() => {})}
             attStudents={lectureStudents}
@@ -2107,6 +2110,28 @@ export function TeacherScreen() {
                         )}
                         {!isToday && !tl && (
                           <span className="text-xs text-muted-foreground">{t("محاضرة الأسبوع القادمة")} {t(DAY_NAMES[s.dayOfWeek])}</span>
+                        )}
+                        {s.location !== "offline" && (
+                          <button
+                            disabled={regenSchedId === s.id}
+                            onClick={async () => {
+                              setRegenSchedId(s.id);
+                              setMeetingsMsg("");
+                              try {
+                                await regenerateMyMeetingLink("schedule", s.id);
+                                setMeetingsMsg(t("تم توليد رابط Zoom جديد لهذا الموعد"));
+                              } catch (e) {
+                                setMeetingsMsg(e instanceof Error ? e.message : t("حصل خطأ — جرب تاني"));
+                              } finally {
+                                setRegenSchedId(null);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                            title={t("توليد رابط Zoom جديد")}
+                          >
+                            <RefreshCw className={`size-3.5 ${regenSchedId === s.id ? "animate-spin" : ""}`} />
+                            {t("توليد زووم")}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -13596,6 +13621,7 @@ function TeacherScheduleTimeline({
   lectures,
   bookings,
   freeLectures,
+  onRegenerate,
   onLectureStatus,
   onBookingStatus,
   attStudents,
@@ -13605,6 +13631,7 @@ function TeacherScheduleTimeline({
   lectures: import("../hooks/use-platform-store").LectureItem[];
   bookings: import("../hooks/use-platform-store").LessonBookingItem[];
   freeLectures: import("../hooks/use-platform-store").FreeLecture[];
+  onRegenerate: (kind: "lecture" | "free_lecture" | "schedule" | "booking", id: string) => Promise<string>;
   onLectureStatus: (id: string, status: "live" | "completed") => void;
   onBookingStatus: (id: string, status: "completed" | "no_show" | "booked") => void;
   attStudents: import("../hooks/use-platform-store").LectureStudent[];
@@ -13626,6 +13653,8 @@ function TeacherScheduleTimeline({
   const [repOpenFor, setRepOpenFor] = useState<string | null>(null);
   const [attSaving, setAttSaving] = useState(false);
   const [attErr, setAttErr] = useState("");
+  const [regenId, setRegenId] = useState<string | null>(null);
+  const [regenMsg, setRegenMsg] = useState("");
 
   function toggleAttendance(id: string) {
     if (attOpenId === id) {
@@ -13755,6 +13784,7 @@ function TeacherScheduleTimeline({
           <p className="text-xs text-muted-foreground">{t("المحاضرات الأساسية والحصص الفردية والمحاضرات المجانية في مكان واحد")}</p>
         </div>
       </div>
+      {regenMsg && <p className="mt-2 text-xs font-semibold text-sage">{regenMsg}</p>}
 
       <div className="mt-4 flex flex-wrap gap-1.5">
         {([["upcoming", t("القادمة")], ["past", t("السابقة")], ["cancelled", t("الملغية")]] as const).map(([v, label]) => (
@@ -13855,6 +13885,28 @@ function TeacherScheduleTimeline({
                       <Button variant="primary" className="text-xs" onClick={() => onBookingStatus(r.id, "completed")}>{t("مكتملة")}</Button>
                       <Button variant="secondary" className="text-xs" onClick={() => onBookingStatus(r.id, "no_show")}>{t("لم يحضر")}</Button>
                     </>
+                  )}
+                  {(r.status === "scheduled" || r.status === "live" || r.status === "booked") && (
+                    <button
+                      disabled={regenId === r.id}
+                      onClick={async () => {
+                        setRegenId(r.id);
+                        setRegenMsg("");
+                        try {
+                          await onRegenerate(r.kind === "free" ? "free_lecture" : r.kind, r.id);
+                          setRegenMsg(t("تم توليد رابط Zoom جديد"));
+                        } catch (e) {
+                          setRegenMsg(e instanceof Error ? e.message : t("حصل خطأ — جرب تاني"));
+                        } finally {
+                          setRegenId(null);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                      title={t("توليد رابط Zoom جديد")}
+                    >
+                      <RefreshCw className={`size-3.5 ${regenId === r.id ? "animate-spin" : ""}`} />
+                      {t("توليد زووم")}
+                    </button>
                   )}
                   {r.kind === "lecture" && (ended || r.status === "completed") && (
                     <button

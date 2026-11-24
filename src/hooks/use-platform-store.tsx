@@ -1374,6 +1374,7 @@ interface PlatformStoreValue {
   // teacher lectures lifecycle + per-lecture attendance
   updateTeacherLectureStatus: (id: string, status: "live" | "completed") => Promise<void>;
   endMyMeetings: () => Promise<{ ended: number; host: string }>;
+  regenerateMyMeetingLink: (kind: "lecture" | "free_lecture" | "schedule" | "booking", id: string) => Promise<string>;
   startScheduleLecture: (scheduleId: string) => Promise<LectureItem>;
   lectureStudents: LectureStudent[];
   fetchLectureStudents: (lectureId: string) => Promise<void>;
@@ -2048,6 +2049,13 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
   async function endMyMeetings() {
     const res = await apiFetch<{ ended: number; host: string }>("/api/teacher/end-meetings", { method: "POST" });
     return res ?? { ended: 0, host: "" };
+  }
+
+  async function regenerateMyMeetingLink(kind: "lecture" | "free_lecture" | "schedule" | "booking", id: string) {
+    const res = await apiFetch<{ ok: boolean; url: string; error?: string }>("/api/teacher/meetings/regenerate", { method: "POST", body: { kind, id } });
+    if (!res?.ok || !res.url) throw new Error(res?.error || "تعذر توليد رابط Zoom");
+    await Promise.all([fetchTeacherLectures(), fetchTeacherSchedules(), fetchTeacherFreeLectures(), fetchTeacherBookings()]);
+    return res.url;
   }
 
   // Materialize today's lecture from a fixed weekly slot and start it.
@@ -3065,6 +3073,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchTeacherAnalytics,
         updateTeacherLectureStatus,
         endMyMeetings,
+        regenerateMyMeetingLink,
         startScheduleLecture,
         lectureStudents,
         fetchLectureStudents,

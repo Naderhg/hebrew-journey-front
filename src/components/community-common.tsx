@@ -57,8 +57,17 @@ export function LangChip({ lang }: { lang?: string | null | undefined }) {
   return <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{lang === "english" ? t("إنجليزي") : t("عبري")}</span>;
 }
 
+// Community level tiers by points: posts +5, comments +2, received reactions +1, winning answers +10
+export function pointsTier(points = 0): { emoji: string; label: string } | null {
+  if (points >= 150) return { emoji: "⭐", label: "نجم المجتمع" };
+  if (points >= 60) return { emoji: "🔥", label: "مميز" };
+  if (points >= 20) return { emoji: "⚡", label: "نشيط" };
+  return null;
+}
+
 export function AuthorLine({ author }: { author: CommunityAuthor }) {
   const open = useOpenProfile();
+  const tier = pointsTier(author.communityPoints ?? 0);
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       <b
@@ -69,6 +78,7 @@ export function AuthorLine({ author }: { author: CommunityAuthor }) {
       </b>
       <RoleBadge role={author.role} />
       {author.role === "STUDENT" && <LangChip lang={author.learningLanguage} />}
+      {tier && <span title={`${tier.label} · ${author.communityPoints} نقطة`} className="cursor-default text-xs">{tier.emoji}</span>}
     </span>
   );
 }

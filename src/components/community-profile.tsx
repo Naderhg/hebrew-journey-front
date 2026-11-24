@@ -4,7 +4,7 @@ import { apiFetch, mediaSrc, uploadFile } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useAuth } from "../hooks/use-auth";
 import { communityApi, timeAgo, type CommunityMember, type CommunityPost } from "../lib/community";
-import { Avatar, LangChip, RoleBadge } from "./community-common";
+import { Avatar, LangChip, RoleBadge, pointsTier } from "./community-common";
 
 export function MemberProfileModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const { t } = useI18n();
@@ -83,6 +83,11 @@ export function MemberProfileModal({ userId, onClose }: { userId: string; onClos
                     <RoleBadge role={member.role} />
                     {member.role === "STUDENT" && <LangChip lang={member.learningLanguage} />}
                     {member.level && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{member.level}</span>}
+                    {pointsTier(member.points ?? 0) && (
+                      <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">
+                        {pointsTier(member.points ?? 0)!.emoji} {pointsTier(member.points ?? 0)!.label} · {member.points} {t("نقطة")}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

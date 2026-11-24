@@ -158,17 +158,22 @@ export function Composer({ me, access, onPosted }: { me: Me; access: CommunityAc
   const [file, setFile] = useState<File | null>(null);
   const [pollOn, setPollOn] = useState(false);
   const [pollQ, setPollQ] = useState("");
-  const [pollOpts, setPollOpts] = useState(["", ""]);
+  const [pollOpts, setPollOpts] = useState<{ text: string; img: File | null }[]>([{ text: "", img: null }, { text: "", img: null }]);
+  const [pollMulti, setPollMulti] = useState(false);
+  const [pollImgIdx, setPollImgIdx] = useState<number | null>(null);
+  const [kind, setKind] = useState<"post" | "announcement" | "challenge">("post");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const imgRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pollImgRef = useRef<HTMLInputElement>(null);
   const previews = useMemo(() => images.map((f) => URL.createObjectURL(f)), [images]);
+  const optPreviews = useMemo(() => pollOpts.map((o) => (o.img ? URL.createObjectURL(o.img) : null)), [pollOpts]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
   const blocked = !access.postsEnabled && !access.canModerate ? t("النشر متوقف مؤقتاً من الإدارة") : access.muted && !access.canModerate ? t("تم كتمك من المجتمع") : "";
-  const validPoll = pollOn && pollQ.trim() && pollOpts.filter((o) => o.trim()).length >= 2;
+  const validPoll = pollOn && pollQ.trim() && pollOpts.filter((o) => o.text.trim()).length >= 2;
   const canSubmit = !busy && !blocked && (text.trim() || images.length || file || validPoll);
 
   async function submit() {
@@ -178,14 +183,27 @@ export function Composer({ me, access, onPosted }: { me: Me; access: CommunityAc
     try {
       const urls = await Promise.all(images.map((f) => uploadFile(f, "community").then((r) => r.url)));
       const up = file ? await uploadFile(file, "community") : null;
+      const optUrls = await Promise.all(pollOpts.map((o) => (o.img ? uploadFile(o.img, "community").then((r) => r.url) : Promise.resolve(null))));
       const { post } = await communityApi.createPost({
         content: encodeMentions(text.trim(), mentions),
         images: urls,
+        kind,
         ...(up ? { fileUrl: up.url, fileName: file!.name } : {}),
-        ...(validPoll ? { poll: { question: pollQ.trim(), options: pollOpts.map((o) => o.trim()).filter(Boolean) } } : {}),
+        ...(validPoll
+          ? {
+              poll: {
+                question: pollQ.trim(),
+                multi: pollMulti,
+                options: pollOpts
+                  .map((o, i) => ({ text: o.text.trim(), ...(optUrls[i] ? { image: optUrls[i]! } : {}) }))
+                  .filter((o) => o.text),
+              },
+            }
+          : {}),
       });
       onPosted(post);
-      setText(""); setMentions({}); setImages([]); setFile(null); setPollOn(false); setPollQ(""); setPollOpts(["", ""]);
+      setText(""); setMentions({}); setImages([]); setFile(null); setPollOn(false); setPollQ("");
+      setPollOpts([{ text: "", img: null }, { text: "", img: null }]); setPollMulti(false); setKind("post");
     } catch (e) {
       setError(e instanceof Error ? e.message : t("تعذر النشر"));
     } finally {
@@ -233,7 +251,11 @@ export function Composer({ me, access, onPosted }: { me: Me; access: CommunityAc
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand" />
               {pollOpts.map((o, i) => (
                 <div key={i} className="flex gap-1">
-                  <input value={o} onChange={(e) => setPollOpts((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
+                  <button onClick={() => { setPollImgIdx(i); pollImgRef.current?.click(); }} title={t("صورة للخيار")}
+                    className={`grid size-8 shrink-0 place-items-center rounded-lg border ${o.img ? "border-brand bg-brand/10 text-brand" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    {optPreviews[i] ? <img src={optPreviews[i]!} alt="" className="size-full rounded-lg object-cover" /> : <ImagePlus className="size-4" />}
+                  </button>
+                  <input value={o.text} onChange={(e) => setPollOpts((a) => a.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
                     placeholder={`${t("الخيار")} ${i + 1}`}
                     className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-brand" />
                   {pollOpts.length > 2 && (
@@ -241,9 +263,15 @@ export function Composer({ me, access, onPosted }: { me: Me; access: CommunityAc
                   )}
                 </div>
               ))}
-              {pollOpts.length < 6 && (
-                <button onClick={() => setPollOpts((a) => [...a, ""])} className="flex items-center gap-1 text-xs font-semibold text-brand"><Plus className="size-3.5" /> {t("إضافة خيار")}</button>
-              )}
+              <div className="flex flex-wrap items-center gap-3">
+                {pollOpts.length < 6 && (
+                  <button onClick={() => setPollOpts((a) => [...a, { text: "", img: null }])} className="flex items-center gap-1 text-xs font-semibold text-brand"><Plus className="size-3.5" /> {t("إضافة خيار")}</button>
+                )}
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <input type="checkbox" checked={pollMulti} onChange={(e) => setPollMulti(e.target.checked)} className="accent-brand" />
+                  {t("اختيار متعدد")}
+                </label>
+              </div>
             </div>
           )}
           {error && <p className="mt-2 text-xs font-semibold text-danger">{error}</p>}
@@ -253,9 +281,27 @@ export function Composer({ me, access, onPosted }: { me: Me; access: CommunityAc
               onChange={(e) => { setImages((a) => [...a, ...Array.from(e.target.files ?? [])].slice(0, 6)); e.target.value = ""; }} />
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt" className="hidden"
               onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+            <input ref={pollImgRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && pollImgIdx !== null) setPollOpts((a) => a.map((x, j) => (j === pollImgIdx ? { ...x, img: f } : x)));
+                e.target.value = "";
+              }} />
             <button onClick={() => imgRef.current?.click()} className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:brightness-95 active:scale-95"><ImagePlus className="size-4" /> {t("صور")}</button>
             <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:brightness-95 active:scale-95"><Paperclip className="size-4" /> {t("ملف")}</button>
             <button onClick={() => setPollOn((v) => !v)} className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:brightness-95 active:scale-95 ${pollOn ? "bg-brand text-white" : "bg-blue-50 text-blue-700"}`}><BarChart3 className="size-4" /> {t("استطلاع")}</button>
+            {access.canModerate && (
+              <>
+                <button onClick={() => setKind((k) => (k === "announcement" ? "post" : "announcement"))}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:brightness-95 active:scale-95 ${kind === "announcement" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700"}`}>
+                  📢 {t("إعلان")}
+                </button>
+                <button onClick={() => setKind((k) => (k === "challenge" ? "post" : "challenge"))}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition hover:brightness-95 active:scale-95 ${kind === "challenge" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700"}`}>
+                  🏆 {t("تحدي")}
+                </button>
+              </>
+            )}
             <div className="relative">
               <button onClick={() => setEmojiOpen((v) => !v)} className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition hover:brightness-95 active:scale-95"><Smile className="size-4" /> {t("إيموجي")}</button>
               {emojiOpen && (
@@ -278,16 +324,18 @@ export function Composer({ me, access, onPosted }: { me: Me; access: CommunityAc
 
 // ─── Comments ────────────────────────────────────────────────────────────────
 function CommentItem({
-  c, me, canModerate, postAuthorId, isReply, onReply, onChanged, onDeleted,
+  c, me, canModerate, postAuthorId, isReply, challenge, onReply, onChanged, onDeleted, onWinner,
 }: {
   c: CommunityComment;
   me: Me;
   canModerate: boolean;
   postAuthorId: string;
   isReply?: boolean;
+  challenge?: boolean;
   onReply: (c: CommunityComment) => void;
   onChanged: (c: CommunityComment) => void;
   onDeleted: (id: string) => void;
+  onWinner?: (id: string) => void;
 }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -319,7 +367,8 @@ function CommentItem({
     <div className="flex gap-2">
       <Avatar user={c.author} size={isReply ? 28 : 34} />
       <div className="min-w-0 flex-1">
-        <div className="group relative inline-block max-w-full rounded-2xl bg-muted px-3 py-2">
+        <div className={`group relative inline-block max-w-full rounded-2xl px-3 py-2 ${c.isWinner ? "bg-emerald-50 ring-2 ring-emerald-400" : "bg-muted"}`}>
+          {c.isWinner && <p className="mb-0.5 text-[10px] font-bold text-emerald-700">🏆 {t("إجابة فائزة")}</p>}
           <AuthorLine author={c.author} />
           {editing ? (
             <div className="mt-1">
@@ -348,7 +397,11 @@ function CommentItem({
             {menu && (
               <>
                 <button className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(false)} aria-label="close" />
-                <div className="absolute start-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-border bg-background py-1 text-xs shadow-xl">
+                <div className="absolute start-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-background py-1 text-xs shadow-xl">
+                  {canModerate && challenge && !mine && onWinner && (
+                    <button onClick={() => { onWinner(c.id); setMenu(false); }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-emerald-700 hover:bg-emerald-50">🏆 {c.isWinner ? t("إلغاء الفوز") : t("إجابة صحيحة")}</button>
+                  )}
                   {mine && <button onClick={() => { setEditing(true); setMenu(false); }} className="flex w-full items-center gap-2 px-3 py-1.5 hover:bg-muted"><Pencil className="size-3.5" /> {t("تعديل")}</button>}
                   {(mine || canModerate || postAuthorId === me.id) && (
                     <button onClick={() => { if (window.confirm(t("حذف التعليق؟"))) communityApi.deleteComment(c.id).then(() => onDeleted(c.id)).catch(() => {}); setMenu(false); }}
@@ -435,15 +488,21 @@ function CommentsSection({ post, me, canModerate, onCount }: { post: CommunityPo
     setMentions((m) => ({ ...m, [c.author.fullName]: c.author.id }));
   }
 
+  async function markWinner(id: string) {
+    try { await communityApi.markWinner(id); load(null); } catch { /* ignore */ }
+  }
+
   return (
     <div className="space-y-3 border-t border-border pt-3">
       {comments.map((c) => (
         <div key={c.id} className="space-y-2">
-          <CommentItem c={c} me={me} canModerate={canModerate} postAuthorId={post.author.id} onReply={startReply} onChanged={patch} onDeleted={remove} />
+          <CommentItem c={c} me={me} canModerate={canModerate} postAuthorId={post.author.id} challenge={post.kind === "challenge"}
+            onReply={startReply} onChanged={patch} onDeleted={remove} onWinner={markWinner} />
           {(c.replies ?? []).length > 0 && (
             <div className="space-y-2 border-s-2 border-border ps-3 ms-8">
               {(c.replies ?? []).map((r) => (
-                <CommentItem key={r.id} c={r} me={me} canModerate={canModerate} postAuthorId={post.author.id} isReply onReply={() => startReply(c)} onChanged={patch} onDeleted={remove} />
+                <CommentItem key={r.id} c={r} me={me} canModerate={canModerate} postAuthorId={post.author.id} isReply challenge={post.kind === "challenge"}
+                  onReply={() => startReply(c)} onChanged={patch} onDeleted={remove} onWinner={markWinner} />
               ))}
             </div>
           )}
@@ -531,15 +590,32 @@ export function PostCard({
     try { await communityApi.savePost(post.id); } catch { onChange(post); }
   }
 
-  async function vote(idx: number) {
-    if (!post.poll) return;
+  const [picks, setPicks] = useState<number[]>(post.poll?.myVotes ?? []);
+  const [voting, setVoting] = useState(false);
+
+  async function sendVotes(next: number[]) {
+    if (!post.poll || voting) return;
     const old = post.poll;
     const options = old.options.map((o, i) => ({
       ...o,
-      votes: o.votes + (i === idx ? 1 : 0) - (old.myVote === i ? 1 : 0),
+      votes: o.votes - (old.myVotes.includes(i) ? 1 : 0) + (next.includes(i) ? 1 : 0),
     }));
-    onChange({ ...post, poll: { ...old, options, myVote: idx, total: old.myVote === null ? old.total + 1 : old.total } });
-    try { await communityApi.vote(post.id, idx); } catch { onChange(post); }
+    onChange({
+      ...post,
+      poll: { ...old, options, myVote: next[0] ?? null, myVotes: next, total: options.reduce((a, o) => a + o.votes, 0) },
+    });
+    setPicks(next);
+    setVoting(true);
+    try { await communityApi.vote(post.id, next); } catch { onChange(post); setPicks(old.myVotes); } finally { setVoting(false); }
+  }
+
+  function vote(idx: number) {
+    if (!post.poll) return;
+    if (post.poll.multi) {
+      setPicks((p) => (p.includes(idx) ? p.filter((x) => x !== idx) : [...p, idx]));
+    } else {
+      void sendVotes(post.poll.myVotes.includes(idx) && post.poll.myVotes.length === 1 ? [] : [idx]);
+    }
   }
 
   async function doShare() {
@@ -577,6 +653,16 @@ export function PostCard({
     <Card className={`p-0 transition ${highlight ? "ring-2 ring-brand" : ""} ${post.isPinned ? "border-gold/50" : ""}`}>
       <article className="p-4">
         {post.isPinned && <p className="mb-2 flex items-center gap-1 text-[11px] font-bold text-gold"><Pin className="size-3.5" /> {t("منشور مثبّت من الإدارة")}</p>}
+        {post.kind === "announcement" && (
+          <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-gradient-to-l from-amber-100 to-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-800">
+            📢 {t("إعلان رسمي من الإدارة")}
+          </p>
+        )}
+        {post.kind === "challenge" && (
+          <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-gradient-to-l from-emerald-100 to-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800">
+            🏆 {t("تحدي — أجب في التعليقات والإجابة الفائزة تكسب 10 نقاط")}
+          </p>
+        )}
         <header className="flex items-start gap-3">
           <Avatar user={post.author} size={44} />
           <div className="min-w-0 flex-1">
@@ -690,18 +776,29 @@ export function PostCard({
             <p className="flex items-center gap-1.5 text-sm font-bold"><BarChart3 className="size-4 text-brand" /> {post.poll.question}</p>
             {post.poll.options.map((o, i) => {
               const pct = post.poll!.total ? Math.round((o.votes / post.poll!.total) * 100) : 0;
-              const chosen = post.poll!.myVote === i;
+              const chosen = post.poll!.multi ? picks.includes(i) || post.poll!.myVotes.includes(i) : post.poll!.myVote === i;
               return (
                 <button key={i} onClick={() => vote(i)} className={`relative block w-full overflow-hidden rounded-lg border text-start text-sm transition ${chosen ? "border-brand" : "border-border hover:border-brand/50"}`}>
                   <span className={`absolute inset-y-0 start-0 transition-all ${chosen ? "bg-brand/25" : "bg-brand/10"}`} style={{ width: `${pct}%` }} />
                   <span className="relative flex items-center justify-between gap-2 px-3 py-2">
-                    <span className="font-semibold">{o.text}{chosen && " ✓"}</span>
-                    <span className="text-xs text-muted-foreground">{pct}% · {o.votes}</span>
+                    <span className="flex min-w-0 items-center gap-2 font-semibold">
+                      {o.image && <img src={mediaSrc(o.image)} alt="" className="size-9 shrink-0 rounded-md object-cover" />}
+                      <span className="truncate">{o.text}{chosen && " ✓"}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{pct}% · {o.votes}</span>
                   </span>
                 </button>
               );
             })}
-            <p className="text-[11px] text-muted-foreground">{post.poll.total} {t("صوت")}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground">{post.poll.total} {t("صوت")}{post.poll.multi ? ` · ${t("اختيار متعدد")}` : ""}</p>
+              {post.poll.multi && (
+                <button onClick={() => sendVotes(picks)} disabled={voting || (picks.length === post.poll!.myVotes.length && picks.every((x) => post.poll!.myVotes.includes(x)))}
+                  className="rounded-lg bg-brand px-3 py-1 text-[11px] font-bold text-white transition active:scale-95 disabled:opacity-40">
+                  {voting ? t("جاري التصويت...") : t("تصويت")}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1009,6 +1106,7 @@ function StoryViewer({
 }) {
   const { t } = useI18n();
   const [idx, setIdx] = useState(start);
+  const [viewersOpen, setViewersOpen] = useState(false);
   const story = stories[idx];
 
   const go = useCallback((d: number) => {
@@ -1024,6 +1122,11 @@ function StoryViewer({
     const h = setTimeout(() => go(1), STORY_MS);
     return () => clearTimeout(h);
   }, [idx, go]);
+
+  // Record the view (server ignores self-views)
+  useEffect(() => {
+    if (story) void communityApi.viewStory(story.id).catch(() => {});
+  }, [story?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1073,6 +1176,31 @@ function StoryViewer({
         <img src={mediaSrc(story.mediaUrl)} alt="" className="m-auto max-h-full max-w-full rounded-2xl object-contain" />
         {story.caption && (
           <p className="absolute inset-x-0 bottom-10 z-10 mx-4 rounded-xl bg-black/50 px-4 py-2.5 text-center text-sm text-white backdrop-blur">{story.caption}</p>
+        )}
+        {/* viewers — own stories only */}
+        {story.author.id === me.id && (
+          <button onClick={() => setViewersOpen(true)}
+            className="absolute bottom-3 start-4 z-10 flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20">
+            👁 {story.viewCount ?? 0} {t("مشاهدة")}
+          </button>
+        )}
+        {viewersOpen && (
+          <div className="absolute inset-x-4 bottom-14 z-20 max-h-64 overflow-y-auto rounded-2xl bg-black/85 p-3 backdrop-blur">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-bold text-white">{t("شاهدوا قصتك")} ({story.viewers?.length ?? 0})</p>
+              <button onClick={() => setViewersOpen(false)} className="grid size-7 place-items-center rounded-full bg-white/10 text-white"><X className="size-4" /></button>
+            </div>
+            <div className="space-y-2">
+              {(story.viewers ?? []).map((v) => (
+                <div key={v.id} className="flex items-center gap-2.5">
+                  <Avatar user={v} size={32} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{v.fullName}</span>
+                  <span className="text-[10px] text-white/60">{timeAgo(v.viewedAt)}</span>
+                </div>
+              ))}
+              {(story.viewers ?? []).length === 0 && <p className="py-3 text-center text-xs text-white/60">{t("لا مشاهدات بعد")}</p>}
+            </div>
+          </div>
         )}
         {/* nav arrows */}
         {idx > 0 && (

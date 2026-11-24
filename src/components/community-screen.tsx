@@ -200,6 +200,22 @@ export function CommunityScreen() {
               </div>
             </Card>
 
+            {(side?.topContributors ?? []).length > 0 && (
+              <Card className="p-4">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">🏆 {t("نجوم المجتمع")}</h3>
+                <div className="space-y-2">
+                  {side!.topContributors!.map((u, i) => (
+                    <button key={u.id} onClick={() => setProfileId(u.id)} className="flex w-full items-center gap-2 rounded-lg p-1 transition hover:bg-muted">
+                      <span className="grid size-5 shrink-0 place-items-center text-sm">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}</span>
+                      <Avatar user={u} size={28} />
+                      <span className="min-w-0 flex-1 truncate text-start text-xs font-semibold">{u.fullName}</span>
+                      <span className="shrink-0 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold">{u.communityPoints} {t("نقطة")}</span>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
+
             <Card className="p-4">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
                 <span className="size-2.5 animate-pulse rounded-full bg-sage" /> {t("المتصلون الآن")}

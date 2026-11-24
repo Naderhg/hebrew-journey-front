@@ -9,6 +9,7 @@ export interface CommunityAuthor {
   role: string;
   avatarUrl?: string | null;
   learningLanguage?: string | null;
+  communityPoints?: number;
 }
 
 export interface ReactionSummary {
@@ -18,9 +19,11 @@ export interface ReactionSummary {
 
 export interface PollView {
   question: string;
-  options: { text: string; votes: number }[];
+  multi: boolean;
+  options: { text: string; image: string | null; votes: number }[];
   total: number;
   myVote: number | null;
+  myVotes: number[];
 }
 
 export interface SharedPostRef {
@@ -42,6 +45,7 @@ export interface CommunityPost {
   fileName: string | null;
   poll: PollView | null;
   isPinned: boolean;
+  kind: "post" | "announcement" | "challenge";
   sharedPost: SharedPostRef | null;
   createdAt: string;
   updatedAt: string;
@@ -52,6 +56,14 @@ export interface CommunityPost {
   saved: boolean;
 }
 
+export interface StoryViewer {
+  id: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  role: string;
+  viewedAt: string;
+}
+
 export interface CommunityStory {
   id: string;
   author: CommunityAuthor;
@@ -59,6 +71,8 @@ export interface CommunityStory {
   caption: string | null;
   createdAt: string;
   expiresAt: string;
+  viewCount?: number;
+  viewers?: StoryViewer[];
 }
 
 export interface CommunityComment {
@@ -67,6 +81,7 @@ export interface CommunityComment {
   parentId: string | null;
   author: CommunityAuthor;
   content: string;
+  isWinner?: boolean;
   createdAt: string;
   updatedAt: string;
   reactions: ReactionSummary;
@@ -105,6 +120,7 @@ export interface CommunityMember {
   learningLanguage: string | null;
   level: string | null;
   createdAt: string;
+  points?: number;
   stats: { posts: number; comments: number; reactions: number };
 }
 
@@ -113,6 +129,7 @@ export interface CommunitySidebar {
   tags: { tag: string; count: number }[];
   online: { id: string; fullName: string; role: string; avatarUrl?: string | null }[];
   onlineCount: number;
+  topContributors?: { id: string; fullName: string; role: string; avatarUrl?: string | null; communityPoints: number }[];
 }
 
 export interface CommunitySettingsView {
@@ -158,7 +175,8 @@ export const communityApi = {
     images?: string[];
     fileUrl?: string;
     fileName?: string;
-    poll?: { question: string; options: string[] };
+    kind?: "post" | "announcement" | "challenge";
+    poll?: { question: string; multi?: boolean; options: (string | { text: string; image?: string })[] };
   }) => apiFetch<{ post: CommunityPost }>(`${B}/posts`, { method: "POST", body }),
   editPost: (id: string, content: string) => apiFetch<{ post: CommunityPost }>(`${B}/posts/${id}`, { method: "PATCH", body: { content } }),
   deletePost: (id: string) => apiFetch<void>(`${B}/posts/${id}`, { method: "DELETE" }),
@@ -169,13 +187,14 @@ export const communityApi = {
     apiFetch<{ reactions: { type: ReactionType; user: CommunityAuthor }[] }>(`${B}/posts/${id}/reactions`),
   savePost: (id: string) => apiFetch<{ saved: boolean }>(`${B}/posts/${id}/save`, { method: "POST" }),
   reportPost: (id: string, reason: string) => apiFetch<unknown>(`${B}/posts/${id}/report`, { method: "POST", body: { reason } }),
-  vote: (id: string, optionIdx: number) => apiFetch<{ myVote: number }>(`${B}/posts/${id}/vote`, { method: "POST", body: { optionIdx } }),
+  vote: (id: string, optionIdxs: number[]) => apiFetch<{ myVotes: number[] }>(`${B}/posts/${id}/vote`, { method: "POST", body: { optionIdxs } }),
   sharePost: (id: string, content = "") =>
     apiFetch<{ post: CommunityPost }>(`${B}/posts/${id}/share`, { method: "POST", body: { content } }),
   stories: () => apiFetch<{ stories: CommunityStory[] }>(`${B}/stories`),
   addStory: (mediaUrl: string, caption?: string) =>
     apiFetch<{ story: CommunityStory }>(`${B}/stories`, { method: "POST", body: { mediaUrl, ...(caption ? { caption } : {}) } }),
   deleteStory: (id: string) => apiFetch<void>(`${B}/stories/${id}`, { method: "DELETE" }),
+  viewStory: (id: string) => apiFetch<{ ok: boolean }>(`${B}/stories/${id}/view`, { method: "POST" }),
   memberProfile: (id: string) => apiFetch<{ member: CommunityMember; posts: CommunityPost[] }>(`${B}/members/${id}`),
   translate: (text: string, target = "ar") =>
     apiFetch<{ translated: string; source: string }>(`${B}/translate?text=${encodeURIComponent(text)}&target=${target}`),
@@ -194,6 +213,7 @@ export const communityApi = {
   reactComment: (id: string, type: ReactionType | null) =>
     apiFetch<{ myReaction: ReactionType | null }>(`${B}/comments/${id}/react`, { method: "POST", body: { type } }),
   reportComment: (id: string, reason: string) => apiFetch<unknown>(`${B}/comments/${id}/report`, { method: "POST", body: { reason } }),
+  markWinner: (id: string) => apiFetch<{ isWinner: boolean }>(`${B}/comments/${id}/winner`, { method: "POST" }),
   sidebar: () => apiFetch<CommunitySidebar>(`${B}/sidebar`),
   mentions: (q: string) => apiFetch<{ users: { id: string; fullName: string; role: string; avatarUrl?: string | null }[] }>(`${B}/mentions?q=${encodeURIComponent(q)}`),
   chatMessages: (before?: string | null) =>

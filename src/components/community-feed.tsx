@@ -1055,7 +1055,7 @@ export function StoriesBar({ me, canModerate, blocked }: { me: Me; canModerate: 
           <button onClick={() => fileRef.current?.click()} disabled={uploading} className="group flex w-16 shrink-0 flex-col items-center gap-1">
             <span className="relative">
               <span className={`block rounded-full p-[3px] ${myStories.length ? "bg-gradient-to-tr from-brand to-emerald-400" : "bg-muted"}`}>
-                <span className="block rounded-full bg-card p-[2px]"><Avatar user={me} size={52} /></span>
+                <span className="block rounded-full bg-card p-[2px]"><Avatar user={me} size={52} clickable={false} /></span>
               </span>
               <span className="absolute -bottom-0.5 -end-0.5 grid size-5 place-items-center rounded-full border-2 border-card bg-brand text-white">
                 {uploading ? <span className="size-2 animate-spin rounded-full border border-white/40 border-t-white" /> : <Plus className="size-3" />}
@@ -1070,7 +1070,7 @@ export function StoriesBar({ me, canModerate, blocked }: { me: Me; canModerate: 
           return (
             <button key={g.author.id} onClick={() => setViewerAt(firstIdx)} className="flex w-16 shrink-0 flex-col items-center gap-1">
               <span className="block rounded-full bg-gradient-to-tr from-brand via-emerald-400 to-gold p-[3px]">
-                <span className="block rounded-full bg-card p-[2px]"><Avatar user={g.author} size={52} /></span>
+                <span className="block rounded-full bg-card p-[2px]"><Avatar user={g.author} size={52} clickable={false} /></span>
               </span>
               <span className="max-w-16 truncate text-[10px] font-semibold text-muted-foreground">{g.author.fullName.split(" ")[0]}</span>
             </button>

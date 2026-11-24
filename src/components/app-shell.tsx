@@ -346,7 +346,7 @@ export function AppShell({
     });
   }
   if (communityVisible && !needsPlacement && !isLocked) {
-    navItems = [...navItems, { to: "/community", label: "المجتمع", icon: MessagesSquare, badge: "جديد" }];
+    navItems = [{ to: "/community", label: "المجتمع", icon: MessagesSquare, badge: "جديد" }, ...navItems];
   }
   const displayName = user ? user.fullName : t("غير مسجل الدخول");
   const displaySubtitle = user ? `${t(ROLE_LABELS[currentUserRole])} · ${user.phone ?? user.email ?? ""}` : t(ROLE_LABELS[role]);

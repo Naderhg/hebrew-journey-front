@@ -714,14 +714,14 @@ export function PageHeader({
   actions,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   actions?: ReactNode;
 }) {
   return (
     <header className="mb-5 flex flex-wrap items-center gap-3 px-1 py-1">
       <div className="min-w-0">
         <h1 className="text-xl font-extrabold">{title}</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+        {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="me-auto flex flex-wrap items-center gap-2">{actions}</div>}
     </header>

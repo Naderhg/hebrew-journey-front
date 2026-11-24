@@ -8,19 +8,23 @@ import {
   Heading1,
   Heading2,
   Image as ImageIcon,
+  Lightbulb,
   Link2,
   ListTodo,
   Minus,
+  Palette,
   Paperclip,
   Pin,
   Plus,
   Search,
+  StickyNote,
   Trash2,
+  X,
 } from "lucide-react";
 import { AppShell, PageHeader } from "./app-shell";
 import { useI18n } from "../lib/i18n";
 import { Button, Card, Input } from "./ui";
-import { usePlatformStore, uploadFile, type WorkspaceBlock, type WorkspaceBlockType, type WorkspacePageItem } from "../hooks/use-platform-store";
+import { usePlatformStore, uploadFile, type WorkspaceBlock, type WorkspaceBlockType, type WorkspacePageItem, type WorkspaceSearchResult } from "../hooks/use-platform-store";
 import { useAuth } from "../hooks/use-auth";
 
 // ─── Design tokens (map to existing app palette) ──────────────────────────────
@@ -31,12 +35,104 @@ const TYPE_META: Record<WorkspaceBlockType, { label: string; icon: typeof FileTe
   link: { label: "رابط", icon: Link2, text: "text-blue-600", bg: "bg-blue-500/10", ring: "hover:ring-blue-300", accent: "bg-blue-500" },
   image: { label: "صورة", icon: ImageIcon, text: "text-purple-600", bg: "bg-purple-500/10", ring: "hover:ring-purple-300", accent: "bg-purple-500" },
   file: { label: "ملف", icon: Paperclip, text: "text-gold", bg: "bg-gold/10", ring: "hover:ring-gold/30", accent: "bg-gold" },
+  callout: { label: "ملاحظة", icon: Lightbulb, text: "text-amber-700", bg: "bg-amber-100", ring: "hover:ring-amber-300", accent: "bg-amber-400" },
   divider: { label: "فاصل", icon: Minus, text: "text-muted-foreground", bg: "bg-muted", ring: "hover:ring-muted", accent: "bg-border" },
 };
 
-const BLOCK_ORDER: WorkspaceBlockType[] = ["text", "heading", "todo", "link", "image", "file", "divider"];
+const BLOCK_ORDER: WorkspaceBlockType[] = ["text", "heading", "todo", "link", "image", "file", "callout", "divider"];
+
+// Callout color variants (stored in block.fileName)
+const CALLOUT_COLORS: Record<string, { label: string; wrap: string; text: string; dot: string }> = {
+  amber:  { label: "كهرماني", wrap: "bg-amber-50 border-amber-200", text: "text-amber-800", dot: "bg-amber-400" },
+  blue:   { label: "أزرق",    wrap: "bg-blue-50 border-blue-200",   text: "text-blue-800",   dot: "bg-blue-400" },
+  green:  { label: "أخضر",    wrap: "bg-emerald-50 border-emerald-200", text: "text-emerald-800", dot: "bg-emerald-400" },
+  red:    { label: "أحمر",    wrap: "bg-red-50 border-red-200",     text: "text-red-800",    dot: "bg-red-400" },
+};
+
+// Page accent colors (stored in page.color)
+const PAGE_COLORS: Record<string, { label: string; hex: string }> = {
+  slate:  { label: "رمادي",   hex: "#64748b" },
+  blue:   { label: "أزرق",    hex: "#3b82f6" },
+  green:  { label: "أخضر",    hex: "#22c55e" },
+  amber:  { label: "كهرماني", hex: "#f59e0b" },
+  red:    { label: "أحمر",    hex: "#ef4444" },
+  purple: { label: "بنفسجي",  hex: "#a855f7" },
+};
 
 const PAGE_ICONS = ["📄", "📝", "💡", "🚀", "📌", "🎯", "📊", "🧠", "💼", "🔥", "⭐", "❗", "💰", "📞", "🧩", "🗂️", "🗓️", "✅", "🎓", "🗣️", "🛠️", "🌱", "🔖", "🧭"];
+
+// ─── Page templates ──────────────────────────────────────────────────────────
+interface TemplateBlock { type: WorkspaceBlockType; content?: string }
+interface PageTemplate { title: string; icon: string; desc: string; blocks: TemplateBlock[] }
+
+const PAGE_TEMPLATES: PageTemplate[] = [
+  {
+    title: "محضر اجتماع", icon: "🗣️", desc: "هيكل جاهز لأي اجتماع — حضور، قرارات، مهام",
+    blocks: [
+      { type: "heading", content: "📋 الحضور" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+      { type: "divider" },
+      { type: "heading", content: "🗒️ جدول الأعمال" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+      { type: "divider" },
+      { type: "heading", content: "✅ القرارات" },
+      { type: "text", content: "" },
+      { type: "heading", content: "➡️ مهام تالية" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+    ],
+  },
+  {
+    title: "خطة أسبوعية", icon: "🗓️", desc: "تنظيم مهامك على مدار الأسبوع",
+    blocks: [
+      { type: "heading", content: "🌅 اليوم" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+      { type: "divider" },
+      { type: "heading", content: "📅 هذا الأسبوع" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+      { type: "divider" },
+      { type: "heading", content: "🎯 أهداف الأسبوع" },
+      { type: "text", content: "" },
+    ],
+  },
+  {
+    title: "أفكار منتج", icon: "💡", desc: "من المشكلة للحل للمقاييس",
+    blocks: [
+      { type: "heading", content: "❓ المشكلة" },
+      { type: "text", content: "" },
+      { type: "heading", content: "🛠️ الحل المقترح" },
+      { type: "text", content: "" },
+      { type: "divider" },
+      { type: "heading", content: "🧪 خطوات التجربة" },
+      { type: "todo", content: "نسخة أولية" },
+      { type: "todo", content: "اختبار مع 5 مستخدمين" },
+      { type: "heading", content: "📊 المقاييس" },
+      { type: "todo", content: "معدل التفعيل" },
+      { type: "todo", content: "معدل الاحتفاظ" },
+    ],
+  },
+  {
+    title: "تتبع مشكلة", icon: "🐞", desc: "وصف، إعادة إنتاج، حل، تحقق",
+    blocks: [
+      { type: "heading", content: "📝 وصف المشكلة" },
+      { type: "text", content: "" },
+      { type: "heading", content: "🔁 خطوات إعادة الإنتاج" },
+      { type: "todo", content: "" },
+      { type: "todo", content: "" },
+      { type: "divider" },
+      { type: "heading", content: "🔧 الحل" },
+      { type: "text", content: "" },
+      { type: "heading", content: "✅ التحقق" },
+      { type: "todo", content: "تم الإصلاح" },
+      { type: "todo", content: "تم الاختبار والإغلاق" },
+    ],
+  },
+];
 
 function isImageUrl(url: string | null | undefined, fileName?: string | null) {
   if (!url) return false;
@@ -53,6 +149,7 @@ export function WorkspaceScreen() {
     createWorkspacePage,
     updateWorkspacePage,
     deleteWorkspacePage,
+    searchWorkspace,
     fetchWorkspaceBlocks,
     createWorkspaceBlock,
     updateWorkspaceBlock,
@@ -66,10 +163,23 @@ export function WorkspaceScreen() {
   const [newPageTitle, setNewPageTitle] = useState("");
   const [addingChildOf, setAddingChildOf] = useState<string | null | "root">(null);
   const [titleDraft, setTitleDraft] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [searchResults, setSearchResults] = useState<WorkspaceSearchResult>({ pages: [], blocks: [] });
 
   useEffect(() => {
     fetchWorkspacePages().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Content search (titles + block text) — debounced
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) { setSearchResults({ pages: [], blocks: [] }); return; }
+    const h = setTimeout(() => {
+      searchWorkspace(q).then(setSearchResults).catch(() => {});
+    }, 300);
+    return () => clearTimeout(h);
+  }, [search, searchWorkspace]);
 
   const selectedPage = workspacePages.find((p) => p.id === selectedId) ?? null;
   const blocks = useMemo(
@@ -196,14 +306,57 @@ export function WorkspaceScreen() {
     setAddingChildOf(null);
   }
 
+  async function applyTemplate(tpl: PageTemplate) {
+    const page = await createWorkspacePage({ title: tpl.title, icon: tpl.icon });
+    if (!page) return;
+    setShowTemplates(false);
+    setSelectedId(page.id);
+    setTitleDraft(page.title);
+    fetchWorkspaceBlocks(page.id).catch(() => {});
+    for (const b of tpl.blocks) {
+      await createWorkspaceBlock({ pageId: page.id, type: b.type, content: b.content ?? "" });
+    }
+    fetchWorkspaceBlocks(page.id).catch(() => {});
+  }
+
   async function insertBlockAfter(afterId: string | null, type: WorkspaceBlockType) {
-    if (!selectedId) return;
-    const block = await createWorkspaceBlock({ pageId: selectedId, type, content: "" });
-    if (!block) return;
+    await insertBlocksAfter(afterId, [{ type }]);
+  }
+
+  // Create one or more blocks right after `afterId` (used by paste + slash + toolbar)
+  async function insertBlocksAfter(afterId: string | null, items: { type: WorkspaceBlockType; content?: string; checked?: boolean; fileName?: string | null }[]) {
+    if (!selectedId || !items.length) return;
+    const newIds: string[] = [];
+    for (const it of items) {
+      const b = await createWorkspaceBlock({
+        pageId: selectedId,
+        type: it.type,
+        content: it.content ?? "",
+        ...(it.checked !== undefined ? { checked: it.checked } : {}),
+        ...(it.fileName ? { fileName: it.fileName } : {}),
+      });
+      if (b) newIds.push(b.id);
+    }
+    if (!newIds.length) return;
     const ids = blocks.map((b) => b.id);
     const idx = afterId ? ids.indexOf(afterId) : -1;
-    ids.splice(idx + 1, 0, block.id);
+    ids.splice(idx + 1, 0, ...newIds);
     reorderWorkspaceBlocks(selectedId, ids).catch(() => {});
+  }
+
+  // Open a page from search results and scroll to a specific block
+  async function openBlockResult(pageId: string, blockId: string) {
+    setSelectedId(pageId);
+    const page = workspacePages.find((p) => p.id === pageId);
+    if (page) setTitleDraft(page.title);
+    setSearch("");
+    await fetchWorkspaceBlocks(pageId).catch(() => {});
+    setTimeout(() => {
+      const el = document.getElementById(`wsb-${blockId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.classList.add("ring-2", "ring-brand", "rounded-lg");
+      setTimeout(() => el?.classList.remove("ring-2", "ring-brand", "rounded-lg"), 2000);
+    }, 150);
   }
 
   function moveBlock(id: string, dir: -1 | 1) {
@@ -249,7 +402,34 @@ export function WorkspaceScreen() {
         <Card className="h-fit p-3 lg:sticky lg:top-4">
           <div className="relative mb-3">
             <Search className="absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("بحث في الصفحات...")} className="ps-8" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("بحث في الصفحات والمحتوى...")} className="ps-8" />
+            {search.trim().length >= 2 && (searchResults.blocks.length > 0 || searchResults.pages.length > 0) && (
+              <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-background shadow-xl">
+                {searchResults.pages.length > 0 && (
+                  <div className="border-b border-border py-1">
+                    <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("صفحات")}</p>
+                    {searchResults.pages.map((p) => (
+                      <button key={p.id} onClick={() => { setSelectedId(p.id); setTitleDraft(p.title); fetchWorkspaceBlocks(p.id).catch(() => {}); setSearch(""); }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted">
+                        <span>{p.icon}</span><span className="truncate">{p.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchResults.blocks.length > 0 && (
+                  <div className="py-1">
+                    <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("داخل الصفحات")}</p>
+                    {searchResults.blocks.map((b) => (
+                      <button key={b.id} onClick={() => openBlockResult(b.page.id, b.id)}
+                        className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-start hover:bg-muted">
+                        <span className="text-[10px] text-muted-foreground">{b.page.icon} {b.page.title}</span>
+                        <span className="line-clamp-2 text-xs">{b.snippet}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <Button
             className="mb-3 w-full text-xs"
@@ -257,6 +437,13 @@ export function WorkspaceScreen() {
             onClick={() => { setAddingChildOf("root"); setNewPageTitle(""); }}
           >
             <Plus className="size-4" /> {t("صفحة جديدة")}
+          </Button>
+          <Button
+            className="mb-3 w-full bg-brand2 text-xs text-white"
+            variant="secondary"
+            onClick={() => setShowTemplates(true)}
+          >
+            <StickyNote className="size-4" /> {t("من قالب جاهز")}
           </Button>
           {addingChildOf === "root" && (
             <div className="mb-2 flex gap-1">
@@ -286,7 +473,14 @@ export function WorkspaceScreen() {
         </Card>
 
         {/* ─── Editor ─── */}
-        <Card className="min-h-[70vh] overflow-hidden">
+        <Card className="min-h-[70vh] overflow-hidden p-0">
+          {selectedPage?.color && PAGE_COLORS[selectedPage.color] && (
+            <div
+              className="h-2 w-full"
+              style={{ background: `linear-gradient(90deg, ${PAGE_COLORS[selectedPage.color]!.hex}, ${PAGE_COLORS[selectedPage.color]!.hex}55)` }}
+            />
+          )}
+          <div className="p-4">
           {!selectedPage ? (
             <div className="flex h-72 flex-col items-center justify-center text-center text-muted-foreground">
               <div className="mb-4 grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-brand/15 to-brand2/15 text-3xl">🗒️</div>
@@ -342,6 +536,24 @@ export function WorkspaceScreen() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
+                    <div className="relative">
+                      <button title={t("لون الصفحة")} onClick={() => setShowColorPicker((v) => !v)}
+                        className="grid size-9 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted active:scale-90">
+                        <Palette className="size-4" />
+                      </button>
+                      {showColorPicker && (
+                        <div className="absolute end-0 top-full z-20 mt-1 flex items-center gap-1.5 rounded-xl border border-border bg-background p-2 shadow-lg">
+                          <button title={t("بدون لون")} onClick={() => { updateWorkspacePage(selectedPage.id, { color: null }).catch(() => {}); setShowColorPicker(false); }}
+                            className="grid size-6 place-items-center rounded-full border border-dashed border-border text-[10px] text-muted-foreground hover:bg-muted">✕</button>
+                          {Object.entries(PAGE_COLORS).map(([key, c]) => (
+                            <button key={key} title={t(c.label)}
+                              onClick={() => { updateWorkspacePage(selectedPage.id, { color: key }).catch(() => {}); setShowColorPicker(false); }}
+                              className={`size-6 rounded-full transition hover:scale-110 active:scale-95 ${selectedPage.color === key ? "ring-2 ring-foreground/40 ring-offset-2" : ""}`}
+                              style={{ backgroundColor: c.hex }} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button title={t("تثبيت الصفحة")} onClick={() => updateWorkspacePage(selectedPage.id, { isPinned: !selectedPage.isPinned }).catch(() => {})}
                       className={`grid size-9 place-items-center rounded-lg border transition active:scale-90 ${selectedPage.isPinned ? "border-gold/40 bg-gold/15 text-gold" : "border-border text-muted-foreground hover:border-gold/40 hover:bg-gold/10 hover:text-gold"}`}>
                       <Pin className="size-4" />
@@ -361,17 +573,19 @@ export function WorkspaceScreen() {
               {/* Blocks */}
               <div className="space-y-0.5">
                 {blocks.map((b, i) => (
-                  <WorkspaceBlockRow
-                    key={b.id}
-                    block={b}
-                    isFirst={i === 0}
-                    isLast={i === blocks.length - 1}
-                    onMove={(dir) => moveBlock(b.id, dir)}
-                    onDropOn={(draggedId) => dropBlock(draggedId, b.id)}
-                    onUpdate={(input) => updateWorkspaceBlock(b.id, input).catch(() => {})}
-                    onDelete={() => deleteWorkspaceBlock(b.id).catch(() => {})}
-                    onEnterNew={(type) => insertBlockAfter(b.id, type)}
-                  />
+                  <div key={b.id} id={`wsb-${b.id}`} className="scroll-mt-4">
+                    <WorkspaceBlockRow
+                      block={b}
+                      isFirst={i === 0}
+                      isLast={i === blocks.length - 1}
+                      onMove={(dir) => moveBlock(b.id, dir)}
+                      onDropOn={(draggedId) => dropBlock(draggedId, b.id)}
+                      onUpdate={(input) => updateWorkspaceBlock(b.id, input).catch(() => {})}
+                      onDelete={() => deleteWorkspaceBlock(b.id).catch(() => {})}
+                      onEnterNew={(type) => insertBlockAfter(b.id, type)}
+                      onPasteItems={(items) => insertBlocksAfter(b.id, items)}
+                    />
+                  </div>
                 ))}
                 {blocks.length === 0 && (
                   <div className="py-10 text-center">
@@ -402,8 +616,35 @@ export function WorkspaceScreen() {
               </div>
             </div>
           )}
+          </div>
         </Card>
       </div>
+
+      {/* Templates modal */}
+      {showTemplates && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowTemplates(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-background p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-base font-bold">{t("اختر قالب صفحة")}</h3>
+              <button onClick={() => setShowTemplates(false)} className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"><X className="size-4" /></button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PAGE_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.title}
+                  onClick={() => applyTemplate(tpl)}
+                  className="flex flex-col items-start gap-1 rounded-xl border border-border p-3 text-start transition hover:border-brand hover:bg-brand/5 active:scale-[0.98]"
+                >
+                  <span className="text-2xl">{tpl.icon}</span>
+                  <b className="text-sm">{t(tpl.title)}</b>
+                  <span className="text-[11px] leading-relaxed text-muted-foreground">{t(tpl.desc)}</span>
+                  <span className="mt-1 text-[10px] text-muted-foreground">{tpl.blocks.length} {t("بلوك")}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -533,7 +774,7 @@ function PageTreeRow({
 // ─── Block row ────────────────────────────────────────────────────────────────
 
 function WorkspaceBlockRow({
-  block, isFirst, isLast, onMove, onDropOn, onUpdate, onDelete, onEnterNew,
+  block, isFirst, isLast, onMove, onDropOn, onUpdate, onDelete, onEnterNew, onPasteItems,
 }: {
   block: WorkspaceBlock;
   isFirst: boolean;
@@ -543,6 +784,7 @@ function WorkspaceBlockRow({
   onUpdate: (input: { type?: WorkspaceBlockType; content?: string; checked?: boolean; mediaUrl?: string | null; fileName?: string | null }) => void;
   onDelete: () => void;
   onEnterNew: (type: WorkspaceBlockType) => void;
+  onPasteItems: (items: { type: WorkspaceBlockType; content?: string; checked?: boolean; fileName?: string | null }[]) => void;
 }) {
   const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -551,6 +793,9 @@ function WorkspaceBlockRow({
   const [dropHint, setDropHint] = useState(false);
   const meta = TYPE_META[block.type];
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const [text, setText] = useState(block.content);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIdx, setSlashIdx] = useState(0);
 
   // Auto-grow textarea to fit content (like Notion)
   useEffect(() => {
@@ -559,6 +804,44 @@ function WorkspaceBlockRow({
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   }, [block.content, block.type]);
+
+  const slashMatches = slashQuery !== null
+    ? BLOCK_ORDER.filter((k) => {
+        const label = TYPE_META[k].label;
+        return !slashQuery || label.includes(slashQuery) || k.includes(slashQuery.toLowerCase());
+      })
+    : [];
+
+  function pickSlashType(type: WorkspaceBlockType) {
+    onUpdate({ type, content: "" });
+    setText("");
+    setSlashQuery(null);
+    setSlashIdx(0);
+  }
+
+  // Markdown-style paste: checklist → todo blocks, bare URL → link block
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const raw = e.clipboardData.getData("text/plain");
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const lines = trimmed.split("\n").map((l) => l.trim()).filter(Boolean);
+    const checklistRe = /^[-*•]?\s*\[([ xX])\]\s*(.+)$/;
+    const isChecklist = lines.length > 0 && lines.every((l) => checklistRe.test(l));
+    if (isChecklist) {
+      e.preventDefault();
+      onPasteItems(
+        lines.map((l) => {
+          const m = l.match(checklistRe)!;
+          return { type: "todo" as const, content: m[2]!.trim(), checked: m[1]!.toLowerCase() === "x" };
+        })
+      );
+      return;
+    }
+    if (/^https?:\/\/\S+$/.test(trimmed)) {
+      e.preventDefault();
+      onPasteItems([{ type: "link", content: trimmed, fileName: trimmed }]);
+    }
+  }
 
   // Universal controls: drag handle + move up/down + insert below + delete (always visible)
   const controls = (
@@ -633,6 +916,41 @@ function WorkspaceBlockRow({
     );
   }
 
+  if (block.type === "callout") {
+    const ckey = block.fileName && CALLOUT_COLORS[block.fileName] ? block.fileName : "amber";
+    const cc = CALLOUT_COLORS[ckey]!;
+    return (
+      <div className={`flex items-start gap-2 rounded-xl border p-3 ${cc.wrap} ${dropHint ? "ring-2 ring-brand" : ""}`}>
+        <Lightbulb className={`mt-0.5 size-5 shrink-0 ${cc.text}`} />
+        <div className="min-w-0 flex-1">
+          <textarea
+            defaultValue={block.content}
+            placeholder={t("ملاحظة مهمة...")}
+            rows={1}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${el.scrollHeight}px`;
+            }}
+            onBlur={(e) => { if (e.target.value !== block.content) onUpdate({ content: e.target.value }); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnterNew("text"); }
+            }}
+            className={`w-full resize-none overflow-hidden bg-transparent text-sm outline-none ${cc.text}`}
+          />
+          <div className="mt-1.5 flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground">{t("اللون:")}</span>
+            {Object.entries(CALLOUT_COLORS).map(([key, c]) => (
+              <button key={key} title={t(c.label)} onClick={() => onUpdate({ fileName: key })}
+                className={`size-4 rounded-full transition hover:scale-110 ${c.dot} ${ckey === key ? "ring-2 ring-foreground/40 ring-offset-1" : "opacity-60"}`} />
+            ))}
+          </div>
+        </div>
+        {controls}
+      </div>
+    );
+  }
+
   if (block.type === "link") {
     const hasLink = !!block.content;
     return (
@@ -695,25 +1013,68 @@ function WorkspaceBlockRow({
       <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${meta.bg} ${meta.text}`}>
         {isHeading ? <Heading2 className="size-4" /> : <FileText className="size-4" />}
       </span>
-      <textarea
-        ref={taRef}
-        defaultValue={block.content}
-        placeholder={isHeading ? t("عنوان...") : t("اكتب...")}
-        rows={1}
-        onInput={(e) => {
-          const el = e.currentTarget;
-          el.style.height = "auto";
-          el.style.height = `${el.scrollHeight}px`;
-        }}
-        onBlur={(e) => { if (e.target.value !== block.content) onUpdate({ content: e.target.value }); }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            onEnterNew("text");
-          }
-        }}
-        className={`min-w-0 flex-1 resize-none overflow-hidden bg-transparent outline-none ${isHeading ? "text-lg font-bold" : "text-sm"}`}
-      />
+      <div className="relative min-w-0 flex-1">
+        <textarea
+          ref={taRef}
+          value={text}
+          placeholder={isHeading ? t("عنوان...") : t("اكتب... ( / للأوامر)")}
+          rows={1}
+          onChange={(e) => {
+            const v = e.target.value;
+            setText(v);
+            const el = e.target;
+            el.style.height = "auto";
+            el.style.height = `${el.scrollHeight}px`;
+            // slash menu: "/" at start of block, no spaces yet
+            if (/^\/\S*$/.test(v)) { setSlashQuery(v.slice(1)); setSlashIdx(0); }
+            else setSlashQuery(null);
+          }}
+          onPaste={handlePaste}
+          onBlur={() => {
+            setSlashQuery(null);
+            if (text !== block.content) onUpdate({ content: text });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && slashQuery !== null) { setSlashQuery(null); e.preventDefault(); return; }
+            if (slashQuery !== null && slashMatches.length > 0) {
+              if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => (i + 1) % slashMatches.length); return; }
+              if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => (i - 1 + slashMatches.length) % slashMatches.length); return; }
+              if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pickSlashType(slashMatches[Math.min(slashIdx, slashMatches.length - 1)]!); return; }
+            }
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              setSlashQuery(null);
+              onEnterNew("text");
+            }
+          }}
+          className={`w-full resize-none overflow-hidden bg-transparent outline-none ${isHeading ? "text-lg font-bold" : "text-sm"}`}
+        />
+        {slashQuery !== null && (
+          <div className="absolute start-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-background py-1 shadow-xl">
+            <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{t("تحويل البلوك إلى")}</p>
+            {slashMatches.map((k, i) => {
+              const m = TYPE_META[k];
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setSlashIdx(i)}
+                  onClick={() => pickSlashType(k)}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition ${i === Math.min(slashIdx, slashMatches.length - 1) ? "bg-brand/10 font-semibold" : "hover:bg-muted"}`}
+                >
+                  <span className={`grid size-6 place-items-center rounded-md ${m.bg} ${m.text}`}><m.icon className="size-3.5" /></span>
+                  {t(m.label)}
+                  <span className="ms-auto text-[10px] text-muted-foreground" dir="ltr">/{k}</span>
+                </button>
+              );
+            })}
+            {slashMatches.length === 0 && (
+              <p className="px-3 py-2 text-xs text-muted-foreground">{t("لا نتائج")}</p>
+            )}
+          </div>
+        )}
+      </div>
       <button
         title={isHeading ? t("تحويل لنص") : t("تحويل لعنوان")}
         onClick={() => onUpdate({ type: isHeading ? "text" : "heading" })}

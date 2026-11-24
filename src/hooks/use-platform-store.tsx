@@ -1054,11 +1054,12 @@ export interface WorkspacePageItem {
   parentId: string | null;
   position: number;
   isPinned: boolean;
+  color?: string | null;
   updatedAt: string;
   _count?: { blocks: number };
 }
 
-export type WorkspaceBlockType = "text" | "heading" | "todo" | "link" | "image" | "file" | "divider";
+export type WorkspaceBlockType = "text" | "heading" | "todo" | "link" | "image" | "file" | "callout" | "divider";
 
 export interface WorkspaceBlock {
   id: string;
@@ -1069,6 +1070,11 @@ export interface WorkspaceBlock {
   mediaUrl: string | null;
   fileName: string | null;
   position: number;
+}
+
+export interface WorkspaceSearchResult {
+  pages: { id: string; title: string; icon: string; parentId: string | null; color?: string | null }[];
+  blocks: { id: string; pageId: string; content: string; type: string; snippet: string; page: { id: string; title: string; icon: string } }[];
 }
 
 export interface PublicTeacher {
@@ -1266,8 +1272,9 @@ interface PlatformStoreValue {
   workspacePages: WorkspacePageItem[];
   workspaceBlocks: WorkspaceBlock[];
   fetchWorkspacePages: () => Promise<void>;
-  createWorkspacePage: (input: { title: string; icon?: string; parentId?: string | null }) => Promise<WorkspacePageItem | null>;
-  updateWorkspacePage: (id: string, input: { title?: string; icon?: string; parentId?: string | null; isPinned?: boolean }) => Promise<void>;
+  createWorkspacePage: (input: { title: string; icon?: string; parentId?: string | null; color?: string | null }) => Promise<WorkspacePageItem | null>;
+  updateWorkspacePage: (id: string, input: { title?: string; icon?: string; parentId?: string | null; isPinned?: boolean; color?: string | null }) => Promise<void>;
+  searchWorkspace: (q: string) => Promise<WorkspaceSearchResult>;
   deleteWorkspacePage: (id: string) => Promise<void>;
   fetchWorkspaceBlocks: (pageId: string) => Promise<void>;
   createWorkspaceBlock: (input: { pageId: string; type: WorkspaceBlockType; content?: string; checked?: boolean; mediaUrl?: string; fileName?: string }) => Promise<WorkspaceBlock | null>;
@@ -2344,7 +2351,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     if (res?.pages) setWorkspacePages(res.pages);
   }
 
-  async function createWorkspacePage(input: { title: string; icon?: string; parentId?: string | null }) {
+  async function createWorkspacePage(input: { title: string; icon?: string; parentId?: string | null; color?: string | null }) {
     const res = await apiFetch<{ page: WorkspacePageItem }>("/api/workspace/pages", { method: "POST", body: input });
     if (res?.page) {
       setWorkspacePages((prev) => [...prev, res.page]);
@@ -2353,7 +2360,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
     return null;
   }
 
-  async function updateWorkspacePage(id: string, input: { title?: string; icon?: string; parentId?: string | null; isPinned?: boolean }) {
+  async function updateWorkspacePage(id: string, input: { title?: string; icon?: string; parentId?: string | null; isPinned?: boolean; color?: string | null }) {
     const res = await apiFetch<{ page: WorkspacePageItem }>(`/api/workspace/pages/${id}`, { method: "PATCH", body: input });
     if (res?.page) {
       setWorkspacePages((prev) =>
@@ -2383,6 +2390,11 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
       return prev.filter((p) => !doomed.has(p.id));
     });
     setWorkspaceBlocks([]);
+  }
+
+  async function searchWorkspace(q: string): Promise<WorkspaceSearchResult> {
+    const res = await apiFetch<WorkspaceSearchResult>(`/api/workspace/search?q=${encodeURIComponent(q)}`);
+    return res ?? { pages: [], blocks: [] };
   }
 
   async function fetchWorkspaceBlocks(pageId: string) {
@@ -2958,6 +2970,7 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         fetchWorkspacePages,
         createWorkspacePage,
         updateWorkspacePage,
+        searchWorkspace,
         deleteWorkspacePage,
         fetchWorkspaceBlocks,
         createWorkspaceBlock,

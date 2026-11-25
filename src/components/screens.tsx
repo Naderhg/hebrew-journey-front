@@ -12048,6 +12048,15 @@ function OpsCreateSessionCard({
   const studentList = linked.length > 0 || !teacherId ? linked : callsStudents;
   const selectedStudent = callsStudents.find((s) => s.studentId === studentId) ?? null;
 
+  // Duration comes from the student's calls package — auto-set, not manual.
+  useEffect(() => {
+    const d = selectedStudent?.sessionDurationMinutes;
+    if (d) {
+      setDuration(d);
+      setPickedTime(null);
+    }
+  }, [studentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Times already taken for this teacher (booked sessions + scheduled/live lectures)
   const busyEvents = useMemo(() => {
     if (!teacherId) return [] as { start: number; end: number }[];
@@ -12158,9 +12167,33 @@ function OpsCreateSessionCard({
           </div>
         </div>
 
-        {/* Teacher + Date + Duration */}
+        {/* Student first — their package sets the call duration */}
         <div className="mt-4 space-y-3 rounded-xl border border-border bg-background/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm font-bold text-brand">
+              <UsersRound className="size-4" /> {t("الطالب")}
+            </span>
+            <div className="flex-1 sm:max-w-md">
+              <select
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                required
+                className="flex h-11 w-full rounded-xl border border-input bg-card px-3 text-sm font-semibold"
+              >
+                <option value="">— {t("اختر الطالب")} —</option>
+                {studentList.map((s) => (
+                  <option key={s.id} value={s.studentId}>
+                    {s.studentName} — {s.packageName} ({t("متبقي")} {s.sessionsRemaining ?? "—"})
+                  </option>
+                ))}
+              </select>
+              {teacherId && linked.length === 0 && callsStudents.length > 0 && (
+                <small className="mt-1 block text-xs text-muted-foreground">{t("لا يوجد طلاب مربوطون بهذا المدرس — تظهر كل باقات المكالمات.")}</small>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
             <span className="flex items-center gap-1.5 text-sm font-bold text-brand">
               <Award className="size-4" /> {t("المدرس")}
             </span>
@@ -12204,16 +12237,28 @@ function OpsCreateSessionCard({
               <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                 <Clock3 className="size-3.5 text-brand" /> {t("مدة المكالمة")}
               </label>
-              <select
-                value={duration}
-                onChange={(e) => { setDuration(Number(e.target.value)); setPickedTime(null); }}
-                className="mt-1.5 flex h-9 w-full rounded-md bg-transparent text-sm font-semibold"
-              >
-                <option value={30}>30 {t("دقيقة")}</option>
-                <option value={60}>60 {t("دقيقة")} ({t("ساعة")})</option>
-                <option value={90}>90 {t("دقيقة")} ({t("ساعة ونصف")})</option>
-              </select>
+              {selectedStudent?.sessionDurationMinutes ? (
+                <div className="mt-1.5 flex h-9 items-center gap-1.5 text-sm font-bold text-brand">
+                  {duration} {t("دقيقة")}
+                  <small className="font-normal text-muted-foreground">({t("من باقة")} {selectedStudent.packageName})</small>
+                </div>
+              ) : (
+                <select
+                  value={duration}
+                  onChange={(e) => { setDuration(Number(e.target.value)); setPickedTime(null); }}
+                  className="mt-1.5 flex h-9 w-full rounded-md bg-transparent text-sm font-semibold"
+                >
+                  <option value={30}>30 {t("دقيقة")}</option>
+                  <option value={60}>60 {t("دقيقة")} ({t("ساعة")})</option>
+                  <option value={90}>90 {t("دقيقة")} ({t("ساعة ونصف")})</option>
+                </select>
+              )}
             </div>
+          </div>
+
+          <div className="grid gap-2 pt-1 sm:grid-cols-2">
+            <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder={t("رابط الاجتماع (اختياري — يُنشأ تلقائياً إن تُرك فارغاً)")} />
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("ملاحظات للحصة (اختياري)")} />
           </div>
         </div>
       </Card>
@@ -12270,37 +12315,6 @@ function OpsCreateSessionCard({
             })}
           </div>
         )}
-      </Card>
-
-      {/* Student selector */}
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="flex items-center gap-2 font-bold text-brand">
-            <UsersRound className="size-4" /> {t("الطالب")}
-          </span>
-          <div className="flex-1 sm:max-w-md">
-            <select
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              required
-              className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold"
-            >
-              <option value="">— {t("اختر الطالب")} —</option>
-              {studentList.map((s) => (
-                <option key={s.id} value={s.studentId}>
-                  {s.studentName} — {s.packageName} ({t("متبقي")} {s.sessionsRemaining ?? "—"})
-                </option>
-              ))}
-            </select>
-            {teacherId && linked.length === 0 && callsStudents.length > 0 && (
-              <small className="mt-1 block text-xs text-muted-foreground">{t("لا يوجد طلاب مربوطون بهذا المدرس — تظهر كل باقات المكالمات.")}</small>
-            )}
-          </div>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Input value={meetingUrl} onChange={(e) => setMeetingUrl(e.target.value)} placeholder={t("رابط الاجتماع (اختياري — يُنشأ تلقائياً إن تُرك فارغاً)")} />
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("ملاحظات للحصة (اختياري)")} />
-        </div>
       </Card>
 
       {/* Booking summary */}

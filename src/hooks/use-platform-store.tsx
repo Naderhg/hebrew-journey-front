@@ -595,6 +595,7 @@ export interface CallsStudentItem {
   sessionsUsed?: number | null;
   sessionsRemaining?: number | null;
   expiresAt?: string | null;
+  sessionDurationMinutes?: number | null;
 }
 
 export interface OpsTeacherItem {

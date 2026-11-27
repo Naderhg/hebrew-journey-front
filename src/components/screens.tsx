@@ -12096,7 +12096,7 @@ function OpsCreateSessionCard({
       const [eh = 0, em = 0] = String(slot.endTime).split(":").map(Number);
       let cur = sh * 60 + sm;
       const end = eh * 60 + em;
-      const step = Math.max(duration, 30);
+      const step = 30; // offer a start every 30 min — duration defines the window length, not the gap
       while (cur + duration <= end) {
         const hh = String(Math.floor(cur / 60)).padStart(2, "0");
         const mm = String(cur % 60).padStart(2, "0");
@@ -12457,7 +12457,7 @@ function OpsFreeLecturesSection({
       const [eh = 0, em = 0] = String(slot.endTime).split(":").map(Number);
       let cur = sh * 60 + sm;
       const end = eh * 60 + em;
-      const step = Math.max(lDuration, 30);
+      const step = 30; // same as session booking — offer a start every 30 min
       while (cur + lDuration <= end) {
         const hh = String(Math.floor(cur / 60)).padStart(2, "0");
         const mm = String(cur % 60).padStart(2, "0");

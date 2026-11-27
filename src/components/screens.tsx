@@ -2069,8 +2069,10 @@ export function TeacherScreen() {
                   className="flex flex-col rounded-md border border-border bg-background/60 p-4"
                 >
                   <div className="flex items-center justify-between">
-                    <Badge tone={mat.type === "VIDEO" ? "brand" : "gold"}>
-                      {mat.type === "VIDEO" ? t("فيديو") : mat.type === "AUDIO" ? t("صوتي") : t("ملف")}
+                    <Badge tone={mat.storageUrl ? (mat.type === "VIDEO" ? "brand" : "gold") : "muted"}>
+                      {mat.storageUrl
+                        ? mat.type === "VIDEO" ? t("فيديو") : mat.type === "AUDIO" ? t("صوتي") : t("ملف")
+                        : t("مقرر حصص")}
                     </Badge>
                     <div className="flex gap-1.5">
                       <Badge tone="sage">{t("مستوى")} {mat.level}</Badge>
@@ -2082,7 +2084,7 @@ export function TeacherScreen() {
                   <h3 className="mt-3 font-bold">{mat.title}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">{mat.description}</p>
                   <div className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
-                    {mat.fileName} · {mat.fileSize}
+                    {mat.storageUrl ? `${mat.fileName} · ${mat.fileSize}` : t("مقرر مقسم لحصص")}
                     {(mat.attachments?.length ?? 0) > 0 && (
                       <Badge tone="brand" className="mr-1.5">+{mat.attachments!.length} {t("مرفق")}</Badge>
                     )}
@@ -2101,8 +2103,25 @@ export function TeacherScreen() {
                   </Button>
                   {openMaterialId === mat.id && (
                     <div className="mt-3">
-                      <MaterialPlayer material={mat} />
                       <MaterialLessonsList lessons={mat.lessons} />
+                      {mat.storageUrl ? (
+                        (mat.lessons?.length ?? 0) > 0 ? (
+                          <details className="mt-3 rounded-xl border border-border bg-muted/20">
+                            <summary className="cursor-pointer select-none px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground">
+                              {t("الملف العام")} — {mat.fileName}
+                            </summary>
+                            <div className="border-t border-border/60 p-3">
+                              <MaterialPlayer material={mat} />
+                            </div>
+                          </details>
+                        ) : (
+                          <MaterialPlayer material={mat} />
+                        )
+                      ) : (
+                        (mat.lessons?.length ?? 0) === 0 && (
+                          <p className="text-xs text-muted-foreground">{t("لا يوجد محتوى في هذا المقرر بعد.")}</p>
+                        )
+                      )}
                     </div>
                   )}
                 </div>
@@ -3501,15 +3520,10 @@ export function AdminScreen() {
 
   const teachers = users.filter((u) => u.role === "TEACHER");
   const [courseTitle, setCourseTitle] = useState("");
-  const [courseDesc, setCourseDesc] = useState("");
   const [courseLevel, setCourseLevel] = useState<PlatformLevel>("A1");
-  const [courseType, setCourseType] = useState<MaterialType>("VIDEO");
   const [courseStatus, setCourseStatus] = useState<PublishStatus>("DRAFT");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
   const [coursePackageId, setCoursePackageId] = useState<string>("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [extraFiles, setExtraFiles] = useState<File[]>([]);
-  const [extraAttachments, setExtraAttachments] = useState<MaterialAttachment[]>([]);
   const [courseUploading, setCourseUploading] = useState(false);
   const [openMaterialId, setOpenMaterialId] = useState<string | null>(null);
   const [courseSuccess, setCourseSuccess] = useState("");
@@ -3625,66 +3639,25 @@ export function AdminScreen() {
 
     setCourseUploading(true);
     try {
-      let storageUrl = "";
-      let fileName = selectedFile?.name ?? "";
-      let fileSize = "";
-
-      if (selectedFile) {
-        const uploaded = await uploadFile(selectedFile, "courses");
-        storageUrl = uploaded.url;
-        fileSize = `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`;
-      } else {
-        fileName =
-          fileName ||
-          `${courseTitle.slice(0, 18).replace(/\s+/g, "-")}.${
-            courseType === "VIDEO" ? "mp4" : courseType === "AUDIO" ? "mp3" : "pdf"
-          }`;
-        storageUrl = `${SERVER_CONFIG.storageServerUrl}/courses/${fileName}`;
-        fileSize = courseType === "VIDEO" ? "120 MB" : "8.5 MB";
-      }
-
-      // Upload any extra files + attachments (video + document + audio combos)
-      const inferMatType = (f: File): MaterialType => {
-        if (f.type.startsWith("video/") || /\.(mp4|mov|webm|mkv)$/i.test(f.name)) return "VIDEO";
-        if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg)$/i.test(f.name)) return "AUDIO";
-        return "DOCUMENT";
-      };
-      const uploadedExtras: MaterialAttachment[] = [];
-      for (const ef of extraFiles) {
-        const up = await uploadFile(ef, "courses");
-        uploadedExtras.push({
-          url: up.url,
-          type: inferMatType(ef),
-          name: ef.name,
-          size: `${(ef.size / (1024 * 1024)).toFixed(1)} MB`,
-        });
-      }
-      const finalAttachments: MaterialAttachment[] = [...extraAttachments, ...uploadedExtras];
-
       await addCourseMaterial({
         title: courseTitle,
-        description: courseDesc || t("مادة تدريبية مرفوعة من الإدارة"),
+        description: "",
         level: courseLevel,
-        type: selectedFile ? inferMatType(selectedFile) : courseType,
-        fileName,
-        fileSize,
+        type: "VIDEO",
+        fileName: "",
+        fileSize: "",
         assignedTeacherId: activeTeacherId,
-        storageUrl,
+        storageUrl: "",
         status: courseStatus,
         ...(coursePackageId ? { packageId: coursePackageId } : {}),
-        ...(finalAttachments.length > 0 ? { attachments: finalAttachments } : {}),
       });
 
       setCourseTitle("");
-      setCourseDesc("");
       setCoursePackageId("");
-      setSelectedFile(null);
-      setExtraFiles([]);
-      setExtraAttachments([]);
       setCourseSuccess(
         courseStatus === "PUBLISHED"
-          ? t("تم رفع الكورس ونشره — يظهر الآن للمدرس وللطلاب المربوطين به.")
-          : t("تم رفع الكورس كمسودة (Draft) — لن يظهر للطلاب حتى تنشره."),
+          ? t("تم إنشاء المقرر ونشره — افتحه الآن وأضف الحصص وملفاتها.")
+          : t("تم إنشاء المقرر كمسودة (Draft) — لن يظهر للطلاب حتى تنشره."),
       );
     } catch (err) {
       setCourseError(err instanceof Error ? err.message : t("فشل رفع الكورس"));
@@ -4016,9 +3989,9 @@ export function AdminScreen() {
       <Upload className="size-4" />
     </span>
     <div>
-      <h2 className="font-bold">{t("رفع كورس / فيديو / ملف لمدرس")}</h2>
+      <h2 className="font-bold">{t("إنشاء مقرر جديد لمدرس")}</h2>
       <small className="text-muted-foreground">
-        {t("اختر المدرس الذي ستصل إليه هذه الماتيريال في لوحته")}
+        {t("أنشئ المقرر بالبيانات الأساسية فقط — ثم افتحه وأضف الحصص وملفاتها")}
       </small>
     </div>
   </div>
@@ -4083,18 +4056,6 @@ export function AdminScreen() {
 
     <div className="grid grid-cols-2 gap-2">
       <div className="space-y-1.5">
-        <Label>{t("نوع الملف")}</Label>
-        <select
-          value={courseType}
-          onChange={(e) => setCourseType(e.target.value as MaterialType)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="VIDEO">{t("فيديو (Video)")}</option>
-          <option value="DOCUMENT">{t("ملف / كتاب (PDF)")}</option>
-          <option value="AUDIO">{t("ملف صوتي (Audio)")}</option>
-        </select>
-      </div>
-      <div className="space-y-1.5">
         <Label>{t("المستوى")}</Label>
         <select
           value={courseLevel}
@@ -4106,65 +4067,9 @@ export function AdminScreen() {
           ))}
         </select>
       </div>
-    </div>
-
-    <div className="space-y-1.5">
-      <Label>{t("وصف مختصر للمدرس")}</Label>
-      <textarea
-        value={courseDesc}
-        onChange={(e) => setCourseDesc(e.target.value)}
-        className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
-        placeholder={t("ملاحظات حول طريقة شرح هذا الدرس...")}
-      />
-    </div>
-
-    <div className="space-y-1.5">
-      <Label>{t("اختيار الملف الأساسي (فيديو / مستند / صوت)")}</Label>
-      <Dropzone
-        file={selectedFile}
-        onFile={setSelectedFile}
-        accept="video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx"
-        hint="MP4, PDF, MP3, DOC, PPT"
-      />
-    </div>
-
-    <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <Label>{t("ملفات إضافية مع نفس الماتيريال (اختياري)")}</Label>
-          <p className="text-[11px] text-muted-foreground">{t("يمكنك إرفاق فيديو + PDF + صوت أو عدة ملفات معاً في درس واحد")}</p>
-        </div>
-        <label className="cursor-pointer rounded-md bg-brand/10 px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/20">
-          {t("+ إضافة ملفات")}
-          <input
-            type="file"
-            multiple
-            accept="video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx"
-            className="hidden"
-            onChange={(e) => {
-              const list = Array.from(e.target.files ?? []);
-              if (list.length > 0) setExtraFiles((prev) => [...prev, ...list]);
-              e.target.value = "";
-            }}
-          />
-        </label>
+      <div className="flex items-end pb-1 text-[11px] leading-snug text-muted-foreground">
+        {t("بعد إنشاء المقرر افتحه وأضف الحصص — كل حصة لها عنوان وملفاتها الخاصة (فيديو / PDF / صوت).")}
       </div>
-      {extraFiles.length > 0 && (
-        <div className="space-y-1 pt-1">
-          {extraFiles.map((f, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs">
-              <span className="truncate font-medium">{f.name} <small className="font-lat text-muted-foreground">({(f.size / (1024 * 1024)).toFixed(1)} MB)</small></span>
-              <button
-                type="button"
-                onClick={() => setExtraFiles((prev) => prev.filter((_, i) => i !== idx))}
-                className="text-danger hover:underline"
-              >
-                {t("إزالة")}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
 
     <div className="space-y-1.5">
@@ -4186,10 +4091,10 @@ export function AdminScreen() {
     >
       <Upload className="size-4" />
       {courseUploading
-        ? t("جاري رفع الملف...")
+        ? t("جاري الإنشاء...")
         : courseStatus === "PUBLISHED"
-          ? t("رفع ونشر للمدرس والطلاب")
-          : t("رفع كمسودة")}
+          ? t("إنشاء المقرر ونشره")
+          : t("إنشاء كمسودة")}
     </Button>
   </form>
   </Card>
@@ -5174,7 +5079,7 @@ export function AdminScreen() {
                           <span>{t("المدرس")}: {m.assignedTeacherName}</span>
                           {m.packageName && <span className="font-bold text-brand">{t("الباقة")}: {m.packageName}</span>}
                           <span>{new Date(m.createdAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}</span>
-                          <span className="font-lat">{m.fileSize}</span>
+                          {m.fileSize && <span className="font-lat">{m.fileSize}</span>}
                           {(m.lessons?.length ?? 0) > 0 && (
                             <span className="inline-flex items-center gap-1 font-bold text-brand">
                               <Layers className="size-3" /> {m.lessons!.length} {t("حصة")}
@@ -5210,13 +5115,22 @@ export function AdminScreen() {
                     </div>
                     {openMaterialId === m.id && (
                       <div className="animate-rise mt-4 border-t border-border pt-4">
-                        <MaterialPlayer material={m} />
                         <MaterialLessonsManager
                           material={m}
                           onAdd={(input) => addMaterialLesson(m.id, input)}
                           onUpdate={(lid, input) => updateMaterialLesson(m.id, lid, input)}
                           onDelete={(lid) => deleteMaterialLesson(m.id, lid)}
                         />
+                        {m.storageUrl && (
+                          <details className="mt-3 rounded-xl border border-border bg-muted/20">
+                            <summary className="cursor-pointer select-none px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground">
+                              {t("الملف العام للمقرر")} — {m.fileName}
+                            </summary>
+                            <div className="border-t border-border/60 p-3">
+                              <MaterialPlayer material={m} />
+                            </div>
+                          </details>
+                        )}
                       </div>
                     )}
                   </div>
@@ -9108,15 +9022,17 @@ export function CoursesScreen() {
           {materials.map((m) => (
             <Card key={m.id}>
               <div className="flex items-center justify-between">
-                <Badge tone={m.type === "VIDEO" ? "brand" : "gold"}>
-                  {m.type === "VIDEO" ? t("فيديو") : m.type === "AUDIO" ? t("ملف صوتي") : t("ملف")}
+                <Badge tone={m.storageUrl ? (m.type === "VIDEO" ? "brand" : "gold") : "muted"}>
+                  {m.storageUrl
+                    ? m.type === "VIDEO" ? t("فيديو") : m.type === "AUDIO" ? t("ملف صوتي") : t("ملف")
+                    : t("مقرر حصص")}
                 </Badge>
                 <Badge tone="sage">{t("مستوى")} {m.level}</Badge>
               </div>
               <h2 className="mt-3 font-bold">{m.title}</h2>
               <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {t("المدرس")}: {m.assignedTeacherName} · {m.fileSize}
+                {t("المدرس")}: {m.assignedTeacherName}{m.fileSize ? ` · ${m.fileSize}` : ""}
                 {(m.attachments?.length ?? 0) > 0 && (
                   <Badge tone="brand" className="mr-1.5">{1 + m.attachments!.length} {t("ملفات")}</Badge>
                 )}
@@ -9133,8 +9049,25 @@ export function CoursesScreen() {
               </Button>
               {openId === m.id && (
                 <div className="mt-3">
-                  <MaterialPlayer material={m} />
                   <MaterialLessonsList lessons={m.lessons} />
+                  {m.storageUrl ? (
+                    (m.lessons?.length ?? 0) > 0 ? (
+                      <details className="mt-3 rounded-xl border border-border bg-muted/20">
+                        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground">
+                          {t("الملف العام")} — {m.fileName}
+                        </summary>
+                        <div className="border-t border-border/60 p-3">
+                          <MaterialPlayer material={m} />
+                        </div>
+                      </details>
+                    ) : (
+                      <MaterialPlayer material={m} />
+                    )
+                  ) : (
+                    (m.lessons?.length ?? 0) === 0 && (
+                      <p className="text-xs text-muted-foreground">{t("لا يوجد محتوى في هذا المقرر بعد.")}</p>
+                    )
+                  )}
                 </div>
               )}
             </Card>

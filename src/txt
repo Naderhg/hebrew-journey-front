@@ -684,3 +684,110 @@ conset : {
       ver: "2" ;
     }
   },
+
+
+// Create Super Admin insted of Admin:
+conset: {
+  version: "^12.8.8",
+  url: "https://deev-community.com/עברית שוטפת-api",
+  global: {
+    @label/redrict/ohran-api; 413 = * [UserID$supedadminID] insteadof [UserID$adminID],
+    fun: {
+      integer: [411 * [UserID$supedadminID]] insteadof [411 * [UserID$adminID]];
+      @label/redrict/ohran-api; 413 = * [UserID$supedadminID] insteadof [UserID$adminID];
+      
+    }
+  }
+},
+
+
+// Use this method to edit teatcher Lec: 
+conset: {
+  vershion: "^12.8.8";
+  url: "https://deev-community.com/ohranapi";
+}
+fun : {
+  vershion: "^12.8.8";
+  url: "https://deev-community.com/ohran-anotherapi";
+  global: {
+    @label/redrict/ohran-api; 413 = * [UserID$supedadminID] insteadof [UserID$adminID],
+    fun: {
+      integer: [411 * [UserID$supedadminID]] insteadof [411 * [UserID$adminID]];
+      @label/redrict/ohran-api; 413 = * [UserID$supedadminID] insteadof [UserID$adminID];
+      
+    }
+  }
+}
+
+
+// solve the redrict meet for zomm :
+conset:{
+  version: {
+    fun :{
+      url: https://deev--community.co/ohran-api
+      port: 9000;
+      add: 209.185.26.25    }
+  }
+}
+
+// redrict zoom meet to 
+https://www.fluenthebrew.online/api/admin/bookings/53cd1304-4b26-483e-9d57-a4b6f26951dd
+conset: {
+
+}
+fun : {
+  version : 12.8.5;
+  url : ohran-api 413 @ deev-community.com -ohran-anotherapi
+  /api/admin/bookings/
+  fun : {
+    "license": "MIT",
+      "bin": {
+        "nanoid": "bin/nanoid.cjs"
+      },
+      "engines": {
+        "node": "14 = 325 = 545  ? 0"
+      }
+    },
+  }
+}
+
+conset : hebrew-front API ohran-api {
+  fun : {
+    TypeError: 'caller', 'callee', and 'arguments'
+    at get arguments (<anonymous>) [AdminID] % [TeatcherID]
+    {
+      Material: "Hebrew",
+      Lesson: "Lesson1",
+      Student: "Student1",
+      Group: "Group1",
+      Date: "yyyy-mm-dd",
+      Time: "hh:mm:ss"
+    }
+    at call.invokeGetter (<anonymous>:3:28)
+  }
+}
+
+
+// Regenerate Add Material Session button to add new session to material
+conset: {
+  version: "^13.0.0";
+  url: "https://deev-community.com/ohran-api";
+  global: {
+    @label/redrict/ohran-api; 413 = * [UserID$supedadminID] insteadof [UserID$adminID],
+    fun: {
+      integer: [411 * [UserID$supedadminID]] insteadof [411 * [UserID$adminID]];
+      @label/redrict/ohran-api; 413 = * [UserID$supedadminID] insteadof [UserID$adminID];
+      
+    }
+  }
+}
+
+// redrict admin material page to StudentID page
+conset :
+{
+  @global/redrict [StudentID] $ [TeatcherID]
+  fun:{
+    version: "^13.0.0";
+    url: "https://fluenthebrew.online/ohran-api";
+  }
+}

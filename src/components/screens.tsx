@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Award,
   Banknote,
+  ChevronDown,
   BarChart3,
   BookOpen,
   Camera,
@@ -30,6 +31,7 @@ import {
   FileText,
   Film,
   GraduationCap,
+  Layers,
   Link2,
   MessageCircle,
   Mic,
@@ -65,6 +67,7 @@ import {
   type ExamType,
   type LeaderboardEntry,
   type MaterialAttachment,
+  type MaterialLesson,
   type MaterialType,
   type PlacementSection,
   type PlacementQuestionType,
@@ -200,6 +203,184 @@ export function MaterialPlayer({
           <SingleMediaView url={att.url} type={att.type} title={att.name} fileName={att.name} />
         </div>
       ))}
+    </div>
+  );
+}
+
+// Read-only sessions list — student/teacher view of a material's lessons.
+export function MaterialLessonsList({ lessons }: { lessons?: MaterialLesson[] | undefined }) {
+  const { t } = useI18n();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const list = lessons ?? [];
+  if (list.length === 0) return null;
+  return (
+    <div className="mt-4 space-y-2">
+      <b className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+        <Layers className="size-3.5 text-brand" /> {t("حصص المقرر")} ({list.length})
+      </b>
+      {list.map((l) => (
+        <div key={l.id} className="rounded-xl border border-border bg-background/60">
+          <button
+            type="button"
+            onClick={() => setOpenId(openId === l.id ? null : l.id)}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-right"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-brand/10 font-lat text-[11px] font-black text-brand">{l.order}</span>
+              <span className="truncate text-sm font-bold">{l.title}</span>
+              {(l.attachments?.length ?? 0) > 0 && <Badge tone="muted">{l.attachments!.length} {t("ملفات")}</Badge>}
+            </span>
+            <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${openId === l.id ? "rotate-180" : ""}`} />
+          </button>
+          {openId === l.id && (
+            <div className="space-y-2 border-t border-border/60 px-3 py-3">
+              {l.description && <p className="text-xs text-muted-foreground">{l.description}</p>}
+              {(l.attachments ?? []).map((att, i) => (
+                <SingleMediaView key={i} url={att.url} type={att.type} title={att.name} fileName={att.name} />
+              ))}
+              {(l.attachments?.length ?? 0) === 0 && <p className="text-xs text-muted-foreground">{t("لا يوجد ملفات في هذه الحصة بعد.")}</p>}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Admin manager — add/edit/delete sessions inside a material, each with file uploads.
+function MaterialLessonsManager({
+  material,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  material: { id: string; title: string; lessons?: MaterialLesson[] };
+  onAdd: (input: { title: string; description?: string; attachments?: MaterialAttachment[]; status?: PublishStatus }) => Promise<unknown>;
+  onUpdate: (lessonId: string, input: Partial<{ title: string; description: string; status: PublishStatus; attachments: MaterialAttachment[] }>) => Promise<void>;
+  onDelete: (lessonId: string) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [adding, setAdding] = useState(false);
+  const [lTitle, setLTitle] = useState("");
+  const [lDesc, setLDesc] = useState("");
+  const [lFiles, setLFiles] = useState<MaterialAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const lessons = material.lessons ?? [];
+
+  function mimeToType(mime: string): MaterialType {
+    if (mime.startsWith("video/")) return "VIDEO";
+    if (mime.startsWith("audio/")) return "AUDIO";
+    return "DOCUMENT";
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    setErr("");
+    try {
+      for (const f of files) {
+        const up = await uploadFile(f, "courses");
+        setLFiles((prev) => [...prev, { url: up.url, name: f.name, size: `${(f.size / 1024 / 1024).toFixed(1)} MB`, type: mimeToType(f.type) }]);
+      }
+    } catch {
+      setErr(t("فشل رفع ملف — حاول مرة أخرى"));
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleSave() {
+    if (!lTitle.trim()) { setErr(t("اكتب عنوان الحصة")); return; }
+    setSaving(true);
+    setErr("");
+    try {
+      await onAdd({ title: lTitle.trim(), description: lDesc.trim(), attachments: lFiles, status: "PUBLISHED" });
+      setLTitle(""); setLDesc(""); setLFiles([]); setAdding(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t("فشل حفظ الحصة"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+      <div className="flex items-center justify-between">
+        <b className="flex items-center gap-1.5 text-sm font-bold">
+          <Layers className="size-4 text-brand" /> {t("حصص المقرر")} ({lessons.length})
+        </b>
+        <Button variant="secondary" className="min-h-8 px-3 py-1 text-xs" onClick={() => setAdding(!adding)}>
+          <Plus className="size-3.5" /> {t("إضافة حصة")}
+        </Button>
+      </div>
+
+      {adding && (
+        <div className="mt-3 space-y-2 rounded-xl border border-brand/30 bg-card p-3">
+          <Input value={lTitle} onChange={(e) => setLTitle(e.target.value)} placeholder={t(`عنوان الحصة (مثال: الحصة ${lessons.length + 1} — المضارع)`)} />
+          <Input value={lDesc} onChange={(e) => setLDesc(e.target.value)} placeholder={t("وصف مختصر (اختياري)")} />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-muted/70 px-3 py-1.5 text-xs font-semibold transition hover:bg-muted ${uploading ? "pointer-events-none opacity-50" : ""}`}>
+              <Plus className="size-3.5" /> {uploading ? t("جاري الرفع...") : t("رفع ملفات الحصة")}
+              <input type="file" multiple className="hidden" onChange={handleUpload} />
+            </label>
+            {lFiles.map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-1 rounded-md bg-brand/10 px-2 py-1 text-[11px] font-semibold text-brand">
+                {f.name}
+                <button type="button" onClick={() => setLFiles((p) => p.filter((_, x) => x !== i))} className="text-danger">×</button>
+              </span>
+            ))}
+          </div>
+          {err && <p className="rounded-md bg-danger/10 p-2 text-xs font-semibold text-danger">{err}</p>}
+          <div className="flex gap-2">
+            <Button variant="secondary" disabled={saving || uploading} onClick={handleSave}>
+              {saving ? t("جاري الحفظ...") : t("حفظ الحصة")}
+            </Button>
+            <Button variant="ghost" onClick={() => { setAdding(false); setErr(""); }}>{t("إلغاء")}</Button>
+          </div>
+        </div>
+      )}
+
+      {lessons.length === 0 ? (
+        <p className="mt-3 rounded-lg bg-muted/50 p-3 text-center text-xs text-muted-foreground">
+          {t("لا توجد حصص بعد — اضغط \"إضافة حصة\" وابدأ برفع محتوى كل حصة على حدة.")}
+        </p>
+      ) : (
+        <div className="mt-3 space-y-1.5">
+          {lessons.map((l) => (
+            <div key={l.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-brand/10 font-lat text-[11px] font-black text-brand">{l.order}</span>
+                <span className="min-w-0">
+                  <b className="block truncate text-xs">{l.title}</b>
+                  <small className="text-[10px] text-muted-foreground">{(l.attachments?.length ?? 0)} {t("ملفات")} · {l.status === "PUBLISHED" ? t("منشورة") : t("مسودة")}</small>
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onUpdate(l.id, { status: l.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED" })}
+                  className="rounded-md bg-muted/70 px-2 py-1 text-[10px] font-semibold text-muted-foreground hover:bg-muted"
+                  title={l.status === "PUBLISHED" ? t("إخفاء عن الطلاب") : t("نشر للطلاب")}
+                >
+                  {l.status === "PUBLISHED" ? t("إخفاء") : t("نشر")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { if (confirm(t("حذف هذه الحصة نهائياً؟"))) onDelete(l.id).catch(() => {}); }}
+                  className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                  title={t("حذف الحصة")}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1905,6 +2086,9 @@ export function TeacherScreen() {
                     {(mat.attachments?.length ?? 0) > 0 && (
                       <Badge tone="brand" className="mr-1.5">+{mat.attachments!.length} {t("مرفق")}</Badge>
                     )}
+                    {(mat.lessons?.length ?? 0) > 0 && (
+                      <span className="mr-1.5"><Badge tone="sage">{mat.lessons!.length} {t("حصة")}</Badge></span>
+                    )}
                   </div>
                   <Button
                     variant="secondary"
@@ -1918,6 +2102,7 @@ export function TeacherScreen() {
                   {openMaterialId === mat.id && (
                     <div className="mt-3">
                       <MaterialPlayer material={mat} />
+                      <MaterialLessonsList lessons={mat.lessons} />
                     </div>
                   )}
                 </div>
@@ -3094,6 +3279,9 @@ export function AdminScreen() {
     addCourseMaterial: rawAddCourseMaterial,
     deleteCourseMaterial: rawDeleteCourseMaterial,
     setMaterialStatus: rawSetMaterialStatus,
+    addMaterialLesson: rawAddMaterialLesson,
+    updateMaterialLesson: rawUpdateMaterialLesson,
+    deleteMaterialLesson: rawDeleteMaterialLesson,
     addPlacementQuestion: rawAddPlacementQuestion,
     deletePlacementQuestion: rawDeletePlacementQuestion,
     togglePlacementQuestion: rawTogglePlacementQuestion,
@@ -3231,6 +3419,9 @@ export function AdminScreen() {
   const restoreSubscriptionSessions = guardAction("CREATE", rawRestoreSubscriptionSessions);
   const updateAdminLecture = guardAction("EDIT", rawUpdateAdminLecture);
   const deleteCourseMaterial = guardAction("DELETE", rawDeleteCourseMaterial);
+  const addMaterialLesson = guardAction("CREATE", rawAddMaterialLesson);
+  const updateMaterialLesson = guardAction("EDIT", rawUpdateMaterialLesson);
+  const deleteMaterialLesson = guardAction("DELETE", rawDeleteMaterialLesson);
   const deletePlacementQuestion = guardAction("DELETE", rawDeletePlacementQuestion);
   const deleteExam = guardAction("DELETE", rawDeleteExam);
   const deletePackage = guardAction("DELETE", rawDeletePackage);
@@ -4984,6 +5175,11 @@ export function AdminScreen() {
                           {m.packageName && <span className="font-bold text-brand">{t("الباقة")}: {m.packageName}</span>}
                           <span>{new Date(m.createdAt).toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}</span>
                           <span className="font-lat">{m.fileSize}</span>
+                          {(m.lessons?.length ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 font-bold text-brand">
+                              <Layers className="size-3" /> {m.lessons!.length} {t("حصة")}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-col gap-1.5">
@@ -5015,6 +5211,12 @@ export function AdminScreen() {
                     {openMaterialId === m.id && (
                       <div className="animate-rise mt-4 border-t border-border pt-4">
                         <MaterialPlayer material={m} />
+                        <MaterialLessonsManager
+                          material={m}
+                          onAdd={(input) => addMaterialLesson(m.id, input)}
+                          onUpdate={(lid, input) => updateMaterialLesson(m.id, lid, input)}
+                          onDelete={(lid) => deleteMaterialLesson(m.id, lid)}
+                        />
                       </div>
                     )}
                   </div>
@@ -8918,6 +9120,9 @@ export function CoursesScreen() {
                 {(m.attachments?.length ?? 0) > 0 && (
                   <Badge tone="brand" className="mr-1.5">{1 + m.attachments!.length} {t("ملفات")}</Badge>
                 )}
+                {(m.lessons?.length ?? 0) > 0 && (
+                  <span className="mr-1.5"><Badge tone="sage">{m.lessons!.length} {t("حصة")}</Badge></span>
+                )}
               </p>
               <Button
                 variant="secondary"
@@ -8929,6 +9134,7 @@ export function CoursesScreen() {
               {openId === m.id && (
                 <div className="mt-3">
                   <MaterialPlayer material={m} />
+                  <MaterialLessonsList lessons={m.lessons} />
                 </div>
               )}
             </Card>

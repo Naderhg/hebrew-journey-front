@@ -37,6 +37,17 @@ export interface MaterialAttachment {
   size: string;
 }
 
+export interface MaterialLesson {
+  id: string;
+  materialId: string;
+  order: number;
+  title: string;
+  description: string;
+  attachments?: MaterialAttachment[] | null;
+  status: PublishStatus;
+  createdAt: string;
+}
+
 export interface CourseMaterial {
   id: string;
   title: string;
@@ -52,6 +63,7 @@ export interface CourseMaterial {
   assignedTeacherName: string;
   packageId?: string | null;
   packageName?: string | null;
+  lessons?: MaterialLesson[];
   createdAt: string;
 }
 
@@ -1185,6 +1197,9 @@ interface PlatformStoreValue {
   updateAdminUser: (id: string, input: { fullName?: string; phone?: string; email?: string | null; specialty?: string | null; password?: string; adminPermissions?: string[] }) => Promise<void>;
   addCourseMaterial: (input: CreateMaterialInput) => Promise<CourseMaterial>;
   deleteCourseMaterial: (id: string) => Promise<void>;
+  addMaterialLesson: (materialId: string, input: { title: string; description?: string; attachments?: MaterialAttachment[]; status?: PublishStatus }) => Promise<MaterialLesson>;
+  updateMaterialLesson: (materialId: string, lessonId: string, input: Partial<{ title: string; description: string; order: number; status: PublishStatus; attachments: MaterialAttachment[] }>) => Promise<void>;
+  deleteMaterialLesson: (materialId: string, lessonId: string) => Promise<void>;
   setMaterialStatus: (id: string, status: PublishStatus) => Promise<void>;
   addPlacementQuestion: (input: CreatePlacementQuestionInput) => Promise<PlacementQuestion>;
   deletePlacementQuestion: (id: string) => Promise<void>;
@@ -1758,6 +1773,24 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
       body: { status },
     });
     setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, status } : m)));
+  }
+
+  async function addMaterialLesson(materialId: string, input: { title: string; description?: string; attachments?: MaterialAttachment[]; status?: PublishStatus }): Promise<MaterialLesson> {
+    const res = await apiFetch<{ lesson: MaterialLesson }>(`/api/admin/materials/${materialId}/lessons`, { method: "POST", body: input });
+    setMaterials((prev) => prev.map((m) => m.id === materialId ? { ...m, lessons: [...(m.lessons ?? []), res.lesson].sort((a, b) => a.order - b.order) } : m));
+    return res.lesson;
+  }
+
+  async function updateMaterialLesson(materialId: string, lessonId: string, input: Partial<{ title: string; description: string; order: number; status: PublishStatus; attachments: MaterialAttachment[] }>) {
+    const res = await apiFetch<{ lesson: MaterialLesson }>(`/api/admin/materials/${materialId}/lessons/${lessonId}`, { method: "PATCH", body: input });
+    setMaterials((prev) => prev.map((m) => m.id === materialId
+      ? { ...m, lessons: (m.lessons ?? []).map((l) => l.id === lessonId ? res.lesson : l).sort((a, b) => a.order - b.order) }
+      : m));
+  }
+
+  async function deleteMaterialLesson(materialId: string, lessonId: string) {
+    await apiFetch(`/api/admin/materials/${materialId}/lessons/${lessonId}`, { method: "DELETE" });
+    setMaterials((prev) => prev.map((m) => m.id === materialId ? { ...m, lessons: (m.lessons ?? []).filter((l) => l.id !== lessonId) } : m));
   }
 
   async function addPlacementQuestion(
@@ -2906,6 +2939,9 @@ export function PlatformStoreProvider({ children }: { children: ReactNode }) {
         addCourseMaterial,
         deleteCourseMaterial,
         setMaterialStatus,
+        addMaterialLesson,
+        updateMaterialLesson,
+        deleteMaterialLesson,
         addPlacementQuestion,
         deletePlacementQuestion,
         togglePlacementQuestion,
